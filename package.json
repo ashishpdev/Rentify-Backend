@@ -1,0 +1,20 @@
+{
+  "name": "rentify-backend",
+  "version": "1.0.0",
+  "description": "Rentify is a tech rental platform that allows users to rent electronic devices like mobile phones, laptops, tablets, cameras, gaming consoles, and accessories for short-term or long-term use.",
+  "homepage": "https://github.com/ashish11parmar/Rentify-Backend#readme",
+  "bugs": {
+    "url": "https://github.com/ashish11parmar/Rentify-Backend/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ashish11parmar/Rentify-Backend.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
