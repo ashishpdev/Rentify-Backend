@@ -1,4 +1,4 @@
--- =========================================================
+  -- =========================================================
 -- TENANT DATABASE: schema + tenant relations + cross-db relations
 -- =========================================================
 CREATE DATABASE IF NOT EXISTS tenant_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -9,7 +9,8 @@ USE tenant_db;
 -- ============================
 
 -- Status before give on rent
-CREATE TABLE IF NOT EXISTS product_status (
+DROP TABLE IF EXISTS product_status;
+CREATE TABLE product_status (
   product_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -23,7 +24,8 @@ CREATE TABLE IF NOT EXISTS product_status (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS product_condition (
+DROP TABLE IF EXISTS product_condition;
+CREATE TABLE product_condition (
   product_condition_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -38,7 +40,8 @@ CREATE TABLE IF NOT EXISTS product_condition (
 ) ENGINE=InnoDB;
 
 -- used for rental transaction status after issue
-CREATE TABLE IF NOT EXISTS product_rental_status (
+DROP TABLE IF EXISTS product_rental_status;
+CREATE TABLE product_rental_status (
   product_rental_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -52,7 +55,8 @@ CREATE TABLE IF NOT EXISTS product_rental_status (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS billing_period (
+DROP TABLE IF EXISTS billing_period;
+CREATE TABLE billing_period (
   billing_period_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -66,7 +70,8 @@ CREATE TABLE IF NOT EXISTS billing_period (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS payment_mode (
+DROP TABLE IF EXISTS payment_mode;
+CREATE TABLE payment_mode (
   payment_mode_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -80,7 +85,8 @@ CREATE TABLE IF NOT EXISTS payment_mode (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS maintenance_status (
+DROP TABLE IF EXISTS maintenance_status;
+CREATE TABLE maintenance_status (
   maintenance_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -94,7 +100,8 @@ CREATE TABLE IF NOT EXISTS maintenance_status (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS reservation_status (
+DROP TABLE IF EXISTS reservation_status;
+CREATE TABLE reservation_status (
   reservation_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
@@ -104,6 +111,55 @@ CREATE TABLE IF NOT EXISTS reservation_status (
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
+-- Tables for notification system
+DROP TABLE IF EXISTS source_type;
+CREATE TABLE source_type (
+  source_type_id INT NOT NULL PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS contact_type;
+CREATE TABLE contact_type (
+  contact_type_id INT NOT NULL PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS notification_channel;
+CREATE TABLE notification_channel (
+  notification_channel_id INT NOT NULL PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS notification_status;
+CREATE TABLE notification_status (
+  notification_status_id INT NOT NULL PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -160,13 +216,36 @@ INSERT IGNORE INTO reservation_status (code, name, description, created_by) VALU
   ('CANCELLED','Cancelled','Reservation cancelled','system'),
   ('EXPIRED','Expired','Reservation expired','system');
 
+INSERT IGNORE INTO source_type (source_type_id, code, name, description, created_by) VALUES
+    (1, 'OWNED', 'Owned', 'Asset owned by business', 'system'),
+    (2, 'BORROWED', 'Borrowed', 'Asset borrowed/loaned from another party', 'system')
+
+INSERT IGNORE INTO contact_type (contact_type_id, code, name, description, created_by) VALUES
+    (1, 'MOBILE', 'Mobile', 'Mobile phone number (SMS) contact', 'system'),
+    (2, 'EMAIL', 'Email', 'Email contact', 'system'),
+    (3, 'BOTH', 'Both', 'Both mobile and email', 'system')
+
+INSERT IGNORE INTO notification_channel (notification_channel_id, code, name, description, created_by) VALUES
+    (1, 'SMS', 'SMS', 'SMS / Text messages', 'system'),
+    (2, 'EMAIL', 'Email', 'Email messages', 'system'),
+    (3, 'PUSH', 'Push', 'Push notification (mobile/web)', 'system'),
+    (4, 'WHATSAPP', 'WhatsApp', 'WhatsApp message via provider', 'system'),
+    (5, 'OTHER', 'Other', 'Other/third-party channel', 'system')
+
+INSERT IGNORE INTO notification_status (notification_status_id, code, name, description, created_by) VALUES
+    (1, 'PENDING', 'Pending', 'Pending to be sent', 'system'),
+    (2, 'SCHEDULED', 'Scheduled', 'Scheduled for sending', 'system'),
+    (3, 'SENT', 'Sent', 'Sent to provider', 'system'),
+    (4, 'DELIVERED', 'Delivered', 'Delivered to recipient (provider reported)', 'system'),
+    (5, 'FAILED', 'Failed', 'Delivery failed', 'system')
 
 -- ============================
--- CORE: categories, models, inventory units
+-- CORE: categories, models, asset units
 -- ============================
 
 -- product_category (CAMERA, LAPTOP, MIC)
-CREATE TABLE IF NOT EXISTS product_category (
+DROP TABLE IF EXISTS product_category;
+CREATE TABLE product_category (
   product_category_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
@@ -186,43 +265,51 @@ CREATE TABLE IF NOT EXISTS product_category (
 ) ENGINE=InnoDB;
 
 -- product_model (Canon EOS 5D Mark IV, iPhone 13 Pro)
-CREATE TABLE IF NOT EXISTS product_model (
+DROP TABLE IF EXISTS product_model;
+CREATE TABLE product_model (
   product_model_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  sku VARCHAR(150) NOT NULL,
+  product_category_id INT NOT NULL, 
   model_name VARCHAR(255) NOT NULL,
   description TEXT,
-  product_category_id INT NULL, -- FK to product_category.product_category_id
-  default_rent DECIMAL(12,2),
-  default_deposit DECIMAL(12,2),
+  product_images JSON NULL, -- array of image product_image_id
+  default_rent DECIMAL(12,2) NOT NULL,
+  default_deposit DECIMAL(12,2) NOT NULL,
   default_warranty_days INT,
   total_quantity INT NOT NULL DEFAULT 0,
   available_quantity INT NOT NULL DEFAULT 0,
 
-  INDEX idx_product_model_business_sku (business_id, sku),
-  CONSTRAINT uq_product_model_business_sku UNIQUE (business_id, sku),
-  
+  INDEX idx_product_model_business_category (business_id, product_category_id),
+  INDEX idx_product_model_business_name (business_id, model_name),
+  INDEX idx_product_model_business_branch (business_id, branch_id),
+
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
+
+  CONSTRAINT fk_product_category FOREIGN KEY (product_category_id)
+    REFERENCES product_category(product_category_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- inventory_unit (physical serialized item)
+-- asset (physical serialized item)
 -- Ex: Canon EOS 5D Mark IV with serial no XYZ12345
-CREATE TABLE IF NOT EXISTS inventory_unit (
-  inventory_unit_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+DROP TABLE IF EXISTS asset;
+CREATE TABLE asset (
+  asset_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  object_id VARCHAR(200) UNIQUE,             -- optional unique id across system
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   serial_number VARCHAR(200) UNIQUE NOT NULL,
-  asset_tag VARCHAR(200) UNIQUE NOT NULL,
+  product_images JSON NULL, -- array of asset_image_id
   product_status_id INT NOT NULL,
   product_condition_id INT NOT NULL,
   product_rental_status_id INT NOT NULL,
@@ -232,16 +319,16 @@ CREATE TABLE IF NOT EXISTS inventory_unit (
   rent_price DECIMAL(12,2),
   deposit_amount DECIMAL(12,2),
 
-  source_type ENUM('OWNED','BORROWED') NOT NULL DEFAULT 'OWNED',
+  source_type_id INT NOT NULL,
   borrowed_from_business_name VARCHAR(255) NULL,
   borrowed_from_branch_name VARCHAR(255) NULL,
   purchase_bill_url VARCHAR(1024),
 
-  INDEX idx_inventory_unit_business_object (business_id, object_id),
-  INDEX idx_inventory_unit_business_model (business_id, product_model_id),
-  INDEX idx_inventory_unit_serial (serial_number),
-  INDEX idx_inventory_unit_source (business_id, source_type),
-  INDEX idx_inventory_unit_model_branch (product_model_id, branch_id),
+  INDEX idx_asset_business_object (business_id),
+  INDEX idx_asset_business_model (business_id, product_model_id),
+  INDEX idx_asset_serial (serial_number),
+  INDEX idx_asset_source (business_id, source_type_id),
+  INDEX idx_asset_model_branch (product_model_id, branch_id),
 
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
@@ -249,50 +336,91 @@ CREATE TABLE IF NOT EXISTS inventory_unit (
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
+
+  CONSTRAINT fk_product_status FOREIGN KEY (product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_condition FOREIGN KEY (product_condition_id)
+    REFERENCES product_condition(product_condition_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_rental_status FOREIGN KEY (product_rental_status_id)
+    REFERENCES product_rental_status(product_rental_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_source_type FOREIGN KEY (source_type_id)
+    REFERENCES source_type(source_type_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_category FOREIGN KEY (product_category_id)
+    REFERENCES product_category(product_category_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+
 ) ENGINE=InnoDB;
 
 -- ============================================================================
-CREATE TABLE IF NOT EXISTS customer (
-  customer_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  first_name VARCHAR(200) NOT NULL,
-  last_name VARCHAR(200),
-  email VARCHAR(255),
-  contact_number VARCHAR(80) NOT NULL,
-  address_line VARCHAR(255) NOT NULL,
-  city VARCHAR(100) NOT NULL,
-  state VARCHAR(100) NOT NULL,
-  country VARCHAR(100) DEFAULT 'India',
-  pincode VARCHAR(20) NOT NULL,
-  INDEX idx_customer_business_contact (business_id, contact_number),
 
-  created_by VARCHAR(255) NOT NULL,
+-- Stores each specific item that was rented as part of that rental.
+DROP TABLE IF EXISTS rental_item;
+CREATE TABLE rental_item (
+  rental_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  product_category_id INT NOT NULL,
+  product_model_id INT NULL,
+  asset_id INT NULL,
+  customer_id INT NOT NULL,
+  item_images JSON NULL, -- array of image URLs at time of rental
+  rent_price DECIMAL(14,2) NOT NULL,
+  notes TEXT,
+  INDEX idx_rental_item_model (product_model_id),
+  INDEX idx_rental_item_unit (asset_id),
+  created_by VARCHAR(255),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+
+  CONSTRAINT chk_item_images_json_valid CHECK (JSON_VALID(item_images)),
+
+  CONSTRAINT fk_product_category FOREIGN KEY (product_category_id)
+    REFERENCES product_category(product_category_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE  
 ) ENGINE=InnoDB;
 
 -- Represents one complete rental transaction — like a bill or invoice.
-CREATE TABLE IF NOT EXISTS rental (
+DROP TABLE IF EXISTS rental;
+CREATE TABLE rental (
   rental_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  -- rental_code VARCHAR(200) NOT NULL,    -- UNIQUE code per business/branch according to item rent if needed, in future we will add
-  invoice_no VARCHAR(200) NULL,
-  invoice_date DATETIME(6) NULL,
   customer_id INT NOT NULL,
-  start_date DATETIME(6) NOT NULL,
-  due_date DATETIME(6) NOT NULL,
-  end_date DATETIME(6),
+  invoice_no VARCHAR(200) NOT NULL,
+  invoice_photo_id INT NOT NULL,
+  invoice_date DATETIME(6) NOT NULL,
+  start_date DATETIME(6) NOT NULL, -- date when given on rent
+  due_date DATETIME(6) NOT NULL,   -- expected return date
+  end_date DATETIME(6),            -- actual returned date
   total_items INT NOT NULL DEFAULT 0,
-  items_json JSON NOT NULL, -- array snapshot; enforce valid JSON
-  product_rental_status_id INT,
-  security_deposit DECIMAL(12,2),
+  all_rental_item_id JSON NOT NULL, -- array of all rental_item_id in this rental
+  security_deposit DECIMAL(12,2) NOT NULL DEFAULT 0,
   subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -301,7 +429,7 @@ CREATE TABLE IF NOT EXISTS rental (
   billing_period_id INT NOT NULL,
   currency VARCHAR(16) DEFAULT 'INR',
   notes TEXT,
-  INDEX idx_rental_business (business_id, rental_code),
+  INDEX idx_rental_business (business_id),
   INDEX idx_rental_customer (customer_id),
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
@@ -310,33 +438,53 @@ CREATE TABLE IF NOT EXISTS rental (
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
-  CONSTRAINT chk_items_json_valid CHECK (JSON_VALID(items_json))
+
+  CONSTRAINT chk_all_rental_item_id_json_valid CHECK (JSON_VALID(all_rental_item_id)),
+
+  CONSTRAINT fk_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_invoice_photo FOREIGN KEY (invoice_photo_id)
+    REFERENCES invoice_photos(invoice_photo_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_billing_period FOREIGN KEY (billing_period_id)
+    REFERENCES billing_period(billing_period_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Stores each specific item that was rented as part of that rental.
-CREATE TABLE IF NOT EXISTS rental_item (
-  rental_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  rental_id INT NOT NULL,
-  product_category_id INT NOT NULL,
-  product_model_id INT NULL,
-  inventory_unit_id INT NULL,
-  rent_price DECIMAL(14,2) NOT NULL,
-  item_subtotal DECIMAL(14,2) NOT NULL,
-  billing_period_id INT NULL,
-  notes TEXT,
-  INDEX idx_rental_item_rental (rental_id),
-  INDEX idx_rental_item_model (product_model_id),
-  INDEX idx_rental_item_unit (inventory_unit_id),
-  created_by VARCHAR(255),
+DROP TABLE IF EXISTS customer;
+CREATE TABLE customer (
+  customer_id INT UNIQUE NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  first_name VARCHAR(200) NOT NULL,
+  last_name VARCHAR(200),
+  email VARCHAR(255) NOT NULL,
+  contact_number VARCHAR(80) NOT NULL,
+  address_line VARCHAR(255) NOT NULL,
+  city VARCHAR(100) NOT NULL,
+  state VARCHAR(100) NOT NULL,
+  country VARCHAR(100) DEFAULT 'India',
+  pincode VARCHAR(20) NOT NULL,
+
+  created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6)
+  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at DATETIME(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_customer_business_contact (business_id, contact_number),
+  UNIQUE KEY uq_customer_email_business_branch (email, business_id, branch_id)
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS rental_payments (
+DROP TABLE IF EXISTS rental_payments;
+CREATE TABLE rental_payments (
   rental_payment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   rental_id INT NOT NULL,
-  -- payment_code VARCHAR(200) NOT NULL,
   paid_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   amount DECIMAL(14,2) NOT NULL,
   mode_of_payment_id INT,
@@ -344,25 +492,33 @@ CREATE TABLE IF NOT EXISTS rental_payments (
   notes TEXT,
   created_by VARCHAR(200),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  INDEX idx_rental_payment_code (payment_code),
   INDEX idx_rental_payment_rental (rental_id),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_rental FOREIGN KEY (rental_id)
+    REFERENCES rental(rental_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_payment_mode FOREIGN KEY (mode_of_payment_id)
+    REFERENCES payment_mode(payment_mode_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+
 ) ENGINE=InnoDB;
 
 -- ============================
--- Other tables referencing inventory_unit (branch_id/business_id NOT NULL)
+-- Other tables referencing asset (branch_id/business_id NOT NULL)
 -- ============================
-CREATE TABLE IF NOT EXISTS maintenance_records (
+DROP TABLE IF EXISTS maintenance_records;
+CREATE TABLE maintenance_records (
   maintenance_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
+  asset_id INT NOT NULL,
   maintenance_status_id INT NOT NULL,
-  -- maintenance_code VARCHAR(200) NOT NULL,
   reported_by VARCHAR(255),
   reported_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   assigned_to VARCHAR(255),
@@ -371,22 +527,30 @@ CREATE TABLE IF NOT EXISTS maintenance_records (
   cost DECIMAL(14,2),
   remarks TEXT,
   -- attachments JSON,
-  INDEX idx_maintenance_inv (inventory_unit_id),
+  INDEX idx_maintenance_inv (asset_id),
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_maintenance_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_maintenance_status FOREIGN KEY (maintenance_status_id)
+    REFERENCES maintenance_status(maintenance_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS damage_reports (
+DROP TABLE IF EXISTS damage_reports;
+CREATE TABLE damage_reports (
   damage_report_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
-  -- report_code VARCHAR(200) NOT NULL,
+  asset_id INT NOT NULL,
   reported_by_id INT,
   reported_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   description TEXT NOT NULL,
@@ -400,43 +564,25 @@ CREATE TABLE IF NOT EXISTS damage_reports (
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_damage_report_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- CREATE TABLE IF NOT EXISTS item_history (
---   item_history_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
---   business_id INT NOT NULL,
---   branch_id INT NOT NULL,
---   inventory_unit_id INT NOT NULL,
---   changed_by VARCHAR(255),
---   from_status_id INT,
---   to_status_id INT,
---   from_branch INT,
---   to_branch INT,
---   note TEXT,
---   ts DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
---   INDEX idx_item_history (business_id, inventory_unit_id, ts),
---   created_by VARCHAR(255) NOT NULL,
---   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
---   updated_by VARCHAR(255),
---   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
---   deleted_at DATETIME(6),
---   is_active BOOLEAN DEFAULT TRUE,
---   is_deleted TINYINT(1) DEFAULT 0
--- ) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS item_history (
+DROP TABLE IF EXISTS item_history;
+CREATE TABLE item_history (
   item_history_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
+  asset_id INT NOT NULL,
   changed_field VARCHAR(255) NOT NULL, -- e.g. 'product_status_id', 'branch_id', 'location', 'serial_number'
   old_value TEXT NULL,                -- textual representation of previous value
   new_value TEXT NULL,                -- textual representation of new value
 
-  changed_by VARCHAR(255) NULL,       -- user who made change (optional)
-  note TEXT,                          -- free text note for human context
-
+  changed_by VARCHAR(255) NULL,
+  note TEXT,                   
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
@@ -445,64 +591,125 @@ CREATE TABLE IF NOT EXISTS item_history (
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
-  INDEX idx_item_history_unit (business_id, inventory_unit_id, ts),
-  INDEX idx_item_history_field (inventory_unit_id, change_field, ts)
+  INDEX idx_item_history_unit (business_id, asset_id),
+  INDEX idx_item_history_field (asset_id, changed_field),
+
+  CONSTRAINT fk_item_history_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-
-CREATE TABLE IF NOT EXISTS reservations (
+DROP TABLE IF EXISTS reservations;
+CREATE TABLE reservations (
   reservation_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
   customer_id INT NOT NULL,
-  -- reservation_code VARCHAR(200) NOT NULL,
+  product_model_id INT NOT NULL,
   reservation_status_id INT NOT NULL,
   reserved_from DATETIME(6) NOT NULL,
   reserved_until DATETIME(6) NOT NULL,
-  reservation_status_id INT NOT NULL,
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE, 
+
+  CONSTRAINT fk_reservation_status FOREIGN KEY (reservation_status_id)
+    REFERENCES reservation_status(reservation_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS product_images (
+-- images for products like
+-- Ex: Canon EOS 5D Mark IV, iPhone 13 Pro
+DROP TABLE IF EXISTS product_images;
+CREATE TABLE product_images (
   product_image_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NULL,
-  inventory_unit_id INT NULL,
+  asset_id INT NULL,
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
   created_by VARCHAR(255),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_product_image_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_image_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS invoice_photos (
-  invoice_photo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+-- image of specific asset like
+-- EX: Canon EOS 5D Mark IV with serial no XYZ12345
+DROP TABLE IF EXISTS asset_images;
+CREATE TABLE asset_images (
+  asset_image_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NULL,
-  inventory_unit_id INT NULL,
+  asset_id INT NULL,
+  url VARCHAR(1024) NOT NULL,
+  alt_text VARCHAR(512),
+  is_primary TINYINT(1) DEFAULT 0,
+  created_by VARCHAR(255),
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  deleted_at DATETIME(6),
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_asset_image_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_image_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS invoice_photos;
+CREATE TABLE invoice_photos (
+  invoice_photo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  rental_id INT NOT NULL,
   url VARCHAR(1024) NOT NULL,
   uploaded_by VARCHAR(255),
   uploaded_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   notes TEXT,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_invoice_photo_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_invoice_photo_rental FOREIGN KEY (rental_id)
+    REFERENCES rental(rental_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS borrow_records (
+DROP TABLE IF EXISTS borrow_records;
+CREATE TABLE borrow_records (
   borrow_record_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
+  asset_id INT NOT NULL,
   lender_business_name VARCHAR(255) NOT NULL,
   lender_branch_name VARCHAR(255) NOT NULL,
   borrowed_date DATETIME(6) NOT NULL,
@@ -515,10 +722,15 @@ CREATE TABLE IF NOT EXISTS borrow_records (
   created_by VARCHAR(255),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_borrow_record_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS stock (
+DROP TABLE IF EXISTS stock;
+CREATE TABLE stock (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NOT NULL,
@@ -527,55 +739,49 @@ CREATE TABLE IF NOT EXISTS stock (
   reserved_quantity INT NOT NULL DEFAULT 0,
   borrowed_quantity INT NOT NULL DEFAULT 0,
   last_updated DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  PRIMARY KEY (business_id, branch_id, product_model_id)
+  PRIMARY KEY (business_id, branch_id, product_model_id),
+
+  CONSTRAINT fk_stock_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- pricing_plans, location_history, deposit, etc. — ensure business_id & branch_id NOT NULL where present
-CREATE TABLE IF NOT EXISTS pricing_plans (
-  pricing_plan_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  plan_code VARCHAR(200) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  description TEXT,
-  billing_period_id INT,
-  price DECIMAL(14,2) NOT NULL,
-  created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-CREATE TABLE IF NOT EXISTS location_history (
+DROP TABLE IF EXISTS location_history;
+CREATE TABLE location_history (
   location_history_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  inventory_unit_id INT NOT NULL,
+  asset_id INT NOT NULL,
   electronics_device_id INT NULL,
+  source VARCHAR(255),
   latitude DECIMAL(10,6),
   longitude DECIMAL(10,6),
-  accuracy_m DECIMAL(8,2),
-  source VARCHAR(255),
+  road VARCHAR(255),
+  city VARCHAR(100),
+  district VARCHAR(100),
+  state VARCHAR(100),
+  country VARCHAR(100),
+  pincode VARCHAR(20),
   recorded_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  metadata JSON,
-  INDEX idx_loc_hist_inv (business_id, inventory_unit_id, recorded_at),
+  INDEX idx_loc_hist_inv (business_id, asset_id, recorded_at),
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_location_history_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-CREATE TABLE IF NOT EXISTS deposit (
+DROP TABLE IF EXISTS deposit;
+CREATE TABLE deposit (
   deposit_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  deposit_code VARCHAR(200) NOT NULL,
   customer_id INT NOT NULL,
   amount DECIMAL(14,2) NOT NULL,
   held_since DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
@@ -588,137 +794,79 @@ CREATE TABLE IF NOT EXISTS deposit (
   updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at DATETIME(6),
   is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_deposit_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+DROP TABLE IF EXISTS notification_log;
+CREATE TABLE notification_log (
+  notification_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  customer_id INT NOT NULL,     
+  asset_id INT NULL,         
+  rental_id INT NULL,        
 
--- ============================
--- TENANT internal FKs (run after creating tables)
--- (keeps constraint names unique)
--- ============================
+  contact_type VARCHAR(255) NOT NULL,
+  contact_value VARCHAR(512) NOT NULL, -- mobile number or email
+  channel VARCHAR(255) NOT NULL,
 
-ALTER TABLE product_model
-  ADD CONSTRAINT fk_product_model_category
-    FOREIGN KEY (product_category_id) REFERENCES product_category(product_category_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+  template_code VARCHAR(200) NULL, -- e.g. RENTAL_DUE_REMINDER, INVOICE_CREATED
+  subject VARCHAR(512) NULL,
+  message TEXT NULL,              -- full rendered message sent
 
-ALTER TABLE inventory_unit
-  ADD CONSTRAINT fk_inventory_unit_model
-    FOREIGN KEY (product_model_id) REFERENCES product_model(product_model_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_inventory_unit_category
-    FOREIGN KEY (product_category_id) REFERENCES product_category(product_category_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_inventory_unit_status
-    FOREIGN KEY (product_status_id) REFERENCES product_status(product_status_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_inventory_unit_condition
-    FOREIGN KEY (product_condition_id) REFERENCES product_condition(product_condition_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+  notification_status VARCHAR(255) NOT NULL,
+  provider_response TEXT NULL,
+  attempt_count INT NOT NULL DEFAULT 0,
+  scheduled_for DATETIME(6) NULL, 
+  sent_on DATETIME(6) NULL,       -- when it was actually sent
+  delivered_on DATETIME(6) NULL,  -- if provider reports final delivery
 
-ALTER TABLE rental
-  ADD CONSTRAINT fk_rental_customer
-    FOREIGN KEY (customer_id) REFERENCES customer(customer_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  external_reference VARCHAR(512) NULL, -- provider message id / external id
+  reference_entity VARCHAR(128) NULL,   -- e.g. 'rental','asset','customer' - helpful for quick queries
 
-ALTER TABLE rental_item
-  ADD CONSTRAINT fk_rit_rental
-    FOREIGN KEY (rental_id) REFERENCES rental(rental_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_rit_model
-    FOREIGN KEY (product_model_id) REFERENCES product_model(product_model_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_rit_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+  created_by VARCHAR(255) NOT NULL,
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at DATETIME(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
 
-ALTER TABLE rental_payments
-  ADD CONSTRAINT fk_rpayment_rental
-    FOREIGN KEY (rental_id) REFERENCES rental(rental_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  -- indexes for fast queries
+  INDEX idx_notification_business (business_id),
+  INDEX idx_notification_branch (branch_id),
+  INDEX idx_notification_customer (customer_id),
+  INDEX idx_notification_asset (asset_id),
+  INDEX idx_notification_rental (rental_id),
+  INDEX idx_notification_status_scheduled (notification_status, scheduled_for),
+  INDEX idx_notification_contact_value (contact_value),
 
-ALTER TABLE maintenance_records
-  ADD CONSTRAINT fk_maint_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-ALTER TABLE damage_reports
-  ADD CONSTRAINT fk_damage_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-ALTER TABLE item_history
-  ADD CONSTRAINT fk_item_hist_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_rental FOREIGN KEY (rental_id)
+    REFERENCES rental(rental_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-ALTER TABLE reservations
-  ADD CONSTRAINT fk_res_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_contact_type FOREIGN KEY (contact_type)
+    REFERENCES contact_type(contact_type_id)    
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-ALTER TABLE product_images
-  ADD CONSTRAINT fk_pimg_model
-    FOREIGN KEY (product_model_id) REFERENCES product_model(product_model_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_pimg_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_channel FOREIGN KEY (channel)
+    REFERENCES notification_channel(notification_channel_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-ALTER TABLE invoice_photos
-  ADD CONSTRAINT fk_invoice_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_invoice_model
-    FOREIGN KEY (product_model_id) REFERENCES product_model(product_model_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+  CONSTRAINT fk_notification_status FOREIGN KEY (notification_status)
+    REFERENCES notification_status(notification_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
 
-ALTER TABLE borrow_records
-  ADD CONSTRAINT fk_borrow_unit
-    FOREIGN KEY (inventory_unit_id) REFERENCES inventory_unit(inventory_unit_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE stock
-  ADD CONSTRAINT fk_stock_model
-    FOREIGN KEY (product_model_id) REFERENCES product_model(product_model_id)
-    ON DELETE CASCADE ON UPDATE CASCADE;
-
--- ============================
--- CROSS-DB foreign keys (tenant -> master_db)
--- Run these only if master_db exists on same server and types/signedness match
--- ============================
-ALTER TABLE product_category
-  ADD CONSTRAINT fk_product_category_business FOREIGN KEY (business_id)
-    REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_product_category_branch FOREIGN KEY (branch_id)
-    REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE product_model
-  ADD CONSTRAINT fk_product_model_business FOREIGN KEY (business_id)
-    REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_product_model_branch FOREIGN KEY (branch_id)
-    REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE inventory_unit
-  ADD CONSTRAINT fk_inventory_unit_business FOREIGN KEY (business_id)
-    REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_inventory_unit_branch FOREIGN KEY (branch_id)
-    REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE customer
-  ADD CONSTRAINT fk_customer_business FOREIGN KEY (business_id) REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_customer_branch FOREIGN KEY (branch_id) REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE rental
-  ADD CONSTRAINT fk_rental_business FOREIGN KEY (business_id) REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_rental_branch FOREIGN KEY (branch_id) REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE rental_payments
-  ADD CONSTRAINT fk_rpayment_business FOREIGN KEY (business_id) REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_rpayment_branch FOREIGN KEY (branch_id) REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
-ALTER TABLE maintenance_records
-  ADD CONSTRAINT fk_maint_business FOREIGN KEY (business_id) REFERENCES master_db.master_business (business_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  ADD CONSTRAINT fk_maint_branch FOREIGN KEY (branch_id) REFERENCES master_db.master_branch (branch_id) ON DELETE CASCADE ON UPDATE CASCADE;
-
--- Repeat cross-db FK additions for any other tenant tables holding business_id/branch_id as needed.
+) ENGINE=InnoDB;
