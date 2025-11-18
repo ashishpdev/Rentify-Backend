@@ -1,0 +1,1 @@
+// Database enums (product_status, etc.)
