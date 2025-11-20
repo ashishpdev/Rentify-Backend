@@ -1,7 +1,138 @@
 // Authentication controller
 const ResponseUtil = require("../../utils/response.util");
+const authService = require("./auth.service");
+const authValidator = require("./auth.validator");
+const {
+  SendOTPDTO,
+  VerifyOTPDTO,
+  CompleteRegistrationDTO,
+} = require("./auth.dto");
 
 class AuthController {
+  /**
+   * @desc    Send OTP to email
+   * @route   POST /api/auth/send-otp
+   * @access  Public
+   */
+  async sendOTP(req, res, next) {
+    try {
+      const { email, otpType } = req.body;
+
+      // Validate request
+      const { error, value } = authValidator.validateSendOTP({ email, otpType });
+
+      if (error) {
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Get user IP
+      const ipAddress = req.ip || req.connection.remoteAddress;
+
+      // Create DTO
+      const dto = new SendOTPDTO(value.email, value.otpType);
+
+      // Send OTP
+      const result = await authService.sendOTP(
+        dto.email,
+        dto.otpType,
+        { ipAddress }
+      );
+
+      return ResponseUtil.success(
+        res,
+        {
+          otpId: result.otpId,
+          expiresAt: result.expiresAt,
+        },
+        result.message
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * @desc    Verify OTP code
+   * @route   POST /api/auth/verify-otp
+   * @access  Public
+   */
+  async verifyOTP(req, res, next) {
+    try {
+      const { otpId, otpCode } = req.body;
+
+      // Validate request
+      const { error, value } = authValidator.validateVerifyOTP({
+        otpId,
+        otpCode,
+      });
+
+      if (error) {
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Create DTO
+      const dto = new VerifyOTPDTO(value.otpId, value.otpCode);
+
+      // Verify OTP
+      await authService.verifyOTP(dto.otpId, dto.otpCode);
+
+      return ResponseUtil.success(
+        res,
+        { otpId: dto.otpId, verified: true },
+        "OTP verified successfully"
+      );
+    } catch (error) {
+      if (error.message.includes("Invalid or expired OTP")) {
+        return ResponseUtil.unauthorized(res, error.message);
+      }
+      next(error);
+    }
+  }
+
+  /**
+   * @desc    Complete registration with verified OTPs
+   * @route   POST /api/auth/complete-registration
+   * @access  Public
+   */
+  async completeRegistration(req, res, next) {
+    try {
+      const registrationData = req.body;
+
+      // Validate request
+      const { error, value } = authValidator.validateCompleteRegistration(
+        registrationData
+      );
+
+      if (error) {
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Create DTO
+      const dto = new CompleteRegistrationDTO(value);
+
+      // Complete registration
+      const result = await authService.completeRegistration(value);
+
+      return ResponseUtil.created(
+        res,
+        {
+          userId: result.userId,
+          businessId: result.businessId,
+          branchId: result.branchId,
+        },
+        result.message
+      );
+    } catch (error) {
+      if (
+        error.message.includes("already registered") ||
+        error.message.includes("already exists")
+      ) {
+        return ResponseUtil.conflict(res, error.message);
+      }
+      next(error);
+    }
+  }
+
   /**
    * @desc    Register a new user
    * @route   POST /api/auth/signup
@@ -62,12 +193,8 @@ class AuthController {
     }
   }
 
-  /** 
+  /**
    * @desc    Get current user
-        
-       
-       ""
-      
    * @route   GET /api/auth/me
    * @access  Private
    */
@@ -83,7 +210,6 @@ class AuthController {
     } catch (error) {
       next(error);
     }
-    ("");
   }
 
   /**
