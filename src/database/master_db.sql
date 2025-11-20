@@ -267,8 +267,9 @@ CREATE TABLE master_user_session (
 DROP TABLE IF EXISTS master_otp;
 CREATE TABLE master_otp (
     id CHAR(36) PRIMARY KEY,
-    user_id INT NOT NULL,
-    otp_code VARCHAR(10) NOT NULL,
+    target_identifier VARCHAR(255) NULL,      -- email or phone number 
+    user_id INT NULL, -- can be null for unregistered users
+    otp_code_hash VARCHAR(255) NOT NULL,
     otp_type_id INT NOT NULL,
     expires_at DATETIME NOT NULL,
     verified_at DATETIME,
