@@ -801,6 +801,7 @@ CREATE TABLE invoice_photos (
 
 ) ENGINE=InnoDB;
 
+-- NOT GENERATED 
 -- Represents one complete rental transaction — like a bill or invoice.
 DROP TABLE IF EXISTS rental;
 CREATE TABLE rental (
@@ -893,8 +894,8 @@ CREATE TABLE customer (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- NOT GENERATED 
 DROP TABLE IF EXISTS rental_payments;
--- Not generating in Database diagram tool due to foreign key to rental table
 CREATE TABLE rental_payments (
   rental_payment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
@@ -1283,7 +1284,7 @@ CREATE TABLE deposit (
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS notification_log;
--- Not generating in Database diagram tool due to multiple foreign keys to various tables
+-- NOT GENERATED
 CREATE TABLE notification_log (
   notification_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
