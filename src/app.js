@@ -3,9 +3,9 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
-const routes = require("./src/routes");
-const errorHandler = require("./src/middlewares/error-handler.middleware");
-const config = require("./src/config/env.config");
+const routes = require("./routes");
+const errorHandler = require("./middlewares/error-handler.middleware");
+const config = require("./config/env.config");
 
 const app = express();
 
