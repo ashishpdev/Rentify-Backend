@@ -41,8 +41,6 @@ class CompleteRegistrationDTO {
     this.ownerEmail = data.ownerEmail;
     this.ownerContactNumber = data.ownerContactNumber;
     this.ownerRole = data.ownerRole || "OWNER";
-    this.businessOtpId = data.businessOtpId;
-    this.ownerOtpId = data.ownerOtpId;
   }
 }
 
@@ -72,8 +70,8 @@ class VerifyOTPResponseDTO {
  * Registration Success Response DTO
  */
 class RegistrationSuccessDTO {
-  constructor(userId, businessId, branchId) {
-    this.userId = userId;
+  constructor(ownerId, businessId, branchId) {
+    this.ownerId = ownerId;
     this.businessId = businessId;
     this.branchId = branchId;
     this.message = "Business registered successfully";

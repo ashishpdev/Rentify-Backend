@@ -58,27 +58,25 @@ class AuthController {
    */
   async verifyOTP(req, res, next) {
     try {
-      const { otpId, otpCode } = req.body;
+      const { email, otpCode, otpType } = req.body;
 
       // Validate request
       const { error, value } = authValidator.validateVerifyOTP({
-        otpId,
+        email,
         otpCode,
+        otpType,
       });
 
       if (error) {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // Create DTO
-      const dto = new VerifyOTPDTO(value.otpId, value.otpCode);
-
       // Verify OTP
-      await authService.verifyOTP(dto.otpId, dto.otpCode);
+      await authService.verifyOTP(value.email, value.otpCode, value.otpType);
 
       return ResponseUtil.success(
         res,
-        { otpId: dto.otpId, verified: true },
+        { email: value.email, verified: true },
         "OTP verified successfully"
       );
     } catch (error) {
@@ -113,12 +111,20 @@ class AuthController {
       // Complete registration
       const result = await authService.completeRegistration(value);
 
+      // Ensure we have all required IDs before sending success response
+      if (!result.businessId || !result.branchId || !result.ownerId) {
+        return ResponseUtil.internalServerError(
+          res,
+          "Registration failed: Missing required IDs in response"
+        );
+      }
+
       return ResponseUtil.created(
         res,
         {
-          userId: result.userId,
           businessId: result.businessId,
           branchId: result.branchId,
+          ownerId: result.ownerId,
         },
         result.message
       );

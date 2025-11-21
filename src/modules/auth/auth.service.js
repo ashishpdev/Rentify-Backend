@@ -22,38 +22,22 @@ class AuthService {
     const { ipAddress = null } = options;
 
     try {
-      // Check if OTP already exists for this email/type
-      const existingOTP = await authRepository.getPendingOTP(email, otpType);
-
-      if (existingOTP) {
-        // Check if we should resend (allow resend after 30 seconds)
-        const createdAt = new Date(existingOTP.created_at);
-        const now = new Date();
-        const secondsElapsed = (now - createdAt) / 1000;
-
-        if (secondsElapsed < 30) {
-          throw new Error(
-            "Please wait before requesting a new OTP. Try again in 30 seconds."
-          );
-        }
-      }
-
       // Generate OTP
       const otpCode = this.generateOTP();
 
-      // Save OTP to database
+      // Hash the OTP code
+      const otpCodeHash = this.hashOTP(otpCode);
+
+      // Save OTP to database via stored procedure
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
-        otpCode,
+        otpCodeHash,
         otpType,
         expiryMinutes: 10, // 10 minutes validity
         ipAddress,
       });
 
-      // Send OTP via email
-      // TODO: EMAIL FUNCTIONALITY IS NOT AVAILABLE YET
-      //   await emailService.sendOTP(email, otpCode, otpType);
-      // Temporarily logging OTP for testing purposes
+      // Log OTP for testing purposes
       console.log(
         `[OTP] Email: ${email}, Type: ${otpType}, Code: ${otpCode}, ID: ${otpRecord.id}`
       );
@@ -69,16 +53,35 @@ class AuthService {
   }
 
   /**
+   * Hash OTP code using SHA256
+   * @param {string} otp - OTP code
+   * @returns {string} - Hashed OTP
+   */
+  hashOTP(otp) {
+    const crypto = require("crypto");
+    return crypto.createHash("sha256").update(otp).digest("hex");
+  }
+
+  /**
    * Verify OTP code
-   * @param {string} otpId - OTP ID
+   * @param {string} email - User email
    * @param {string} otpCode - OTP code provided by user
+   * @param {string} otpType - OTP type (REGISTER, VERIFY_EMAIL, etc)
    * @returns {Promise<boolean>} - True if verification successful
    */
-  async verifyOTP(otpId, otpCode) {
+  async verifyOTP(email, otpCode, otpType) {
     try {
-      const isValid = await authRepository.verifyOTP(otpId, otpCode);
+      // Hash the OTP code
+      const otpCodeHash = this.hashOTP(otpCode);
 
-      if (!isValid) {
+      // Verify via stored procedure
+      const result = await authRepository.verifyOTP(
+        email,
+        otpCodeHash,
+        otpType
+      );
+
+      if (!result.verified) {
         throw new Error("Invalid or expired OTP");
       }
 
@@ -118,10 +121,23 @@ class AuthService {
         registrationData
       );
 
+      // Validate all required IDs are present and valid
+      if (!result.businessId || result.businessId <= 0) {
+        throw new Error("Invalid business ID returned from registration");
+      }
+
+      if (!result.branchId || result.branchId <= 0) {
+        throw new Error("Invalid branch ID returned from registration");
+      }
+
+      if (!result.ownerId || result.ownerId <= 0) {
+        throw new Error("Invalid owner ID returned from registration");
+      }
+
       return {
         businessId: result.businessId,
         branchId: result.branchId,
-        userId: result.userId,
+        ownerId: result.ownerId,
         message: "Business registered successfully",
       };
     } catch (error) {

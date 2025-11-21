@@ -13,14 +13,14 @@ class AuthRepository {
   }
 
   /**
-   * Save OTP to database
+   * Save OTP to database using stored procedure
    * @param {Object} otpData - OTP data
-   * @param {string} otpData.targetIdentifier - Email or phone
-   * @param {string} otpData.otpCode - Raw OTP code
+   * @param {string} otpData.targetIdentifier - Email
+   * @param {string} otpData.otpCodeHash - Hashed OTP code
    * @param {string} otpData.otpType - OTP type (REGISTER, VERIFY_EMAIL, etc)
    * @param {number} otpData.expiryMinutes - OTP expiry in minutes
    * @param {string} otpData.ipAddress - IP address of requester
-   * @returns {Object} - OTP record with id
+   * @returns {Object} - OTP record with id and expiry
    */
   async saveOTP(otpData) {
     try {
@@ -28,43 +28,38 @@ class AuthRepository {
       const connection = await pool.getConnection();
 
       try {
-        const otpId = crypto.randomUUID();
-        const otpCodeHash = this.generateOTPHash(otpData.otpCode);
-        const expiresAt = new Date(Date.now() + otpData.expiryMinutes * 60000);
-
-        // Get OTP type ID
-        const [otpTypeRows] = await connection.query(
-          "SELECT master_otp_type_id FROM master_otp_type WHERE code = ? AND is_deleted = 0",
-          [otpData.otpType]
-        );
-
-        if (otpTypeRows.length === 0) {
-          throw new Error(`Invalid OTP type: ${otpData.otpType}`);
-        }
-
-        const otpTypeId = otpTypeRows[0].master_otp_type_id;
-
-        // Insert OTP record
+        // Call stored procedure to send OTP
         await connection.query(
-          `INSERT INTO master_otp 
-          (id, target_identifier, otp_code_hash, otp_type_id, expires_at, ip_address, created_by)
-          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `CALL sp_send_otp(?, ?, ?, ?, ?, @p_otp_id, @p_expires_at, @p_error_message)`,
           [
-            otpId,
             otpData.targetIdentifier,
-            otpCodeHash,
-            otpTypeId,
-            expiresAt,
+            otpData.otpCodeHash,
+            otpData.otpType,
+            otpData.expiryMinutes,
             otpData.ipAddress || null,
-            "system",
           ]
         );
 
-        return {
-          id: otpId,
-          targetIdentifier: otpData.targetIdentifier,
-          expiresAt,
-        };
+        // Get output variables
+        const [outputRows] = await connection.query(
+          "SELECT @p_otp_id as otp_id, @p_expires_at as expires_at, @p_error_message as error_message"
+        );
+
+        if (outputRows.length > 0) {
+          const output = outputRows[0];
+
+          if (!output.otp_id || output.error_message !== "Success") {
+            throw new Error(output.error_message || "Failed to save OTP");
+          }
+
+          return {
+            id: output.otp_id,
+            targetIdentifier: otpData.targetIdentifier,
+            expiresAt: output.expires_at,
+          };
+        }
+
+        throw new Error("Failed to retrieve stored procedure output");
       } finally {
         connection.release();
       }
@@ -74,86 +69,43 @@ class AuthRepository {
   }
 
   /**
-   * Get pending OTP by email and type
+   * Verify OTP code using stored procedure
    * @param {string} email - Email address
+   * @param {string} otpCodeHash - Hashed OTP code
    * @param {string} otpType - OTP type code
-   * @returns {Object|null} - OTP record or null
+   * @returns {Object} - { verified: boolean, otpId: string }
    */
-  async getPendingOTP(email, otpType) {
+  async verifyOTP(email, otpCodeHash, otpType) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
 
       try {
-        const [rows] = await connection.query(
-          `SELECT mo.* FROM master_otp mo
-          JOIN master_otp_type mot ON mo.otp_type_id = mot.master_otp_type_id
-          WHERE mo.target_identifier = ? 
-          AND mot.code = ?
-          AND mo.verified_at IS NULL
-          AND mo.expires_at > NOW()
-          AND mo.attempts < mo.max_attempts
-          ORDER BY mo.created_at DESC
-          LIMIT 1`,
-          [email, otpType]
-        );
-
-        return rows.length > 0 ? rows[0] : null;
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to get pending OTP: ${error.message}`);
-    }
-  }
-
-  /**
-   * Verify OTP code
-   * @param {string} otpId - OTP record ID
-   * @param {string} otpCode - Raw OTP code to verify
-   * @returns {boolean} - True if OTP is valid
-   */
-  async verifyOTP(otpId, otpCode) {
-    try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
-
-      try {
-        const otpCodeHash = this.generateOTPHash(otpCode);
-
-        // Get OTP record
-        const [rows] = await connection.query(
-          `SELECT * FROM master_otp 
-          WHERE id = ? 
-          AND expires_at > NOW()
-          AND verified_at IS NULL
-          AND attempts < max_attempts`,
-          [otpId]
-        );
-
-        if (rows.length === 0) {
-          return false;
-        }
-
-        const otpRecord = rows[0];
-
-        // Verify hash
-        if (otpRecord.otp_code_hash !== otpCodeHash) {
-          // Increment attempts
-          await connection.query(
-            "UPDATE master_otp SET attempts = attempts + 1 WHERE id = ?",
-            [otpId]
-          );
-          return false;
-        }
-
-        // Mark as verified
+        // Call stored procedure to verify OTP
         await connection.query(
-          "UPDATE master_otp SET verified_at = NOW(), updated_at = NOW() WHERE id = ?",
-          [otpId]
+          `CALL sp_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
+          [email, otpCodeHash, otpType]
         );
 
-        return true;
+        // Get output variables
+        const [outputRows] = await connection.query(
+          "SELECT @p_verified as verified, @p_otp_id as otp_id, @p_error_message as error_message"
+        );
+
+        if (outputRows.length > 0) {
+          const output = outputRows[0];
+
+          if (!output.verified) {
+            throw new Error(output.error_message || "OTP verification failed");
+          }
+
+          return {
+            verified: output.verified === 1 || output.verified === true,
+            otpId: output.otp_id,
+          };
+        }
+
+        throw new Error("Failed to retrieve stored procedure output");
       } finally {
         connection.release();
       }
@@ -190,18 +142,19 @@ class AuthRepository {
   /**
    * Execute stored procedure to register business with owner
    * @param {Object} registrationData - Registration data
-   * @returns {Object} - Response with business_id, branch_id, user_id
+   * @returns {Object} - Response with business_id, branch_id, owner_id
    */
   async registerBusinessWithOwner(registrationData) {
+    let connection;
     try {
       const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      connection = await pool.getConnection();
 
       try {
-        // Call stored procedure
-        const [result] = await connection.query(
+        // Call stored procedure with proper parameter mapping
+        await connection.query(
           `CALL sp_register_business_with_owner(
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_user_id, @p_error_message
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
           )`,
           [
             registrationData.businessName,
@@ -220,30 +173,53 @@ class AuthRepository {
             registrationData.ownerEmail,
             registrationData.ownerContactNumber,
             registrationData.ownerRole || "OWNER",
-            "system",
+            registrationData.contactPerson, // p_created_by
           ]
         );
 
-        // Get output variables
+        // Get output variables from the stored procedure
         const [outputRows] = await connection.query(
-          "SELECT @p_business_id as business_id, @p_branch_id as branch_id, @p_user_id as user_id, @p_error_message as error_message"
+          "SELECT @p_business_id as business_id, @p_branch_id as branch_id, @p_owner_id as owner_id, @p_error_message as error_message"
         );
 
-        if (outputRows.length > 0) {
-          const output = outputRows[0];
-
-          if (!output.business_id || !output.user_id || !output.branch_id) {
-            throw new Error(output.error_message || "Failed to create business");
-          }
-
-          return {
-            businessId: output.business_id,
-            branchId: output.branch_id,
-            userId: output.user_id,
-          };
+        if (!outputRows || outputRows.length === 0) {
+          throw new Error("Failed to retrieve stored procedure output");
         }
 
-        throw new Error("Failed to retrieve stored procedure output");
+        const output = outputRows[0];
+        console.log("[SP Output]", output);
+
+        // Validate error message from SP
+        if (!output.error_message) {
+          throw new Error("No error message returned from stored procedure");
+        }
+
+        if (output.error_message !== "Success") {
+          throw new Error(output.error_message);
+        }
+
+        // Validate that all IDs were returned and are valid
+        const businessId = output.business_id;
+        const branchId = output.branch_id;
+        const ownerId = output.owner_id;
+
+        if (!businessId || businessId <= 0) {
+          throw new Error("Invalid business ID returned from procedure");
+        }
+
+        if (!branchId || branchId <= 0) {
+          throw new Error("Invalid branch ID returned from procedure");
+        }
+
+        if (!ownerId || ownerId <= 0) {
+          throw new Error("Invalid owner ID returned from procedure");
+        }
+
+        return {
+          businessId: businessId,
+          branchId: branchId,
+          ownerId: ownerId,
+        };
       } finally {
         connection.release();
       }

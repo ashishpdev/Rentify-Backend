@@ -27,15 +27,21 @@ class AuthValidator {
    */
   static validateVerifyOTP(data) {
     const schema = Joi.object({
-      otpId: Joi.string().uuid().required().messages({
-        "string.uuid": "Invalid OTP ID format",
-        "any.required": "OTP ID is required",
+      email: Joi.string().email().required().messages({
+        "string.email": "Please provide a valid email address",
+        "any.required": "Email is required",
       }),
       otpCode: Joi.string().length(6).pattern(/^\d+$/).required().messages({
         "string.length": "OTP must be 6 digits",
         "string.pattern.base": "OTP must contain only numbers",
         "any.required": "OTP code is required",
       }),
+      otpType: Joi.string()
+        .valid("REGISTER", "VERIFY_EMAIL")
+        .default("REGISTER")
+        .messages({
+          "any.only": "Invalid OTP type",
+        }),
     });
 
     return schema.validate(data);
@@ -107,14 +113,6 @@ class AuthValidator {
       ownerRole: Joi.string()
         .valid("OWNER", "ADMIN")
         .default("OWNER"),
-      businessOtpId: Joi.string().uuid().required().messages({
-        "string.uuid": "Invalid business OTP ID format",
-        "any.required": "Business OTP ID is required",
-      }),
-      ownerOtpId: Joi.string().uuid().required().messages({
-        "string.uuid": "Invalid owner OTP ID format",
-        "any.required": "Owner OTP ID is required",
-      }),
     });
 
     return schema.validate(data);
