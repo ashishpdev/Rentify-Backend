@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rentify - Verification Code</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 3px solid #d97706;
+            padding-bottom: 20px;
+        }
+
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            color: #d97706;
+            margin: 0;
+        }
+
+        .tagline {
+            font-size: 12px;
+            color: #666;
+            margin: 5px 0 0 0;
+        }
+
+        h2 {
+            font-size: 20px;
+            color: #1f2937;
+            margin: 20px 0 15px 0;
+        }
+
+        p {
+            font-size: 14px;
+            line-height: 1.6;
+            color: #555;
+            margin: 0 0 15px 0;
+        }
+
+        .otp-box {
+            background: #fffbeb;
+            border: 2px solid #fcd34d;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 25px 0;
+            text-align: center;
+        }
+
+        .otp-label {
+            font-size: 11px;
+            color: #92400e;
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+        }
+
+        .otp-code {
+            font-size: 40px;
+            font-weight: bold;
+            color: #d97706;
+            letter-spacing: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 0;
+        }
+
+        .otp-time {
+            font-size: 12px;
+            color: #92400e;
+            margin-top: 10px;
+        }
+
+        .info-list {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 20px 0;
+            font-size: 13px;
+            color: #555;
+            line-height: 1.8;
+        }
+
+        .info-list strong {
+            color: #1f2937;
+        }
+
+        .button {
+            display: inline-block;
+            background: linear-gradient(135deg, #d97706 0%, #f59e0b 100%);
+            color: white;
+            padding: 12px 30px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 20px;
+        }
+
+        .support {
+            text-align: center;
+            font-size: 12px;
+            color: #666;
+            margin-top: 20px;
+        }
+
+        .support a {
+            color: #d97706;
+            text-decoration: none;
+        }
+
+        .footer {
+            text-align: center;
+            font-size: 11px;
+            color: #999;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .footer a {
+            color: #d97706;
+            text-decoration: none;
+            margin: 0 5px;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            .otp-code {
+                font-size: 32px;
+                letter-spacing: 5px;
+            }
+
+            h2 {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <p class="logo">Rentify</p>
+            <p class="tagline">Premium Device Rentals</p>
+        </div>
+
+        <!-- Content -->
+        <h2>Verify Your Email</h2>
+
+        <p>Hi,{{email}}</p>
+
+        <p>Thank you for signing up with Rentify! Please use the verification code below to complete your email
+            verification.</p>
+
+        <!-- OTP Code -->
+        <div class="otp-box">
+            <div class="otp-label">Your Code</div>
+            <div class="otp-code">{{otpCode}}</div>
+            <div class="otp-time">Valid for {{EXPIRY_MIN}} minutes</div>
+        </div>
+
+        <!-- Info -->
+        <div class="info-list">
+            <strong>Please note:</strong><br>
+            • Never share this code with anyone<br>
+            • If you didn't request this, ignore this email
+        </div>
+
+    </div>
+</body>
+
+</html>

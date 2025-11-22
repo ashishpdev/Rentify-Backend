@@ -1,5 +1,9 @@
 // Authentication service layer
 const authRepository = require("./auth.repository");
+const fs = require("fs");
+const path = require("path");
+const nodemailer = require("nodemailer");
+const handlebars = require("handlebars");
 // const emailService = require("../../services/email.service");
 
 class AuthService {
@@ -37,6 +41,8 @@ class AuthService {
         ipAddress,
       });
 
+      // Send OTP via email
+      await this.sendVerificationCode(email, otpCode, 10);
       // Log OTP for testing purposes
       console.log(
         `[OTP] Email: ${email}, Type: ${otpType}, Code: ${otpCode}, ID: ${otpRecord.id}`
@@ -60,6 +66,64 @@ class AuthService {
   hashOTP(otp) {
     const crypto = require("crypto");
     return crypto.createHash("sha256").update(otp).digest("hex");
+  }
+
+  /**
+   * Send verification code via email
+   * @param {string} email - User email
+   * @param {string} otp - OTP code
+   * @param {number} expiryMinutes - OTP expiry time in minutes
+   * @returns {Promise<Object>} - Email send result
+   */
+  async sendVerificationCode(email, otp, expiryMinutes) {
+    try {
+      const emailTemplateSource = fs.readFileSync(
+        path.join(__dirname, "../../templates/emailOtpHtml.hbs"),
+        "utf8"
+      );
+      const otpTemplate = handlebars.compile(emailTemplateSource);
+      const htmlToSend = otpTemplate({
+        otpCode: otp,
+        email,
+        EXPIRY_MIN: expiryMinutes
+      });
+
+      const mailOptions = {
+        from: process.env.EMAIL_USER,
+        to: email,
+        subject: "Rentify - OTP Verification",
+        html: htmlToSend
+      };
+
+      const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+        }
+      });
+
+      // Convert callback to Promise
+      const result = await new Promise((resolve, reject) => {
+        transporter.sendMail(mailOptions, (error, info) => {
+          if (error) {
+            console.error("Error sending email:", error);
+            reject(new Error(`Failed to send email: ${error.message}`));
+          } else {
+            console.log("Email sent successfully:", info.messageId);
+            resolve({
+              success: true,
+              messageId: info.messageId,
+              message: "Email sent successfully"
+            });
+          }
+        });
+      });
+
+      return result;
+    } catch (error) {
+      throw new Error(`Failed to send verification code: ${error.message}`);
+    }
   }
 
   /**
