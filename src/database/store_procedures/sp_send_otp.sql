@@ -13,19 +13,47 @@ BEGIN
     DECLARE v_ok INT DEFAULT 1;
     DECLARE v_otp_type_id INT DEFAULT NULL;
     DECLARE v_pending_status_id INT DEFAULT NULL;
+    DECLARE v_business_exists INT DEFAULT 0;
+    DECLARE v_owner_exists INT DEFAULT 0;
     SET p_otp_id = NULL;
     SET p_expires_at = NULL;
     SET p_error_message = NULL;
-    -- Get OTP type ID
-    SELECT master_otp_type_id
-      INTO v_otp_type_id
-      FROM master_otp_type
-     WHERE code = p_otp_type_code AND is_deleted = 0
-     LIMIT 1;
-    IF v_otp_type_id IS NULL THEN
-        SET p_error_message = 'Invalid OTP type';
+    
+    -- Check if email already exists in master_business
+    SELECT COUNT(*) INTO v_business_exists
+      FROM master_business
+     WHERE email = p_email AND is_deleted = 0;
+    
+    IF v_business_exists > 0 THEN
+        SET p_error_message = 'Email already registered';
         SET v_ok = 0;
     END IF;
+    
+    -- Check if email already exists in master_owner
+    IF v_ok = 1 THEN
+        SELECT COUNT(*) INTO v_owner_exists
+          FROM master_owner
+         WHERE email = p_email AND is_deleted = 0;
+        
+        IF v_owner_exists > 0 THEN
+            SET p_error_message = 'Email already registered';
+            SET v_ok = 0;
+        END IF;
+    END IF;
+    
+    -- Get OTP type ID
+    IF v_ok = 1 THEN
+        SELECT master_otp_type_id
+          INTO v_otp_type_id
+          FROM master_otp_type
+         WHERE code = p_otp_type_code AND is_deleted = 0
+         LIMIT 1;
+        IF v_otp_type_id IS NULL THEN
+            SET p_error_message = 'Invalid OTP type';
+            SET v_ok = 0;
+        END IF;
+    END IF;
+    
     -- Get PENDING status ID
     IF v_ok = 1 THEN
         SELECT master_otp_status_id
@@ -38,6 +66,7 @@ BEGIN
             SET v_ok = 0;
         END IF;
     END IF;
+    
     IF v_ok = 1 THEN
         -- Delete old unverified OTP for this email and type
         DELETE FROM master_otp

@@ -75,6 +75,10 @@ BEGIN
         
         IF v_business_otp_verified = 0 THEN
             SET p_error_message = 'Business email OTP not verified';
+            -- SET p_error_message = CONCAT('Business email OTP not verified. Email: ', p_business_email, 
+            --                             ', OTP Type ID: ', COALESCE(v_register_otp_type_id, 'NULL'),
+            --                             ', Status ID: ', COALESCE(v_verified_status_id, 'NULL'));
+            
             SET v_ok = 0;
         END IF;
     END IF;
@@ -90,6 +94,10 @@ BEGIN
         
         IF v_owner_otp_verified = 0 THEN
             SET p_error_message = 'Owner email OTP not verified';
+            -- SET p_error_message = CONCAT('Owner email OTP not verified. Email: ', p_owner_email,
+            --                             ', OTP Type ID: ', COALESCE(v_register_otp_type_id, 'NULL'),
+            --                             ', Status ID: ', COALESCE(v_verified_status_id, 'NULL'));
+            
             SET v_ok = 0;
         END IF;
     END IF;
