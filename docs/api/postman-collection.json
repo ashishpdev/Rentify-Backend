@@ -1,8 +1,539 @@
 {
   "info": {
-    "name": "Rental Management API",
-    "description": "Postman collection for Rental Management Backend",
-    "version": "1.0.0"
+    "_postman_id": "a1b2c3d4-e5f6-7890-abcd-1234567890ab",
+    "name": "Rentify Backend API Collection",
+    "description": "Complete Postman collection for Rentify Backend APIs including Authentication and System Agent management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": {
+      "major": 1,
+      "minor": 0,
+      "patch": 0
+    }
   },
-  "item": []
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "agentId",
+      "value": "test-agent-12345",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "🏠 Health & Info",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "health"]
+            },
+            "description": "Check if the server is running and healthy"
+          },
+          "response": []
+        },
+        {
+          "name": "Server Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/status",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "status"]
+            },
+            "description": "Get detailed server status including uptime and connected agents"
+          },
+          "response": []
+        },
+        {
+          "name": "Root Endpoint",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Get basic API information and available endpoints"
+          },
+          "response": []
+        }
+      ],
+      "description": "Health checks and server information endpoints"
+    },
+    {
+      "name": "🔐 Authentication",
+      "item": [
+        {
+          "name": "Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/send-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "send-otp"]
+            },
+            "description": "Send OTP to user's email for verification. OTP types: REGISTER, VERIFY_EMAIL, RESET_PASSWORD"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"123456\",\n  \"otpType\": \"REGISTER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "verify-otp"]
+            },
+            "description": "Verify the OTP code sent to user's email"
+          },
+          "response": []
+        },
+        {
+          "name": "Complete Registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessEmail\": \"business@example.com\",\n  \"ownerEmail\": \"owner@example.com\",\n  \"businessName\": \"Example Business\",\n  \"businessType\": \"Technology\",\n  \"businessPhone\": \"+1234567890\",\n  \"businessAddress\": {\n    \"street\": \"123 Business St\",\n    \"city\": \"Business City\",\n    \"state\": \"BC\",\n    \"postalCode\": \"12345\",\n    \"country\": \"USA\"\n  },\n  \"ownerFirstName\": \"John\",\n  \"ownerLastName\": \"Doe\",\n  \"ownerPhone\": \"+1234567890\",\n  \"branchName\": \"Main Branch\",\n  \"branchAddress\": {\n    \"street\": \"123 Branch St\",\n    \"city\": \"Branch City\",\n    \"state\": \"BC\",\n    \"postalCode\": \"54321\",\n    \"country\": \"USA\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/complete-registration",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "complete-registration"]
+            },
+            "description": "Complete business registration after OTP verification"
+          },
+          "response": []
+        },
+        {
+          "name": "Signup (Legacy)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePassword123\",\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"businessName\": \"Example Business\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/signup",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "signup"]
+            },
+            "description": "Legacy signup endpoint (implementation pending)"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"SecurePassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "User login endpoint (implementation pending)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "me"]
+            },
+            "description": "Get current authenticated user information"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "logout"]
+            },
+            "description": "Logout current user"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication and user management endpoints"
+    },
+    {
+      "name": "🤖 System Agents",
+      "item": [
+        {
+          "name": "Register Agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"agentName\": \"Office Desktop 01\",\n  \"version\": \"1.0.0\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "register"]
+            },
+            "description": "Register a new system agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Send Agent Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentId\": \"{{agentId}}\",\n  \"latitude\": 40.7128,\n  \"longitude\": -74.0060,\n  \"accuracy\": 10,\n  \"source\": \"gps\",\n  \"systemInfo\": {\n    \"hostname\": \"DESKTOP-ABC123\",\n    \"platform\": \"win32\",\n    \"arch\": \"x64\",\n    \"uptime\": 86400,\n    \"cpu\": {\n      \"manufacturer\": \"Intel\",\n      \"brand\": \"Intel(R) Core(TM) i7-8700K CPU @ 3.70GHz\",\n      \"speed\": 3.7,\n      \"cores\": 8\n    },\n    \"memory\": {\n      \"total\": 17179869184,\n      \"free\": 8589934592,\n      \"used\": 8589934592\n    },\n    \"os\": {\n      \"platform\": \"win32\",\n      \"distro\": \"Windows 10 Pro\",\n      \"release\": \"10.0.19045\",\n      \"kernel\": \"10.0.19045\"\n    },\n    \"network\": [\n      {\n        \"iface\": \"Ethernet\",\n        \"ip4\": \"192.168.1.100\",\n        \"ip6\": \"fe80::1\",\n        \"mac\": \"00:11:22:33:44:55\"\n      }\n    ],\n    \"battery\": {\n      \"percent\": 85,\n      \"isCharging\": true\n    }\n  },\n  \"timestamp\": \"2024-01-15T10:30:00.000Z\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/data",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "data"]
+            },
+            "description": "Send system information and location data from agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get All Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "agents"]
+            },
+            "description": "Get list of all connected agents and their status"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/agent/{{agentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "agent", "{{agentId}}"]
+            },
+            "description": "Get detailed information about a specific agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent Location",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/agent/{{agentId}}/location",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "agent", "{{agentId}}", "location"]
+            },
+            "description": "Get current location data for a specific agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Agent System Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/agent/{{agentId}}/system",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "agent", "{{agentId}}", "system"]
+            },
+            "description": "Get current system information for a specific agent"
+          },
+          "response": []
+        },
+        {
+          "name": "Agent Heartbeat",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentId\": \"{{agentId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/heartbeat",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "heartbeat"]
+            },
+            "description": "Send heartbeat signal to keep agent connection alive"
+          },
+          "response": []
+        },
+        {
+          "name": "Remove Agent",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/agents/agent/{{agentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "agents", "agent", "{{agentId}}"]
+            },
+            "description": "Remove/disconnect a specific agent"
+          },
+          "response": []
+        }
+      ],
+      "description": "System agent management and monitoring endpoints"
+    },
+    {
+      "name": "📊 Dashboard",
+      "item": [
+        {
+          "name": "Dashboard Home",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"]
+            },
+            "description": "Open the system agent dashboard in browser"
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard API - Get Agents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "agents"]
+            },
+            "description": "Get agents data for dashboard display"
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard API - Get Agent Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/dashboard/agent/{{agentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "dashboard", "agent", "{{agentId}}"]
+            },
+            "description": "Get specific agent details for dashboard"
+          },
+          "response": []
+        }
+      ],
+      "description": "Dashboard and monitoring web interface endpoints"
+    },
+    {
+      "name": "🧪 Testing & Utilities",
+      "item": [
+        {
+          "name": "Test All Agent Endpoints",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"testType\": \"full\",\n  \"agentName\": \"Test Agent\",\n  \"simulateLocation\": true,\n  \"simulateSystemInfo\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/test/agent-endpoints",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test", "agent-endpoints"]
+            },
+            "description": "Run comprehensive test of all agent endpoints (if test endpoint is available)"
+          },
+          "response": []
+        },
+        {
+          "name": "Simulate Multiple Agents",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"agentCount\": 5,\n  \"interval\": 10000,\n  \"duration\": 60000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/test/simulate-agents",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "test", "simulate-agents"]
+            },
+            "description": "Simulate multiple agents for testing (if test endpoint is available)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Testing and utility endpoints for development"
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-generate agent ID if not set",
+          "if (!pm.collectionVariables.get('agentId') || pm.collectionVariables.get('agentId') === 'test-agent-12345') {",
+          "    const timestamp = Date.now();",
+          "    const randomId = Math.random().toString(36).substring(2, 8);",
+          "    const agentId = `agent-${timestamp}-${randomId}`;",
+          "    pm.collectionVariables.set('agentId', agentId);",
+          "    console.log('Generated new agent ID:', agentId);",
+          "}"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// Auto-save important response data",
+          "if (pm.response.code === 200 || pm.response.code === 201) {",
+          "    const responseJson = pm.response.json();",
+          "    ",
+          "    // Save token from auth responses",
+          "    if (responseJson.data && responseJson.data.token) {",
+          "        pm.collectionVariables.set('token', responseJson.data.token);",
+          "        console.log('Token saved to collection variables');",
+          "    }",
+          "    ",
+          "    // Save agent ID from registration",
+          "    if (responseJson.data && responseJson.data.agentId) {",
+          "        pm.collectionVariables.set('agentId', responseJson.data.agentId);",
+          "        console.log('Agent ID saved:', responseJson.data.agentId);",
+          "    }",
+          "}",
+          "",
+          "// Basic response validation",
+          "pm.test('Response time is less than 2000ms', function () {",
+          "    pm.expect(pm.response.responseTime).to.be.below(2000);",
+          "});",
+          "",
+          "pm.test('Response has valid JSON', function () {",
+          "    pm.response.to.have.jsonBody();",
+          "});",
+          "",
+          "pm.test('Response status is successful', function () {",
+          "    pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);",
+          "});"
+        ]
+      }
+    }
+  ]
 }
