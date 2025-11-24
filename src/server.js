@@ -27,6 +27,7 @@ const startServer = async () => {
 ║  Database: Connected ✅                                    ║
 ║                                                            ║
 ║  API: http://localhost:${config.port}/api                            ║
+║  Docs: http://localhost:${config.port}/docs                          ║
 ║  Health: http://localhost:${config.port}/api/health                  ║
 ║                                                            ║
 ╚════════════════════════════════════════════════════════════╝

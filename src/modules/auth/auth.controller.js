@@ -19,7 +19,10 @@ class AuthController {
       const { email, otpType } = req.body;
 
       // Validate request
-      const { error, value } = authValidator.validateSendOTP({ email, otpType });
+      const { error, value } = authValidator.validateSendOTP({
+        email,
+        otpType,
+      });
 
       if (error) {
         return ResponseUtil.badRequest(res, error.details[0].message);
@@ -32,11 +35,9 @@ class AuthController {
       const dto = new SendOTPDTO(value.email, value.otpType);
 
       // Send OTP
-      const result = await authService.sendOTP(
-        dto.email,
-        dto.otpType,
-        { ipAddress }
-      );
+      const result = await authService.sendOTP(dto.email, dto.otpType, {
+        ipAddress,
+      });
 
       return ResponseUtil.success(
         res,
@@ -97,9 +98,8 @@ class AuthController {
       const registrationData = req.body;
 
       // Validate request
-      const { error, value } = authValidator.validateCompleteRegistration(
-        registrationData
-      );
+      const { error, value } =
+        authValidator.validateCompleteRegistration(registrationData);
 
       if (error) {
         return ResponseUtil.badRequest(res, error.details[0].message);
@@ -139,99 +139,99 @@ class AuthController {
     }
   }
 
-  /**
-   * @desc    Register a new user
-   * @route   POST /api/auth/signup
-   * @access  Public
-   */
-  async signup(req, res, next) {
-    try {
-      const { email, password, firstName, lastName, businessName } = req.body;
+  // /**
+  //  * @desc    Register a new user
+  //  * @route   POST /api/auth/signup
+  //  * @access  Public
+  //  */
+  // async signup(req, res, next) {
+  //   try {
+  //     const { email, password, firstName, lastName, businessName } = req.body;
 
-      // TODO: Add validation
-      if (!email || !password) {
-        return ResponseUtil.badRequest(res, "Email and password are required");
-      }
+  //     // TODO: Add validation
+  //     if (!email || !password) {
+  //       return ResponseUtil.badRequest(res, "Email and password are required");
+  //     }
 
-      // TODO: Implement signup logic
-      // 1. Check if user already exists
-      // 2. Hash password
-      // 3. Create user in database
-      // 4. Generate JWT token
-      // 5. Return user data and token
+  //     // TODO: Implement signup logic
+  //     // 1. Check if user already exists
+  //     // 2. Hash password
+  //     // 3. Create user in database
+  //     // 4. Generate JWT token
+  //     // 5. Return user data and token
 
-      const userData = {
-        id: 1,
-        email,
-        firstName,
-        lastName,
-        businessName,
-      };
+  //     const userData = {
+  //       id: 1,
+  //       email,
+  //       firstName,
+  //       lastName,
+  //       businessName,
+  //     };
 
-      return ResponseUtil.created(
-        res,
-        userData,
-        "User registered successfully"
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
+  //     return ResponseUtil.created(
+  //       res,
+  //       userData,
+  //       "User registered successfully"
+  //     );
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 
-  /**
-   * @desc    Login user
-   * @route   POST /api/auth/login
-   * @access  Public
-   */
-  async login(req, res, next) {
-    try {
-      const { email, password } = req.body;
+  // /**
+  //  * @desc    Login user
+  //  * @route   POST /api/auth/login
+  //  * @access  Public
+  //  */
+  // async login(req, res, next) {
+  //   try {
+  //     const { email, password } = req.body;
 
-      // TODO: Implement login logic
+  //     // TODO: Implement login logic
 
-      return ResponseUtil.success(
-        res,
-        null,
-        "Login endpoint - To be implemented"
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
+  //     return ResponseUtil.success(
+  //       res,
+  //       null,
+  //       "Login endpoint - To be implemented"
+  //     );
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 
-  /**
-   * @desc    Get current user
-   * @route   GET /api/auth/me
-   * @access  Private
-   */
-  async getCurrentUser(req, res, next) {
-    try {
-      // TODO: Implement get current user logic
+  // /**
+  //  * @desc    Get current user
+  //  * @route   GET /api/auth/me
+  //  * @access  Private
+  //  */
+  // async getCurrentUser(req, res, next) {
+  //   try {
+  //     // TODO: Implement get current user logic
 
-      return ResponseUtil.success(
-        res,
-        null,
-        "Get current user - To be implemented"
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
+  //     return ResponseUtil.success(
+  //       res,
+  //       null,
+  //       "Get current user - To be implemented"
+  //     );
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 
-  /**
-   * @desc    Logout user
-   * @route   POST /api/auth/logout
-   * @access  Private
-   */
-  async logout(req, res, next) {
-    try {
-      // TODO: Implement logout logic
+  // /**
+  //  * @desc    Logout user
+  //  * @route   POST /api/auth/logout
+  //  * @access  Private
+  //  */
+  // async logout(req, res, next) {
+  //   try {
+  //     // TODO: Implement logout logic
 
-      return ResponseUtil.success(res, null, "Logged out successfully");
-    } catch (error) {
-      next(error);
-    }
-  }
+  //     return ResponseUtil.success(res, null, "Logged out successfully");
+  //   } catch (error) {
+  //     next(error);
+  //   }
+  // }
 }
 
 module.exports = new AuthController();

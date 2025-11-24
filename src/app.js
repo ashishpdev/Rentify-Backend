@@ -6,11 +6,16 @@ const morgan = require("morgan");
 const routes = require("./routes");
 const errorHandler = require("./middlewares/error-handler.middleware");
 const config = require("./config/env.config");
+const setupSwagger = require("./config/swagger.config");
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// Security middleware (with Swagger UI exception)
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // Disable CSP for Swagger UI
+  })
+);
 
 // CORS configuration
 app.use(
@@ -29,6 +34,9 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 if (config.nodeEnv === "development") {
   app.use(morgan("dev"));
 }
+
+// API Documentation
+setupSwagger(app);
 
 // API routes
 app.use("/api", routes);
