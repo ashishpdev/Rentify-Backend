@@ -1,0 +1,151 @@
+{
+  "info": {
+    "name": "Rentify",
+    "_postman_id": "generated-v2",
+    "description": "Auto-generated from files under /Users/ayushkanani/Desktop/web_D/Rentify-Backend/src",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "modules/auth",
+      "item": [
+        {
+          "name": "POST /api/modules/auth/send-otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/modules/auth/send-otp",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "modules",
+                "auth",
+                "send-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/modules/auth/verify-otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern-example\",\n  \"otpType\": \"REGISTER\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/modules/auth/verify-otp",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "modules",
+                "auth",
+                "verify-otp"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST /api/modules/auth/complete-registration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"website\": \"string\",\n  \"contactPerson\": \"string\",\n  \"contactNumber\": \"pattern-example\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"India\",\n  \"pincode\": \"pattern-example\",\n  \"subscriptionType\": \"TRIAL\",\n  \"billingCycle\": \"MONTHLY\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern-example\",\n  \"ownerRole\": \"OWNER\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/modules/auth/complete-registration",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "modules",
+                "auth",
+                "complete-registration"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "routes",
+      "item": [
+        {
+          "name": "GET /api/routes/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/routes/health",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "routes",
+                "health"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET /api/routes/",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "http://localhost:3000/api/routes/",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "routes",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "USE /api/routes/auth",
+          "request": {
+            "method": "USE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/routes/auth",
+              "host": "localhost:3000",
+              "path": [
+                "api",
+                "routes",
+                "auth"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
