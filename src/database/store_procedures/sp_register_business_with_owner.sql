@@ -40,15 +40,23 @@ BEGIN
     SET p_owner_id = NULL;
     SET p_error_message = NULL;
     
-    -- Get REGISTER OTP type ID
-    SELECT master_otp_type_id
-      INTO v_register_otp_type_id
-      FROM master_otp_type
-     WHERE code = 'REGISTER' AND is_deleted = 0
-     LIMIT 1;
-    IF v_register_otp_type_id IS NULL THEN
-        SET p_error_message = 'OTP type configuration error';
+    -- Validate that business email and owner email are different
+    IF p_business_email = p_owner_email THEN
+        SET p_error_message = 'Business email and owner email must be different';
         SET v_ok = 0;
+    END IF;
+    
+    -- Get REGISTER OTP type ID
+    IF v_ok = 1 THEN
+        SELECT master_otp_type_id
+          INTO v_register_otp_type_id
+          FROM master_otp_type
+         WHERE code = 'REGISTER' AND is_deleted = 0
+         LIMIT 1;
+        IF v_register_otp_type_id IS NULL THEN
+            SET p_error_message = 'OTP type configuration error';
+            SET v_ok = 0;
+        END IF;
     END IF;
     
     -- Get VERIFIED status ID

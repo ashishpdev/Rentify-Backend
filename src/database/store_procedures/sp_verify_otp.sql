@@ -70,6 +70,7 @@ BEGIN
             UPDATE master_otp
                SET verified_at = NOW(),
                    otp_status_id = v_verified_status_id,
+                   attempts = attempts + 1,
                    updated_at = NOW()
              WHERE id = v_otp_record_id;
             SET p_verified = TRUE;

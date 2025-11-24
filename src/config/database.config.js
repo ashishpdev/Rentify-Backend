@@ -1,5 +1,13 @@
-// Database connections configuration for master_db
+// src/config/database.config.js
 const config = require("./env.config");
+
+const defaultPoolOptions = {
+  connectionLimit: config.database.connectionLimit || 10,
+  waitForConnections: true,
+  queueLimit: config.database.queueLimit || 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
+};
 
 const databaseConfig = {
   master: {
@@ -8,11 +16,7 @@ const databaseConfig = {
     user: config.database.user,
     password: config.database.password,
     database: config.database.database,
-    connectionLimit: config.database.connectionLimit,
-    waitForConnections: config.database.waitForConnections,
-    queueLimit: config.database.queueLimit,
-    enableKeepAlive: true,
-    keepAliveInitialDelay: 0,
+    ...defaultPoolOptions,
   },
 };
 

@@ -1,7 +1,7 @@
-// Authentication controller
+// src/modules/auth/auth.controller.js
 const ResponseUtil = require("../../utils/response.util");
 const authService = require("./auth.service");
-const authValidator = require("./auth.validator");
+const { AuthValidator } = require("./auth.validator");
 const {
   SendOTPDTO,
   VerifyOTPDTO,
@@ -9,70 +9,33 @@ const {
 } = require("./auth.dto");
 
 class AuthController {
-  /**
-   * @desc    Send OTP to email
-   * @route   POST /api/auth/send-otp
-   * @access  Public
-   */
   async sendOTP(req, res, next) {
     try {
-      const { email, otpType } = req.body;
+      const { error, value } = AuthValidator.validateSendOTP(req.body);
+      if (error) return ResponseUtil.badRequest(res, error.details[0].message);
 
-      // Validate request
-      const { error, value } = authValidator.validateSendOTP({
-        email,
-        otpType,
-      });
-
-      if (error) {
-        return ResponseUtil.badRequest(res, error.details[0].message);
-      }
-
-      // Get user IP
-      const ipAddress = req.ip || req.connection.remoteAddress;
-
-      // Create DTO
+      const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
       const dto = new SendOTPDTO(value.email, value.otpType);
 
-      // Send OTP
       const result = await authService.sendOTP(dto.email, dto.otpType, {
         ipAddress,
       });
 
       return ResponseUtil.success(
         res,
-        {
-          otpId: result.otpId,
-          expiresAt: result.expiresAt,
-        },
+        { otpId: result.otpId, expiresAt: result.expiresAt },
         result.message
       );
-    } catch (error) {
-      next(error);
+    } catch (err) {
+      next(err);
     }
   }
 
-  /**
-   * @desc    Verify OTP code
-   * @route   POST /api/auth/verify-otp
-   * @access  Public
-   */
   async verifyOTP(req, res, next) {
     try {
-      const { email, otpCode, otpType } = req.body;
+      const { error, value } = AuthValidator.validateVerifyOTP(req.body);
+      if (error) return ResponseUtil.badRequest(res, error.details[0].message);
 
-      // Validate request
-      const { error, value } = authValidator.validateVerifyOTP({
-        email,
-        otpCode,
-        otpType,
-      });
-
-      if (error) {
-        return ResponseUtil.badRequest(res, error.details[0].message);
-      }
-
-      // Verify OTP
       await authService.verifyOTP(value.email, value.otpCode, value.otpType);
 
       return ResponseUtil.success(
@@ -80,40 +43,29 @@ class AuthController {
         { email: value.email, verified: true },
         "OTP verified successfully"
       );
-    } catch (error) {
-      if (error.message.includes("Invalid or expired OTP")) {
-        return ResponseUtil.unauthorized(res, error.message);
+    } catch (err) {
+      if (err.message && err.message.includes("Invalid or expired OTP")) {
+        return ResponseUtil.unauthorized(res, err.message);
       }
-      next(error);
+      next(err);
     }
   }
 
-  /**
-   * @desc    Complete registration with verified OTPs
-   * @route   POST /api/auth/complete-registration
-   * @access  Public
-   */
   async completeRegistration(req, res, next) {
     try {
-      const registrationData = req.body;
+      const { error, value } = AuthValidator.validateCompleteRegistration(
+        req.body
+      );
+      if (error) return ResponseUtil.badRequest(res, error.details[0].message);
 
-      // Validate request
-      const { error, value } =
-        authValidator.validateCompleteRegistration(registrationData);
-
-      if (error) {
-        return ResponseUtil.badRequest(res, error.details[0].message);
-      }
-
-      // Create DTO
+      // Create DTO only to keep shapes consistent (service expects plain object)
       const dto = new CompleteRegistrationDTO(value);
 
-      // Complete registration
-      const result = await authService.completeRegistration(value);
+      const result = await authService.completeRegistration(dto);
 
-      // Ensure we have all required IDs before sending success response
+      // service already validates ids, but keep check
       if (!result.businessId || !result.branchId || !result.ownerId) {
-        return ResponseUtil.internalServerError(
+        return ResponseUtil.serverError(
           res,
           "Registration failed: Missing required IDs in response"
         );
@@ -128,110 +80,17 @@ class AuthController {
         },
         result.message
       );
-    } catch (error) {
+    } catch (err) {
       if (
-        error.message.includes("already registered") ||
-        error.message.includes("already exists")
+        err.message &&
+        (err.message.includes("already registered") ||
+          err.message.includes("already exists"))
       ) {
-        return ResponseUtil.conflict(res, error.message);
+        return ResponseUtil.conflict(res, err.message);
       }
-      next(error);
+      next(err);
     }
   }
-
-  // /**
-  //  * @desc    Register a new user
-  //  * @route   POST /api/auth/signup
-  //  * @access  Public
-  //  */
-  // async signup(req, res, next) {
-  //   try {
-  //     const { email, password, firstName, lastName, businessName } = req.body;
-
-  //     // TODO: Add validation
-  //     if (!email || !password) {
-  //       return ResponseUtil.badRequest(res, "Email and password are required");
-  //     }
-
-  //     // TODO: Implement signup logic
-  //     // 1. Check if user already exists
-  //     // 2. Hash password
-  //     // 3. Create user in database
-  //     // 4. Generate JWT token
-  //     // 5. Return user data and token
-
-  //     const userData = {
-  //       id: 1,
-  //       email,
-  //       firstName,
-  //       lastName,
-  //       businessName,
-  //     };
-
-  //     return ResponseUtil.created(
-  //       res,
-  //       userData,
-  //       "User registered successfully"
-  //     );
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // }
-
-  // /**
-  //  * @desc    Login user
-  //  * @route   POST /api/auth/login
-  //  * @access  Public
-  //  */
-  // async login(req, res, next) {
-  //   try {
-  //     const { email, password } = req.body;
-
-  //     // TODO: Implement login logic
-
-  //     return ResponseUtil.success(
-  //       res,
-  //       null,
-  //       "Login endpoint - To be implemented"
-  //     );
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // }
-
-  // /**
-  //  * @desc    Get current user
-  //  * @route   GET /api/auth/me
-  //  * @access  Private
-  //  */
-  // async getCurrentUser(req, res, next) {
-  //   try {
-  //     // TODO: Implement get current user logic
-
-  //     return ResponseUtil.success(
-  //       res,
-  //       null,
-  //       "Get current user - To be implemented"
-  //     );
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // }
-
-  // /**
-  //  * @desc    Logout user
-  //  * @route   POST /api/auth/logout
-  //  * @access  Private
-  //  */
-  // async logout(req, res, next) {
-  //   try {
-  //     // TODO: Implement logout logic
-
-  //     return ResponseUtil.success(res, null, "Logged out successfully");
-  //   } catch (error) {
-  //     next(error);
-  //   }
-  // }
 }
 
 module.exports = new AuthController();

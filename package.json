@@ -15,10 +15,10 @@
   "type": "commonjs",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "docs": "node scripts/generate-swagger.js",
+    "dev": "npm run docs && nodemon src/server.js",
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "swagger:generate": "node scripts/generate-swagger.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "dependencies": {
     "cors": "^2.8.5",
@@ -27,6 +27,7 @@
     "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "joi": "^18.0.2",
+    "joi-to-swagger": "^6.2.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.19.0",
     "morgan": "^1.10.1",

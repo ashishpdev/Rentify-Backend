@@ -1,16 +1,23 @@
-// Environment variables handler
+// src/config/env.config.js
 const dotenv = require("dotenv");
 const path = require("path");
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, "../../.env") });
 
-const config = {
-  // Server Configuration
-  nodeEnv: process.env.NODE_ENV || "development",
-  port: parseInt(process.env.PORT, 10) || 3000,
+const NODE_ENV = process.env.NODE_ENV || "development";
 
-  // Database Configuration
+const parseIntOr = (value, fallback) => {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? fallback : n;
+};
+
+const config = {
+  nodeEnv: NODE_ENV,
+  isProd: NODE_ENV === "production",
+
+  port: parseIntOr(process.env.PORT, 3000),
+
   database: {
     host: process.env.DB_HOST,
     port: parseInt(process.env.DB_PORT, 10) || 3306,
@@ -19,35 +26,43 @@ const config = {
     database: process.env.DB_NAME,
     connectionLimit: 10,
     waitForConnections: true,
-    queueLimit: 0,
+    queueLimit: parseIntOr(process.env.DB_QUEUE_LIMIT, 0),
   },
 
-  // JWT Configuration
   jwt: {
-    secret: process.env.JWT_SECRET || "your_secret_key_here",
+    secret: process.env.JWT_SECRET || "please-change-me-in-prod",
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   },
 
-  // Email Configuration
   email: {
     host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT, 10) || 587,
+    port: parseIntOr(process.env.EMAIL_PORT, 587),
     user: process.env.EMAIL_USER,
     password: process.env.EMAIL_PASSWORD,
+    provider: process.env.EMAIL_PROVIDER || "smtp",
   },
 
-  // Logging
-  logLevel: process.env.LOG_LEVEL || "info",
+  logLevel:
+    process.env.LOG_LEVEL || (NODE_ENV === "development" ? "debug" : "info"),
 };
 
-// Validate required environment variables
-const requiredEnvVars = ["DB_HOST", "DB_USER", "DB_PASSWORD", "DB_NAME"];
-const missingEnvVars = requiredEnvVars.filter((envVar) => !process.env[envVar]);
-
-if (missingEnvVars.length > 0) {
-  throw new Error(
-    `Missing required environment variables: ${missingEnvVars.join(", ")}`
-  );
+// In production, fail fast if critical env vars are missing
+if (config.isProd) {
+  const required = [
+    "DB_HOST",
+    "DB_USER",
+    "DB_PASSWORD",
+    "DB_NAME",
+    "JWT_SECRET",
+    "EMAIL_USER",
+    "EMAIL_PASSWORD",
+  ];
+  const missing = required.filter((k) => !process.env[k]);
+  if (missing.length) {
+    throw new Error(
+      `Missing required env vars in production: ${missing.join(", ")}`
+    );
+  }
 }
 
 module.exports = config;
