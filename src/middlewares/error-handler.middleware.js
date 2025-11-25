@@ -1,8 +1,13 @@
 // Error handler middleware
 const ResponseUtil = require("../utils/response.util");
+const logger = require("../config/logger.config");
 
 const errorHandler = (err, req, res, next) => {
-  console.error("Error:", err);
+  // Log the error with full context
+  logger.logError(err, req, {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+  });
 
   // Mongoose validation error
   if (err.name === "ValidationError") {

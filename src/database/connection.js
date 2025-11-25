@@ -1,6 +1,7 @@
 // src/database/connection.js
 const mysql = require("mysql2/promise");
 const databaseConfig = require("../config/database.config");
+const logger = require("../config/logger.config");
 
 class DatabaseConnection {
   constructor() {
@@ -27,6 +28,11 @@ class DatabaseConnection {
 
     try {
       this._initializing = true;
+      logger.info("Initializing master database connection pool", {
+        host: databaseConfig.master.host,
+        database: databaseConfig.master.database,
+      });
+
       this.masterPool = mysql.createPool(databaseConfig.master);
 
       // quick connectivity test
@@ -34,9 +40,26 @@ class DatabaseConnection {
       await conn.ping();
       conn.release();
 
+      logger.info("✅ Master DB pool created and connection tested", {
+        host: databaseConfig.master.host,
+        database: databaseConfig.master.database,
+      });
+
       console.log("✅ Master DB pool created and connection tested");
       return this.masterPool;
     } catch (err) {
+      logger.error("❌ Failed to initialize master DB pool", {
+        error: {
+          message: err.message,
+          code: err.code,
+          errno: err.errno,
+        },
+        config: {
+          host: databaseConfig.master.host,
+          database: databaseConfig.master.database,
+        },
+      });
+
       console.error(
         "❌ Failed to initialize master DB pool:",
         err.message || err
@@ -67,9 +90,16 @@ class DatabaseConnection {
     if (!this.masterPool) return;
     try {
       await this.masterPool.end();
+      logger.info("Master database pool closed");
       console.log("Master database pool closed");
       this.masterPool = null;
     } catch (err) {
+      logger.error("Error closing master DB pool", {
+        error: {
+          message: err.message,
+          code: err.code,
+        },
+      });
       console.error("Error closing master DB pool:", err.message || err);
       throw err;
     }

@@ -2,11 +2,17 @@
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
-const morgan = require("morgan");
 const routes = require("./routes");
 const errorHandler = require("./middlewares/error-handler.middleware");
 const config = require("./config/env.config");
-const setupSwagger = require("./config/swagger.config");
+// const setupSwagger = require("./config/swagger.config");
+const logger = require("./config/logger.config");
+const {
+  httpLogger,
+  requestLogger,
+  errorLogger,
+  performanceLogger,
+} = require("./middlewares/logger.middleware");
 
 const app = express();
 
@@ -30,16 +36,19 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 
-// HTTP request logger
-if (config.nodeEnv === "development") {
-  app.use(morgan("dev"));
-}
+// Logging middleware
+app.use(httpLogger); // HTTP request/response logger
+app.use(requestLogger); // Detailed request logger with context
+app.use(performanceLogger); // Performance tracking
 
 // API Documentation
-setupSwagger(app);
+// setupSwagger(app);
 
 // API routes
 app.use("/api", routes);
+
+// Error logging middleware (before error handler)
+app.use(errorLogger);
 
 // Error handling middleware (must be last)
 app.use(errorHandler);
