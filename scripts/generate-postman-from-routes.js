@@ -573,17 +573,38 @@ async function main() {
       let moduleName = path.relative(SRC_DIR, path.dirname(r.file));
       if (!moduleName || moduleName.startsWith(".."))
         moduleName = path.basename(path.dirname(r.file)) || "root";
-      // default path join
-      let finalPath = path.posix.join(API_PREFIX, r.routePath || "");
-      // if top-level index mounts this module explicitly, try to detect (best effort)
-      // We'll keep it simple: if route file is inside "auth" folder, prefix with /auth
-      if (
-        moduleName &&
-        moduleName !== "." &&
-        !finalPath.includes("/" + moduleName)
-      ) {
-        // only add if routePath doesn't already contain moduleName segment
-        finalPath = path.posix.join(API_PREFIX, moduleName, r.routePath || "");
+
+      // Special handling for main routes/index.js - don't add extra path segment
+      const isMainRouteIndex = r.file.includes(
+        path.join("src", "routes", "index.js")
+      );
+
+      // For module routes, extract just the module name (e.g., "auth" from "modules/auth")
+      let routePrefix = "";
+      if (moduleName.includes("modules/")) {
+        // Extract the actual module name after "modules/"
+        const parts = moduleName.split(path.sep);
+        const moduleIndex = parts.indexOf("modules");
+        if (moduleIndex !== -1 && parts.length > moduleIndex + 1) {
+          routePrefix = parts[moduleIndex + 1];
+          moduleName = routePrefix; // Use just the module name for grouping
+        }
+      } else if (isMainRouteIndex) {
+        // Main route index shouldn't add any prefix
+        routePrefix = "";
+        moduleName = "root";
+      } else if (moduleName === "routes") {
+        // Routes folder shouldn't add prefix
+        routePrefix = "";
+        moduleName = "root";
+      }
+
+      // Build final path
+      let finalPath;
+      if (routePrefix) {
+        finalPath = path.posix.join(API_PREFIX, routePrefix, r.routePath || "");
+      } else {
+        finalPath = path.posix.join(API_PREFIX, r.routePath || "");
       }
 
       // find handler controller file if handler like authController.sendOTP

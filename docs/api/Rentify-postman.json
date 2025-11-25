@@ -7,10 +7,10 @@
   },
   "item": [
     {
-      "name": "modules/auth",
+      "name": "auth",
       "item": [
         {
-          "name": "POST /api/modules/auth/send-otp",
+          "name": "POST /api/auth/send-otp",
           "request": {
             "method": "POST",
             "header": [
@@ -24,19 +24,14 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}"
             },
             "url": {
-              "raw": "http://localhost:3000/api/modules/auth/send-otp",
+              "raw": "http://localhost:3000/api/auth/send-otp",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "modules",
-                "auth",
-                "send-otp"
-              ]
+              "path": ["api", "auth", "send-otp"]
             }
           }
         },
         {
-          "name": "POST /api/modules/auth/verify-otp",
+          "name": "POST /api/auth/verify-otp",
           "request": {
             "method": "POST",
             "header": [
@@ -50,19 +45,14 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern-example\",\n  \"otpType\": \"REGISTER\"\n}"
             },
             "url": {
-              "raw": "http://localhost:3000/api/modules/auth/verify-otp",
+              "raw": "http://localhost:3000/api/auth/verify-otp",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "modules",
-                "auth",
-                "verify-otp"
-              ]
+              "path": ["api", "auth", "verify-otp"]
             }
           }
         },
         {
-          "name": "POST /api/modules/auth/complete-registration",
+          "name": "POST /api/auth/complete-registration",
           "request": {
             "method": "POST",
             "header": [
@@ -76,56 +66,43 @@
               "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"website\": \"string\",\n  \"contactPerson\": \"string\",\n  \"contactNumber\": \"pattern-example\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"India\",\n  \"pincode\": \"pattern-example\",\n  \"subscriptionType\": \"TRIAL\",\n  \"billingCycle\": \"MONTHLY\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern-example\",\n  \"ownerRole\": \"OWNER\"\n}"
             },
             "url": {
-              "raw": "http://localhost:3000/api/modules/auth/complete-registration",
+              "raw": "http://localhost:3000/api/auth/complete-registration",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "modules",
-                "auth",
-                "complete-registration"
-              ]
+              "path": ["api", "auth", "complete-registration"]
             }
           }
         }
       ]
     },
     {
-      "name": "routes",
+      "name": "root",
       "item": [
         {
-          "name": "GET /api/routes/health",
+          "name": "GET /api/health",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://localhost:3000/api/routes/health",
+              "raw": "http://localhost:3000/api/health",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "routes",
-                "health"
-              ]
+              "path": ["api", "health"]
             }
           }
         },
         {
-          "name": "GET /api/routes/",
+          "name": "GET /api/",
           "request": {
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "http://localhost:3000/api/routes/",
+              "raw": "http://localhost:3000/api/",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "routes",
-                ""
-              ]
+              "path": ["api", ""]
             }
           }
         },
         {
-          "name": "USE /api/routes/auth",
+          "name": "USE /api/auth",
           "request": {
             "method": "USE",
             "header": [
@@ -135,13 +112,9 @@
               }
             ],
             "url": {
-              "raw": "http://localhost:3000/api/routes/auth",
+              "raw": "http://localhost:3000/api/auth",
               "host": "localhost:3000",
-              "path": [
-                "api",
-                "routes",
-                "auth"
-              ]
+              "path": ["api", "auth"]
             }
           }
         }
