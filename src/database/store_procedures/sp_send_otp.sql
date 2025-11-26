@@ -19,36 +19,39 @@ BEGIN
     SET p_expires_at = NULL;
     SET p_error_message = NULL;
     
-    -- Check if email already exists in master_business
-    SELECT COUNT(*) INTO v_business_exists
-      FROM master_business
-     WHERE email = p_email AND is_deleted = 0;
-    
-    IF v_business_exists > 0 THEN
-        SET p_error_message = 'Email already registered';
+    -- Get OTP type ID first (needed to check if REGISTER type)
+    SELECT master_otp_type_id
+      INTO v_otp_type_id
+      FROM master_otp_type
+     WHERE code = p_otp_type_code AND is_deleted = 0
+     LIMIT 1;
+    IF v_otp_type_id IS NULL THEN
+        SET p_error_message = 'Invalid OTP type';
         SET v_ok = 0;
     END IF;
     
-    -- Check if email already exists in master_user (with or without is_owner flag)
-    SELECT COUNT(*) INTO v_owner_exists
-      FROM master_user
-     WHERE email = p_email AND is_deleted = 0;
-    
-    IF v_owner_exists > 0 THEN
-        SET p_error_message = 'Email already registered';
-        SET v_ok = 0;
-    END IF;
-    
-    -- Get OTP type ID
-    IF v_ok = 1 THEN
-        SELECT master_otp_type_id
-          INTO v_otp_type_id
-          FROM master_otp_type
-         WHERE code = p_otp_type_code AND is_deleted = 0
-         LIMIT 1;
-        IF v_otp_type_id IS NULL THEN
-            SET p_error_message = 'Invalid OTP type';
+    -- Only check for duplicate email if OTP type is REGISTER
+    IF v_ok = 1 AND p_otp_type_code = 'REGISTER' THEN
+        -- Check if email already exists in master_business
+        SELECT COUNT(*) INTO v_business_exists
+          FROM master_business
+         WHERE email = p_email AND is_deleted = 0;
+        
+        IF v_business_exists > 0 THEN
+            SET p_error_message = 'Email already registered';
             SET v_ok = 0;
+        END IF;
+        
+        -- Check if email already exists in master_user (with or without is_owner flag)
+        IF v_ok = 1 THEN
+            SELECT COUNT(*) INTO v_owner_exists
+              FROM master_user
+             WHERE email = p_email AND is_deleted = 0;
+            
+            IF v_owner_exists > 0 THEN
+                SET p_error_message = 'Email already registered';
+                SET v_ok = 0;
+            END IF;
         END IF;
     END IF;
     

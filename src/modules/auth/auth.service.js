@@ -123,6 +123,45 @@ class AuthService {
       throw new Error(`Failed to complete registration: ${err.message}`);
     }
   }
+
+  /**
+   * Login user with email and OTP verification
+   * Verifies the OTP and returns user details if successful
+   * @param {string} email - User email
+   * @param {string} otpCode - OTP code (6 digits)
+   * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner
+   */
+  async loginWithOTP(email, otpCode) {
+    try {
+      // Step 1: Verify OTP code
+      const hash = this.hashOTP(otpCode);
+      const verifyResult = await authRepository.verifyOTP(email, hash);
+
+      if (!verifyResult || !verifyResult.verified) {
+        throw new Error("Invalid or expired OTP");
+      }
+
+      // Step 2: Fetch user details from database
+      const user = await authRepository.loginWithOTP(email);
+
+      if (!user || !user.user_id) {
+        throw new Error("Failed to retrieve user information");
+      }
+
+      return {
+        user_id: user.user_id,
+        business_id: user.business_id,
+        branch_id: user.branch_id,
+        role_id: user.role_id,
+        is_owner: user.is_owner,
+        user_name: user.user_name,
+        contact_number: user.contact_number,
+        business_name: user.business_name,
+      };
+    } catch (err) {
+      throw new Error(`Failed to login: ${err.message}`);
+    }
+  }
 }
 
 module.exports = new AuthService();

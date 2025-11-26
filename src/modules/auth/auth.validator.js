@@ -28,6 +28,18 @@ const verifyOTPSchema = Joi.object({
   }),
 });
 
+const loginOTPSchema = Joi.object({
+  email: Joi.string().email().required().messages({
+    "string.email": "Please provide a valid email address",
+    "any.required": "Email is required",
+  }),
+  otpCode: Joi.string().length(6).pattern(/^\d+$/).required().messages({
+    "string.length": "OTP must be 6 digits",
+    "string.pattern.base": "OTP must contain only numbers",
+    "any.required": "OTP code is required",
+  }),
+});
+
 const completeRegistrationSchema = Joi.object({
   businessName: Joi.string().min(2).max(255).required().messages({
     "string.min": "Business name must be at least 2 characters",
@@ -63,6 +75,9 @@ class AuthValidator {
   static validateVerifyOTP(data) {
     return verifyOTPSchema.validate(data);
   }
+  static validateLoginOTP(data) {
+    return loginOTPSchema.validate(data);
+  }
   static validateCompleteRegistration(data) {
     return completeRegistrationSchema.validate(data);
   }
@@ -74,6 +89,7 @@ module.exports = {
   schemas: {
     sendOTPSchema,
     verifyOTPSchema,
+    loginOTPSchema,
     completeRegistrationSchema,
   },
 };

@@ -7,6 +7,7 @@ const router = express.Router();
 // Public routes for OTP and registration flow
 router.post("/send-otp", authController.sendOTP);
 router.post("/verify-otp", authController.verifyOTP);
+router.post("/login-with-otp", authController.loginWithOTP);
 router.post("/complete-registration", authController.completeRegistration);
 
 // Legacy routes

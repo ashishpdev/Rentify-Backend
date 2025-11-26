@@ -397,10 +397,29 @@ function findSchemaForMethod(schemas, methodName) {
 
   const methodLower = methodName.toLowerCase();
   
-  // Direct match: sendOTPSchema -> sendOTP
+  // Try direct match first: sendOTPSchema -> sendOTP, loginOTPSchema -> loginWithOTP, etc.
   for (const [schemaName, schema] of Object.entries(schemas)) {
-    const schemaLower = schemaName.toLowerCase();
-    if (schemaLower.includes(methodLower) || methodLower.includes(schemaLower.replace("schema", ""))) {
+    const schemaNameWithoutSuffix = schemaName.replace(/Schema$/, "");
+    const schemaLower = schemaNameWithoutSuffix.toLowerCase();
+    
+    // Exact match after removing 'Schema' suffix
+    if (schemaLower === methodLower) {
+      return schema;
+    }
+    
+    // Substring match (either way)
+    if (schemaLower.includes(methodLower) || methodLower.includes(schemaLower)) {
+      return schema;
+    }
+    
+    // Handle word boundary matches (e.g., loginWithOTP matches loginOTP when both are lowercased)
+    // Remove common words/separators and compare
+    const methodNormalized = methodLower.replace(/with|for|by/g, "");
+    const schemaNormalized = schemaLower.replace(/with|for|by/g, "");
+    
+    if (methodNormalized === schemaNormalized || 
+        schemaNormalized.includes(methodNormalized) || 
+        methodNormalized.includes(schemaNormalized)) {
       return schema;
     }
   }
@@ -437,6 +456,7 @@ async function buildEndpoints() {
 
       // Find validator and extract schemas
       let requestBody = null;
+      let schemaFound = false;
       
       if (["POST", "PUT", "PATCH"].includes(route.method)) {
         if (route.controllerName && route.imports[route.controllerName]) {
@@ -451,11 +471,15 @@ async function buildEndpoints() {
             if (validatorFile) {
               const schemas = extractJoiSchemas(validatorFile);
               requestBody = findSchemaForMethod(schemas, route.methodName);
+              
+              if (requestBody) {
+                schemaFound = true;
+              }
             }
           }
         }
 
-        // Fallback: empty object for POST/PUT/PATCH
+        // Fallback: empty object for POST/PUT/PATCH if no schema found
         if (!requestBody) {
           requestBody = {};
         }
@@ -467,6 +491,7 @@ async function buildEndpoints() {
         path: fullPath,
         handler: route.handler,
         body: requestBody,
+        schemaFound: schemaFound,
       });
     }
   }
@@ -576,7 +601,9 @@ async function main() {
 
     console.log(`✅ Found ${endpoints.length} endpoints:`);
     endpoints.forEach((ep) => {
-      console.log(`   ${ep.method.padEnd(6)} ${ep.path}`);
+      const hasBody = ep.body && Object.keys(ep.body).length > 0;
+      const bodyStatus = hasBody ? "✓" : "×";
+      console.log(`   [${bodyStatus}] ${ep.method.padEnd(6)} ${ep.path}`);
     });
 
     const collection = generatePostmanCollection(endpoints);
@@ -590,6 +617,9 @@ async function main() {
     console.log(`\n📊 Summary:`);
     console.log(`   Total Endpoints: ${endpoints.length}`);
     console.log(`   Modules: ${collection.item.length}`);
+    
+    const withBody = endpoints.filter(ep => ep.body && Object.keys(ep.body).length > 0).length;
+    console.log(`   Endpoints with body: ${withBody}/${endpoints.length}`);
     
     collection.item.forEach((folder) => {
       console.log(`   - ${folder.name}: ${folder.item.length} endpoints`);

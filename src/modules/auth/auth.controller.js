@@ -191,6 +191,109 @@ class AuthController {
       next(err);
     }
   }
+
+  /**
+   * Login user with email and OTP
+   * This is the login endpoint that verifies OTP and returns user credentials
+   * @param {Object} req - Express request object with email and otpCode in body
+   * @param {Object} res - Express response object
+   * @param {Function} next - Express next middleware function
+   */
+  async loginWithOTP(req, res, next) {
+    const startTime = Date.now();
+
+    try {
+      logger.info("Login with OTP request received", {
+        email: req.body.email,
+        ip: req.ip,
+      });
+
+      // Validate input
+      const { error, value } = AuthValidator.validateLoginOTP(req.body);
+      if (error) {
+        logger.warn("Login validation failed", {
+          email: req.body.email,
+          error: error.details[0].message,
+        });
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Verify OTP and get user details in one call
+      const user = await authService.loginWithOTP(value.email, value.otpCode);
+
+      if (
+        !user ||
+        !user.user_id ||
+        !user.business_id ||
+        user.role_id === undefined
+      ) {
+        logger.warn("Login failed - invalid user data", {
+          email: value.email,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "Invalid login credentials");
+      }
+
+      const duration = Date.now() - startTime;
+      logger.logPerformance("loginWithOTP", duration, {
+        email: value.email,
+        userId: user.user_id,
+        success: true,
+      });
+
+      logger.logAuth("LOGIN_SUCCESS", {
+        email: value.email,
+        userId: user.user_id,
+        businessId: user.business_id,
+        isOwner: user.is_owner,
+        ip: req.ip,
+      });
+
+      return ResponseUtil.success(
+        res,
+        {
+          user_id: user.user_id,
+          business_id: user.business_id,
+          branch_id: user.branch_id,
+          role_id: user.role_id,
+          is_owner: user.is_owner,
+          user_name: user.user_name,
+          contact_number: user.contact_number,
+          business_name: user.business_name,
+        },
+        "Login successful"
+      );
+    } catch (err) {
+      logger.logAuth("LOGIN_FAILED", {
+        email: req.body.email,
+        error: err.message,
+        ip: req.ip,
+      });
+
+      // Determine appropriate error response
+      if (err.message && err.message.includes("Invalid or expired OTP")) {
+        logger.warn("Login failed - invalid OTP", {
+          email: req.body.email,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "Invalid or expired OTP");
+      }
+
+      if (err.message && err.message.includes("User not found")) {
+        logger.warn("Login failed - user not found", {
+          email: req.body.email,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "User not found or inactive");
+      }
+
+      logger.logError(err, req, {
+        operation: "loginWithOTP",
+        email: req.body.email,
+      });
+      next(err);
+    }
+  }
 }
 
 module.exports = new AuthController();
