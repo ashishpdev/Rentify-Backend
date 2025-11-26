@@ -181,12 +181,12 @@ BEGIN
         );
         SET p_branch_id = LAST_INSERT_ID();
         
-        -- Insert owner
-        INSERT INTO master_owner (
-            business_id, role_id, name, email, contact_number, created_by
+        -- Insert owner as a master_user with is_owner flag set to TRUE
+        INSERT INTO master_user (
+            business_id, branch_id, role_id, name, email, contact_number, is_owner, created_by
         )
         VALUES (
-            p_business_id, v_owner_role_id, p_owner_name, p_owner_email, p_owner_contact_number, p_created_by
+            p_business_id, p_branch_id, v_owner_role_id, p_owner_name, p_owner_email, p_owner_contact_number, TRUE, p_created_by
         );
         SET p_owner_id = LAST_INSERT_ID();
         
