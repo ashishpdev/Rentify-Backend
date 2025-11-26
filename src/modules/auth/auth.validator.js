@@ -26,9 +26,6 @@ const verifyOTPSchema = Joi.object({
     "string.pattern.base": "OTP must contain only numbers",
     "any.required": "OTP code is required",
   }),
-  otpType: Joi.string().default("REGISTER").messages({
-    "any.only": "Invalid OTP type",
-  }),
 });
 
 const completeRegistrationSchema = Joi.object({

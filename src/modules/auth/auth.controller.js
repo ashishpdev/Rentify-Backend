@@ -67,7 +67,6 @@ class AuthController {
     try {
       logger.info("OTP verification request received", {
         email: req.body.email,
-        otpType: req.body.otpType,
         ip: req.ip,
       });
 
@@ -80,11 +79,10 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      await authService.verifyOTP(value.email, value.otpCode, value.otpType);
+      await authService.verifyOTP(value.email, value.otpCode);
 
       logger.logAuth("OTP_VERIFIED", {
         email: value.email,
-        otpType: value.otpType,
         ip: req.ip,
       });
 

@@ -72,10 +72,9 @@ class AuthRepository {
    * Verify OTP code using stored procedure
    * @param {string} email - Email address
    * @param {string} otpCodeHash - Hashed OTP code
-   * @param {string} otpType - OTP type code
    * @returns {Object} - { verified: boolean, otpId: string }
    */
-  async verifyOTP(email, otpCodeHash, otpType) {
+  async verifyOTP(email, otpCodeHash) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
@@ -83,8 +82,8 @@ class AuthRepository {
       try {
         // Call stored procedure to verify OTP
         await connection.query(
-          `CALL sp_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
-          [email, otpCodeHash, otpType]
+          `CALL sp_verify_otp(?, ?, @p_verified, @p_otp_id, @p_error_message)`,
+          [email, otpCodeHash]
         );
 
         // Get output variables

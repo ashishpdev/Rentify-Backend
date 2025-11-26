@@ -1,7 +1,9 @@
 -- ========================================================
 -- ONLY USE WHEN DROP TABLE WHICH IS HAVING FOREIGN KEY CONSTRAINTS
-SET FOREIGN_KEY_CHECKS=0;
-SET FOREIGN_KEY_CHECKS=1;
+-- SET FOREIGN_KEY_CHECKS=0;
+-- SET FOREIGN_KEY_CHECKS=1;
+-- DROP TABLE IF EXISTS master_owner;
+-- DROP TABLE IF EXISTS master_user;
 -- ========================================================
 
 
@@ -180,7 +182,7 @@ CREATE TABLE master_branch (
     country VARCHAR(100) NOT NULL,
     pincode VARCHAR(20) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
-    timezone VARCHAR(100) DEFAULT 'Asia/Kolkata',
+    timezone VARCHAR(100) NOT NULL,
 
     created_by VARCHAR(255) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -196,42 +198,14 @@ CREATE TABLE master_branch (
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_owner;
-CREATE TABLE master_owner (
-    master_owner_id INT AUTO_INCREMENT PRIMARY KEY,
-    business_id INT NOT NULL,
-    role_id INT NOT NULL,
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL,
-    contact_number VARCHAR(50) NOT NULL,
-
-    created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0,
-
-    UNIQUE KEY uq_master_owner_email_business (email, business_id),
-    INDEX idx_owner_email (email),
-    INDEX idx_owner_business (business_id),
-
-    CONSTRAINT fk_owner_business FOREIGN KEY (business_id)
-        REFERENCES master_business(business_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-
-    CONSTRAINT fk_owner_role FOREIGN KEY (role_id)
-        REFERENCES master_role_type(master_role_type_id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
 DROP TABLE IF EXISTS master_user;
 CREATE TABLE master_user (
     master_user_id INT AUTO_INCREMENT PRIMARY KEY,
     business_id INT NOT NULL,
-    branch_id INT NOT NULL,
+    branch_id INT DEFAULT NULL,
     role_id INT NOT NULL,
+    is_owner BOOLEAN DEFAULT FALSE,
+
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
@@ -247,6 +221,7 @@ CREATE TABLE master_user (
     UNIQUE KEY uq_user_email_business_branch (email, business_id, branch_id),
     INDEX idx_user_email (email),
     INDEX idx_user_business (business_id),
+    INDEX idx_user_is_owner (is_owner),
 
     CONSTRAINT fk_user_business FOREIGN KEY (business_id)
         REFERENCES master_business(business_id)
@@ -254,7 +229,7 @@ CREATE TABLE master_user (
 
     CONSTRAINT fk_user_branch FOREIGN KEY (branch_id)
         REFERENCES master_branch(branch_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
+        ON DELETE SET NULL ON UPDATE CASCADE,
 
     CONSTRAINT fk_user_role FOREIGN KEY (role_id)
         REFERENCES master_role_type(master_role_type_id)
@@ -278,10 +253,6 @@ CREATE TABLE master_user_session (
 
     CONSTRAINT fk_session_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-
-    CONSTRAINT fk_session_owner FOREIGN KEY (user_id)
-        REFERENCES master_owner(master_owner_id)
         ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -306,10 +277,6 @@ CREATE TABLE master_otp (
 
     CONSTRAINT fk_otp_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-
-    CONSTRAINT fk_otp_owner FOREIGN KEY (user_id)
-        REFERENCES master_owner(master_owner_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
 
     CONSTRAINT fk_otp_type FOREIGN KEY (otp_type_id)

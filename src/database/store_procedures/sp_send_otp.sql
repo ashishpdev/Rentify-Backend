@@ -29,16 +29,14 @@ BEGIN
         SET v_ok = 0;
     END IF;
     
-    -- Check if email already exists in master_owner
-    IF v_ok = 1 THEN
-        SELECT COUNT(*) INTO v_owner_exists
-          FROM master_owner
-         WHERE email = p_email AND is_deleted = 0;
-        
-        IF v_owner_exists > 0 THEN
-            SET p_error_message = 'Email already registered';
-            SET v_ok = 0;
-        END IF;
+    -- Check if email already exists in master_user (with or without is_owner flag)
+    SELECT COUNT(*) INTO v_owner_exists
+      FROM master_user
+     WHERE email = p_email AND is_deleted = 0;
+    
+    IF v_owner_exists > 0 THEN
+        SET p_error_message = 'Email already registered';
+        SET v_ok = 0;
     END IF;
     
     -- Get OTP type ID

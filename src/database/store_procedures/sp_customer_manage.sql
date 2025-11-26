@@ -14,7 +14,7 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_customer_manage`(
     IN p_country VARCHAR(100),
     IN p_pincode VARCHAR(20),
     IN p_user VARCHAR(255),
-    IN p_role_user VARCHAR(255)         -- username to lookup role in master_owner
+    IN p_role_user VARCHAR(255)         -- username to lookup role in master_user
 )
 BEGIN
     DECLARE v_role_id INT DEFAULT NULL;
@@ -32,8 +32,8 @@ BEGIN
         /* --------- Fetch role only when needed (for update/delete/list-by-role) --------- */
         IF p_action IN (2,3,5) THEN
             SELECT role_id INTO v_role_id
-            FROM master_owner
-            WHERE owner_username = p_role_user
+            FROM master_user
+            WHERE email = p_role_user
             LIMIT 1;
             IF v_role_id IS NULL THEN
                 SELECT 'Unauthorized user: Role not found.' AS message;
