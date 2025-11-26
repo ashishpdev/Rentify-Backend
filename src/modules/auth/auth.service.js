@@ -73,10 +73,10 @@ class AuthService {
     }
   }
 
-  async verifyOTP(email, otpCode, otpType) {
+  async verifyOTP(email, otpCode) {
     try {
       const hash = this.hashOTP(otpCode);
-      const result = await authRepository.verifyOTP(email, hash, otpType);
+      const result = await authRepository.verifyOTP(email, hash);
 
       if (!result || !result.verified) {
         throw new Error("Invalid or expired OTP");

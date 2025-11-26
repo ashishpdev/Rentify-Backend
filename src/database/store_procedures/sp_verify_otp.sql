@@ -2,14 +2,12 @@ DROP PROCEDURE sp_verify_otp;
 CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_verify_otp`(
     IN p_email VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
-    IN p_otp_type_code VARCHAR(100),
     OUT p_verified BOOLEAN,
     OUT p_otp_id CHAR(36),
     OUT p_error_message VARCHAR(500)
 )
 BEGIN
     DECLARE v_ok INT DEFAULT 1;
-    DECLARE v_otp_type_id INT DEFAULT NULL;
     DECLARE v_otp_record_id CHAR(36) DEFAULT NULL;
     DECLARE v_stored_hash VARCHAR(255) DEFAULT NULL;
     DECLARE v_attempts INT DEFAULT 0;
@@ -19,40 +17,27 @@ BEGIN
     SET p_verified = FALSE;
     SET p_otp_id = NULL;
     SET p_error_message = NULL;
-    -- Get OTP type ID
-    SELECT master_otp_type_id
-      INTO v_otp_type_id
-      FROM master_otp_type
-     WHERE code = p_otp_type_code AND is_deleted = 0
+    -- Get VERIFIED and FAILED status IDs
+    SELECT master_otp_status_id
+      INTO v_verified_status_id
+      FROM master_otp_status
+     WHERE code = 'VERIFIED' AND is_deleted = 0
      LIMIT 1;
-    IF v_otp_type_id IS NULL THEN
-        SET p_error_message = 'Invalid OTP type';
+    SELECT master_otp_status_id
+      INTO v_failed_status_id
+      FROM master_otp_status
+     WHERE code = 'FAILED' AND is_deleted = 0
+     LIMIT 1;
+    IF v_verified_status_id IS NULL OR v_failed_status_id IS NULL THEN
+        SET p_error_message = 'OTP status configuration error';
         SET v_ok = 0;
     END IF;
-    -- Get VERIFIED and FAILED status IDs
     IF v_ok = 1 THEN
-        SELECT master_otp_status_id
-          INTO v_verified_status_id
-          FROM master_otp_status
-         WHERE code = 'VERIFIED' AND is_deleted = 0
-         LIMIT 1;
-        SELECT master_otp_status_id
-          INTO v_failed_status_id
-          FROM master_otp_status
-         WHERE code = 'FAILED' AND is_deleted = 0
-         LIMIT 1;
-        IF v_verified_status_id IS NULL OR v_failed_status_id IS NULL THEN
-            SET p_error_message = 'OTP status configuration error';
-            SET v_ok = 0;
-        END IF;
-    END IF;
-    IF v_ok = 1 THEN
-        -- Get most recent PENDING OTP for this email and type
+        -- Get most recent PENDING OTP for this email (regardless of type)
         SELECT id, otp_code_hash, attempts
           INTO v_otp_record_id, v_stored_hash, v_attempts
           FROM master_otp
          WHERE target_identifier = p_email
-           AND otp_type_id = v_otp_type_id
            AND otp_status_id = (SELECT master_otp_status_id FROM master_otp_status WHERE code = 'PENDING' AND is_deleted = 0 LIMIT 1)
            AND expires_at > NOW()
            AND attempts < v_max_attempts
