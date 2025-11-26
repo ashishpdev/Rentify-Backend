@@ -1,23 +1,19 @@
 /**
- * scripts/generate-postman-from-routes-v2.js
+ * scripts/generate-postman-from-routes.js
+ *
+ * Enhanced Postman collection generator that:
+ * - Properly resolves route paths by tracing from main router
+ * - Accurately infers request bodies from Joi validators
+ * - Organizes endpoints by module structure
+ * - Generates industry-standard Postman collections
  *
  * Usage:
- *   node scripts/generate-postman-from-routes-v2.js
- * Options (env):
- *   BASE_URL (default http://localhost:3000)
- *   API_PREFIX (default /api)
- *   SRC_DIR  (default ./src)
- *   INPUT_FILE (optional) - if provided the script will also scan a single JS file (eg. uploaded merged.txt)
- *
- * Output: ./docs/api/postman-from-routes-v2.json
- *
- * Notes:
- * - AST-based parsing using @babel/parser + @babel/traverse
- * - Attempts to find router.<method>(path, ...middlewares, handler)
- * - Resolves controller requires/imports and finds validator usage
- * - Parses Joi.object(...) AST to infer accurate example request bodies
- *
- * Limitations: dynamic route composition or runtime-created routes may be missed.
+ *   node scripts/generate-postman-from-routes.js
+ * 
+ * Environment Variables:
+ *   BASE_URL (default: http://localhost:3000)
+ *   API_PREFIX (default: /api)
+ *   SRC_DIR (default: ./src)
  */
 
 const fs = require("fs-extra");
@@ -26,20 +22,24 @@ const glob = require("glob");
 const parser = require("@babel/parser");
 const traverse = require("@babel/traverse").default;
 
+// Configuration
 const PROJECT_ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = process.env.SRC_DIR || path.join(PROJECT_ROOT, "src");
-const INPUT_FILE = process.env.INPUT_FILE || ""; // e.g. /mnt/data/merged.txt
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const API_PREFIX = process.env.API_PREFIX || "/api";
+const OUTPUT_FILE = path.join(PROJECT_ROOT, "docs", "api", "Rentify-postman.json");
 
-function read(file) {
+// Utility: Read file safely
+function readFile(filePath) {
   try {
-    return fs.readFileSync(file, "utf8");
-  } catch (e) {
-    return "";
+    return fs.readFileSync(filePath, "utf8");
+  } catch (error) {
+    console.warn(`Could not read file: ${filePath}`);
+    return null;
   }
 }
 
+// Utility: Parse code to AST
 function parseToAST(code, filePath) {
   try {
     return parser.parse(code, {
@@ -50,132 +50,177 @@ function parseToAST(code, filePath) {
         "classProperties",
         "dynamicImport",
         "optionalChaining",
+        "objectRestSpread",
       ],
     });
-  } catch (err) {
-    console.warn("Parse error for", filePath, err.message);
+  } catch (error) {
+    console.warn(`Parse error in ${filePath}:`, error.message);
     return null;
   }
 }
 
-function collectRouteFiles() {
-  const patterns = [
-    path.join(SRC_DIR, "**", "*.routes.js"),
-    path.join(SRC_DIR, "**", "routes.js"),
-  ];
-  let files = [];
-  for (const p of patterns) files = files.concat(glob.sync(p));
-  // include top-level index if exists
-  const idx = path.join(SRC_DIR, "routes", "index.js");
-  if (fs.existsSync(idx) && !files.includes(idx)) files.push(idx);
-  if (INPUT_FILE && fs.existsSync(INPUT_FILE)) files.push(INPUT_FILE);
-  // uniq
-  return [...new Set(files)];
-}
-
-// Resolve a require/import path to actual file path (try .js, /index.js)
-function resolveRequire(currentFile, relPath) {
-  if (!relPath) return null;
-  if (!relPath.startsWith(".")) {
-    // could be module, skip
-    return null;
+// Utility: Resolve require/import path to actual file
+function resolveModulePath(currentFile, importPath) {
+  if (!importPath || !importPath.startsWith(".")) {
+    return null; // External module
   }
-  let resolved = path.resolve(path.dirname(currentFile), relPath);
-  if (fs.existsSync(resolved) && fs.statSync(resolved).isFile())
+
+  const baseDir = path.dirname(currentFile);
+  let resolved = path.resolve(baseDir, importPath);
+
+  // Try exact path
+  if (fs.existsSync(resolved) && fs.statSync(resolved).isFile()) {
     return resolved;
-  if (fs.existsSync(resolved + ".js")) return resolved + ".js";
-  if (fs.existsSync(path.join(resolved, "index.js")))
-    return path.join(resolved, "index.js");
+  }
+
+  // Try with .js extension
+  if (fs.existsSync(resolved + ".js")) {
+    return resolved + ".js";
+  }
+
+  // Try index.js in directory
+  const indexPath = path.join(resolved, "index.js");
+  if (fs.existsSync(indexPath)) {
+    return indexPath;
+  }
+
   return null;
 }
 
-// Extract router.* calls
-function findRoutesInFile(filePath) {
-  const code = read(filePath);
-  const ast = parseToAST(code, filePath);
-  if (!ast) return [];
-
-  // map of local variable name -> required path
-  const requires = {};
+// Extract imports/requires from a file
+function extractImports(ast) {
+  const imports = {};
 
   traverse(ast, {
-    // handle: const X = require('./x.controller');
+    // Handle: const x = require('./path')
     VariableDeclarator({ node }) {
-      try {
-        if (
-          node.init &&
-          node.init.callee &&
-          node.init.callee.name === "require"
-        )
-          return; // skip require() transpiled variants
-        if (
-          node.init &&
-          node.init.type === "CallExpression" &&
-          node.init.callee.name === "require" &&
-          node.init.arguments.length
-        ) {
-          const varName = node.id.name;
-          const arg = node.init.arguments[0];
-          if (arg && arg.type === "StringLiteral")
-            requires[varName] = arg.value;
-        }
-      } catch (e) {}
+      if (
+        node.init &&
+        node.init.type === "CallExpression" &&
+        node.init.callee.name === "require" &&
+        node.init.arguments.length > 0 &&
+        node.init.arguments[0].type === "StringLiteral"
+      ) {
+        const varName = node.id.name;
+        const modulePath = node.init.arguments[0].value;
+        imports[varName] = modulePath;
+      }
     },
-    // handle: import authController from './auth.controller';
+    // Handle: import x from './path'
     ImportDeclaration({ node }) {
-      try {
-        const source = node.source.value;
-        for (const spec of node.specifiers) {
-          const local = spec.local.name;
-          requires[local] = source;
+      const modulePath = node.source.value;
+      node.specifiers.forEach((spec) => {
+        if (spec.local) {
+          imports[spec.local.name] = modulePath;
         }
-      } catch (e) {}
+      });
     },
   });
 
+  return imports;
+}
+
+// Extract router.use() calls from main router
+function extractRouterMounts(filePath) {
+  const code = readFile(filePath);
+  if (!code) return [];
+
+  const ast = parseToAST(code, filePath);
+  if (!ast) return [];
+
+  const imports = extractImports(ast);
+  const mounts = [];
+
+  traverse(ast, {
+    // Look for router.use('/path', routerVariable)
+    CallExpression({ node }) {
+      if (
+        node.callee.type === "MemberExpression" &&
+        node.callee.object.name === "router" &&
+        node.callee.property.name === "use" &&
+        node.arguments.length >= 2
+      ) {
+        const pathArg = node.arguments[0];
+        const routerArg = node.arguments[1];
+
+        if (pathArg.type === "StringLiteral" && routerArg.type === "Identifier") {
+          const mountPath = pathArg.value;
+          const routerVar = routerArg.name;
+          const modulePath = imports[routerVar];
+
+          if (modulePath) {
+            mounts.push({
+              mountPath,
+              routerVar,
+              modulePath,
+            });
+          }
+        }
+      }
+    },
+  });
+
+  return mounts;
+}
+
+// Extract individual routes from a route file
+function extractRoutes(filePath) {
+  const code = readFile(filePath);
+  if (!code) return [];
+
+  const ast = parseToAST(code, filePath);
+  if (!ast) return [];
+
+  const imports = extractImports(ast);
   const routes = [];
 
   traverse(ast, {
-    ExpressionStatement(pathExp) {
-      const node = pathExp.node.expression;
-      if (!node) return;
-      // look for router.<method> calls
+    // Look for router.get/post/put/delete/patch(path, ...handlers)
+    CallExpression({ node }) {
       if (
-        node.type === "CallExpression" &&
-        node.callee &&
         node.callee.type === "MemberExpression" &&
-        node.callee.object &&
-        (node.callee.object.name === "router" ||
-          (node.callee.object.type === "Identifier" &&
-            node.callee.object.name === "router")) &&
-        node.callee.property &&
+        node.callee.object.name === "router" &&
         node.callee.property.type === "Identifier"
       ) {
-        const method = node.callee.property.name.toUpperCase();
-        const args = node.arguments || [];
-        if (args.length >= 2) {
-          const first = args[0];
-          let routePath = null;
-          if (first.type === "StringLiteral") routePath = first.value;
-          // last argument is usually handler
-          const handlerNode = args[args.length - 1];
-          let handler = null;
-          if (handlerNode.type === "Identifier") handler = handlerNode.name;
-          else if (handlerNode.type === "MemberExpression") {
-            // e.g. authController.sendOTP
-            const obj =
-              handlerNode.object.name ||
-              (handlerNode.object.type === "Identifier" &&
-                handlerNode.object.name);
-            const prop = handlerNode.property.name;
-            handler = `${obj}.${prop}`;
-          } else if (
-            handlerNode.type === "ArrowFunctionExpression" ||
-            handlerNode.type === "FunctionExpression"
-          ) {
-            handler = "<inline>";
+        const method = node.callee.property.name.toLowerCase();
+        const validMethods = ["get", "post", "put", "delete", "patch"];
+
+        if (validMethods.includes(method) && node.arguments.length >= 2) {
+          const pathArg = node.arguments[0];
+          
+          if (pathArg.type === "StringLiteral") {
+            const routePath = pathArg.value;
+            const lastArg = node.arguments[node.arguments.length - 1];
+
+            let handler = null;
+            let controllerName = null;
+            let methodName = null;
+
+            // Extract handler information
+            if (lastArg.type === "MemberExpression") {
+              // e.g., authController.sendOTP
+              controllerName = lastArg.object.name;
+              methodName = lastArg.property.name;
+              handler = `${controllerName}.${methodName}`;
+            } else if (lastArg.type === "Identifier") {
+              handler = lastArg.name;
+              methodName = lastArg.name;
+            } else if (
+              lastArg.type === "ArrowFunctionExpression" ||
+              lastArg.type === "FunctionExpression"
+            ) {
+              handler = "<inline>";
+            }
+
+            routes.push({
+              method: method.toUpperCase(),
+              path: routePath,
+              handler,
+              controllerName,
+              methodName,
+              imports,
+            });
           }
-          routes.push({ method, routePath, handler, file: filePath, requires });
         }
       }
     },
@@ -184,512 +229,377 @@ function findRoutesInFile(filePath) {
   return routes;
 }
 
-// parse controller file to detect which validator is called in the handler method
-function findValidatorUsed(controllerFile, handlerName) {
-  if (!controllerFile || !fs.existsSync(controllerFile)) return null;
-  const code = read(controllerFile);
-  const ast = parseToAST(code, controllerFile);
-  if (!ast) return null;
+// Find validator file for a controller
+function findValidatorFile(controllerFilePath) {
+  const dir = path.dirname(controllerFilePath);
+  const baseName = path.basename(controllerFilePath, ".controller.js");
+  
+  // Try common validator file patterns
+  const patterns = [
+    path.join(dir, `${baseName}.validator.js`),
+    path.join(dir, `${baseName}.validation.js`),
+    path.join(dir, "validators.js"),
+  ];
 
-  // build local requires map for controller file
-  const requires = {};
-  traverse(ast, {
-    VariableDeclarator({ node }) {
-      try {
-        if (
-          node.init &&
-          node.init.type === "CallExpression" &&
-          node.init.callee.name === "require" &&
-          node.init.arguments.length
-        ) {
-          const varName = node.id.name;
-          const arg = node.init.arguments[0];
-          if (arg && arg.type === "StringLiteral")
-            requires[varName] = arg.value;
-        }
-      } catch (e) {}
-    },
-    ImportDeclaration({ node }) {
-      try {
-        const source = node.source.value;
-        for (const spec of node.specifiers) {
-          const local = spec.local.name;
-          requires[local] = source;
-        }
-      } catch (e) {}
-    },
-  });
-
-  let validatorRef = null;
-
-  // find function named handlerName (either as function declaration or property on exports)
-  traverse(ast, {
-    // function declarations: async function sendOTP(req, res) { ... }
-    FunctionDeclaration(path) {
-      const n = path.node;
-      if (n.id && n.id.name === handlerName) {
-        // inspect body for CallExpression nodes invoking *.validate*
-        path.traverse({
-          CallExpression(p) {
-            const callee = p.node.callee;
-            if (
-              callee.type === "MemberExpression" &&
-              callee.property &&
-              /validate/i.test(callee.property.name)
-            ) {
-              // object name may be AuthValidator or something
-              if (callee.object && callee.object.type === "Identifier") {
-                validatorRef = callee.object.name; // e.g. AuthValidator
-              }
-            }
-          },
-        });
-      }
-    },
-    // method in exports e.g. exports.sendOTP = async (req,res) => {}
-    AssignmentExpression(path) {
-      try {
-        const left = path.node.left;
-        if (
-          left.type === "MemberExpression" &&
-          left.object.name === "exports"
-        ) {
-          const prop = left.property.name;
-          if (prop === handlerName) {
-            path.traverse({
-              CallExpression(p) {
-                const callee = p.node.callee;
-                if (
-                  callee.type === "MemberExpression" &&
-                  callee.property &&
-                  /validate/i.test(callee.property.name)
-                ) {
-                  if (callee.object && callee.object.type === "Identifier") {
-                    validatorRef = callee.object.name;
-                  }
-                }
-              },
-            });
-          }
-        }
-      } catch (e) {}
-    },
-    // object export: module.exports = { sendOTP: (req,res) => { ... } }
-    ObjectExpression(path) {
-      const parent = path.parentPath && path.parentPath.node;
-      if (
-        parent &&
-        parent.type === "AssignmentExpression" &&
-        parent.left &&
-        parent.left.type === "MemberExpression" &&
-        parent.left.object.name === "module" &&
-        parent.left.property.name === "exports"
-      ) {
-        // search properties
-        for (const prop of path.node.properties) {
-          if (prop.key && prop.key.name === handlerName) {
-            // traverse that function
-            traverse(
-              prop,
-              {
-                CallExpression(p) {
-                  const callee = p.node.callee;
-                  if (
-                    callee.type === "MemberExpression" &&
-                    callee.property &&
-                    /validate/i.test(callee.property.name)
-                  ) {
-                    if (callee.object && callee.object.type === "Identifier") {
-                      validatorRef = callee.object.name;
-                    }
-                  }
-                },
-              },
-              path.scope,
-              path
-            );
-          }
-        }
-      }
-    },
-  });
-
-  // if validatorRef points to some var, see requires map to find file
-  if (validatorRef && requires[validatorRef]) {
-    const rel = requires[validatorRef];
-    const resolved = resolveRequire(controllerFile, rel);
-    return resolved;
+  for (const pattern of patterns) {
+    if (fs.existsSync(pattern)) {
+      return pattern;
+    }
   }
 
-  // fallback: try to find any Joi.object in module sibling validator files
-  // We'll let caller search for a matching validator file later
   return null;
 }
 
-// Parse a validator file for Joi.object(...) and construct example body
-function inferBodyFromValidatorFile(validatorFile, handlerNameCandidate) {
-  if (!validatorFile || !fs.existsSync(validatorFile)) return null;
-  const code = read(validatorFile);
-  const ast = parseToAST(code, validatorFile);
-  if (!ast) return null;
+// Extract Joi schemas from validator file
+function extractJoiSchemas(validatorFilePath) {
+  const code = readFile(validatorFilePath);
+  if (!code) return {};
 
-  // try to find a Joi.object argument assigned to a variable with name related to handlerNameCandidate
-  let candidateNode = null;
+  const ast = parseToAST(code, validatorFilePath);
+  if (!ast) return {};
+
+  const schemas = {};
 
   traverse(ast, {
-    VariableDeclarator(path) {
-      try {
-        // const sendOTPSchema = Joi.object({...})
-        const id = path.node.id;
-        const init = path.node.init;
-        if (
-          init &&
-          init.type === "CallExpression" &&
-          init.callee.type === "MemberExpression" &&
-          init.callee.object.name === "Joi" &&
-          init.callee.property.name === "object"
-        ) {
-          // varName
-          const varName = id.name.toLowerCase();
-          if (
-            handlerNameCandidate &&
-            varName.includes(handlerNameCandidate.toLowerCase())
-          ) {
-            candidateNode = init.arguments[0]; // object expression
-          } else if (!candidateNode) {
-            candidateNode = init.arguments[0];
-          }
+    // Look for: const schemaName = Joi.object({...})
+    VariableDeclarator({ node }) {
+      if (
+        node.id.type === "Identifier" &&
+        node.init &&
+        node.init.type === "CallExpression" &&
+        node.init.callee.type === "MemberExpression" &&
+        node.init.callee.object.name === "Joi" &&
+        node.init.callee.property.name === "object"
+      ) {
+        const schemaName = node.id.name;
+        const schemaObj = node.init.arguments[0];
+
+        if (schemaObj && schemaObj.type === "ObjectExpression") {
+          schemas[schemaName] = parseJoiObject(schemaObj);
         }
-      } catch (e) {}
-    },
-    AssignmentExpression(path) {
-      // direct assignment exports.mySchema = Joi.object({...})
-      const left = path.node.left;
-      const right = path.node.right;
-      if (
-        right &&
-        right.type === "CallExpression" &&
-        right.callee.type === "MemberExpression" &&
-        right.callee.object.name === "Joi" &&
-        right.callee.property.name === "object"
-      ) {
-        if (!candidateNode) candidateNode = right.arguments[0];
-      }
-    },
-    CallExpression(path) {
-      // catch Joi.object({...}) used directly
-      const callee = path.node.callee;
-      if (
-        callee &&
-        callee.type === "MemberExpression" &&
-        callee.object.name === "Joi" &&
-        callee.property.name === "object"
-      ) {
-        if (!candidateNode) candidateNode = path.node.arguments[0];
       }
     },
   });
 
-  if (!candidateNode) return null;
-  // candidateNode should be an ObjectExpression
-  if (candidateNode.type !== "ObjectExpression") return null;
+  return schemas;
+}
 
+// Parse Joi.object() definition to generate example
+function parseJoiObject(objectExpression) {
   const example = {};
-  for (const prop of candidateNode.properties) {
-    if (prop.type !== "ObjectProperty") continue;
-    const key =
-      prop.key.name || (prop.key.type === "StringLiteral" && prop.key.value);
-    const val = prop.value;
-    const inferred = inferFromJoiCallExpression(val, validatorFile);
-    example[key] = inferred;
+
+  if (!objectExpression || objectExpression.type !== "ObjectExpression") {
+    return example;
   }
+
+  objectExpression.properties.forEach((prop) => {
+    if (prop.type === "ObjectProperty") {
+      const key = prop.key.name || prop.key.value;
+      const value = parseJoiChain(prop.value);
+      example[key] = value;
+    }
+  });
+
   return example;
 }
 
-// walk Joi call chains (e.g. Joi.string().email().default('a').required())
-function inferFromJoiCallExpression(node, fileForContext) {
-  // if node is CallExpression with callee MemberExpression whose object is Chain -> drill down
-  // We want to find the base type (string, number, array, object, boolean) plus chained members like email, default, valid(...)
-  try {
-    // find chain of callee names and arguments
-    const calls = [];
-    let current = node;
-    // handle direct nested CallExpression like Joi.string().email().required()
-    while (current) {
-      if (current.type === "CallExpression") {
-        // callee can be MemberExpression or Identifier
-        if (current.callee.type === "MemberExpression") {
-          const prop = current.callee.property;
-          const calleeName = prop && prop.name;
-          // capture arguments for this call
-          const args = current.arguments || [];
-          calls.push({ name: calleeName, args });
-          // move to callee.object
-          current = current.callee.object;
-        } else if (current.callee.type === "Identifier") {
-          // rare case
-          calls.push({
-            name: current.callee.name,
-            args: current.arguments || [],
-          });
-          break;
-        } else {
-          break;
-        }
-      } else if (current.type === "MemberExpression") {
-        // maybe Joi.string (no call) - capture property
-        if (current.property && current.property.name) {
-          calls.push({ name: current.property.name, args: [] });
-        }
-        current = current.object;
+// Parse Joi validation chain (e.g., Joi.string().email().required())
+function parseJoiChain(node) {
+  const chain = [];
+  let current = node;
+
+  // Walk through the call chain
+  while (current) {
+    if (current.type === "CallExpression") {
+      if (current.callee.type === "MemberExpression") {
+        const methodName = current.callee.property.name;
+        const args = current.arguments || [];
+        chain.push({ method: methodName, args });
+        current = current.callee.object;
       } else {
         break;
       }
+    } else if (current.type === "MemberExpression") {
+      const propName = current.property.name;
+      chain.push({ method: propName, args: [] });
+      current = current.object;
+    } else if (current.type === "Identifier") {
+      chain.push({ method: current.name, args: [] });
+      break;
+    } else {
+      break;
     }
-
-    // the calls array is from outermost to base; reverse to get base-first
-    calls.reverse(); // now base type first
-    // base type should be calls[0].name like 'string'
-    const base = calls.length ? calls[0].name : null;
-    // collect details
-    let defaultVal = undefined;
-    let enumVal = undefined;
-    let hasEmail = false;
-    let hasPattern = false;
-    for (const call of calls) {
-      if (/default/i.test(call.name) && call.args && call.args[0]) {
-        const a = call.args[0];
-        if (a.type === "StringLiteral") defaultVal = a.value;
-        else if (a.type === "NumericLiteral") defaultVal = a.value;
-        else if (a.type === "BooleanLiteral") defaultVal = a.value;
-      }
-      if (/valid/i.test(call.name) && call.args && call.args[0]) {
-        const a = call.args[0];
-        if (
-          a.type === "StringLiteral" ||
-          a.type === "NumericLiteral" ||
-          a.type === "BooleanLiteral"
-        ) {
-          enumVal = a.value;
-        }
-      }
-      if (/email/i.test(call.name)) hasEmail = true;
-      if (/pattern/i.test(call.name)) hasPattern = true;
-    }
-
-    if (enumVal !== undefined) return enumVal;
-    if (defaultVal !== undefined) return defaultVal;
-
-    // base inference
-    if (base === "string") {
-      if (hasEmail) return "user@example.com";
-      if (hasPattern) return "pattern-example";
-      return "string";
-    } else if (base === "number" || base === "integer") return 123;
-    else if (base === "boolean") return true;
-    else if (base === "array") {
-      // try to infer items if .items(Joi.string())
-      // naive: return empty array (Postman user can fill)
-      return [];
-    } else if (base === "object") return {};
-    // fallback: if node is StringLiteral etc
-    if (node.type === "StringLiteral") return node.value;
-    if (node.type === "NumericLiteral") return node.value;
-    if (node.type === "BooleanLiteral") return node.value;
-  } catch (e) {
-    // fallback
   }
+
+  chain.reverse(); // Base type first
+
+  // Determine base type and modifiers
+  let baseType = null;
+  let defaultValue = undefined;
+  let validValues = [];
+  let hasEmail = false;
+  let hasPattern = false;
+  let isRequired = false;
+
+  for (const { method, args } of chain) {
+    // Base types
+    if (["string", "number", "integer", "boolean", "array", "object"].includes(method)) {
+      baseType = method;
+    }
+
+    // Modifiers
+    if (method === "default" && args.length > 0) {
+      const arg = args[0];
+      if (arg.type === "StringLiteral") defaultValue = arg.value;
+      else if (arg.type === "NumericLiteral") defaultValue = arg.value;
+      else if (arg.type === "BooleanLiteral") defaultValue = arg.value;
+    }
+
+    if (method === "valid" && args.length > 0) {
+      args.forEach((arg) => {
+        if (arg.type === "StringLiteral") validValues.push(arg.value);
+        else if (arg.type === "NumericLiteral") validValues.push(arg.value);
+      });
+    }
+
+    if (method === "email") hasEmail = true;
+    if (method === "pattern") hasPattern = true;
+    if (method === "required") isRequired = true;
+  }
+
+  // Generate example value
+  if (validValues.length > 0) return validValues[0];
+  if (defaultValue !== undefined) return defaultValue;
+
+  // Type-based defaults
+  switch (baseType) {
+    case "string":
+      if (hasEmail) return "user@example.com";
+      if (hasPattern) return "pattern123";
+      return "string";
+    case "number":
+    case "integer":
+      return 123;
+    case "boolean":
+      return true;
+    case "array":
+      return [];
+    case "object":
+      return {};
+    default:
+      return null;
+  }
+}
+
+// Match schema to method name
+function findSchemaForMethod(schemas, methodName) {
+  if (!methodName) return null;
+
+  const methodLower = methodName.toLowerCase();
+  
+  // Direct match: sendOTPSchema -> sendOTP
+  for (const [schemaName, schema] of Object.entries(schemas)) {
+    const schemaLower = schemaName.toLowerCase();
+    if (schemaLower.includes(methodLower) || methodLower.includes(schemaLower.replace("schema", ""))) {
+      return schema;
+    }
+  }
+
   return null;
 }
 
-// Build final Postman collection grouped by module/folder
-function buildCollection(items) {
-  const collection = {
-    info: {
-      name: "Rentify",
-      _postman_id: "generated-v2",
-      description: `Auto-generated from files under ${SRC_DIR}${
-        INPUT_FILE ? " and " + INPUT_FILE : ""
-      }`,
-      schema:
-        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    },
-    item: [],
-  };
-
-  // group by moduleKey
-  const groups = {};
-  for (const it of items) {
-    const moduleKey = it.module || "root";
-    groups[moduleKey] = groups[moduleKey] || [];
-    groups[moduleKey].push(it);
+// Build complete endpoint information
+async function buildEndpoints() {
+  const mainRouterPath = path.join(SRC_DIR, "routes", "index.js");
+  
+  if (!fs.existsSync(mainRouterPath)) {
+    console.error("Main router not found at:", mainRouterPath);
+    return [];
   }
 
-  for (const [moduleName, its] of Object.entries(groups)) {
-    // folder
+  const mounts = extractRouterMounts(mainRouterPath);
+  const endpoints = [];
+
+  for (const mount of mounts) {
+    const moduleRouteFile = resolveModulePath(mainRouterPath, mount.modulePath);
+    
+    if (!moduleRouteFile) {
+      console.warn(`Could not resolve module: ${mount.modulePath}`);
+      continue;
+    }
+
+    const routes = extractRoutes(moduleRouteFile);
+    const moduleName = mount.mountPath.replace(/^\//, "") || "root";
+
+    for (const route of routes) {
+      // Build full path
+      const fullPath = path.posix.join(API_PREFIX, mount.mountPath, route.path);
+
+      // Find validator and extract schemas
+      let requestBody = null;
+      
+      if (["POST", "PUT", "PATCH"].includes(route.method)) {
+        if (route.controllerName && route.imports[route.controllerName]) {
+          const controllerPath = resolveModulePath(
+            moduleRouteFile,
+            route.imports[route.controllerName]
+          );
+
+          if (controllerPath) {
+            const validatorFile = findValidatorFile(controllerPath);
+            
+            if (validatorFile) {
+              const schemas = extractJoiSchemas(validatorFile);
+              requestBody = findSchemaForMethod(schemas, route.methodName);
+            }
+          }
+        }
+
+        // Fallback: empty object for POST/PUT/PATCH
+        if (!requestBody) {
+          requestBody = {};
+        }
+      }
+
+      endpoints.push({
+        module: moduleName,
+        method: route.method,
+        path: fullPath,
+        handler: route.handler,
+        body: requestBody,
+      });
+    }
+  }
+
+  return endpoints;
+}
+
+// Generate Postman collection structure
+function generatePostmanCollection(endpoints) {
+  const collection = {
+    info: {
+      name: "Rentify API",
+      description: "Auto-generated API collection for Rentify Backend",
+      schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      version: "1.0.0",
+    },
+    item: [],
+    variable: [
+      {
+        key: "baseUrl",
+        value: BASE_URL,
+        type: "string",
+      },
+    ],
+  };
+
+  // Group endpoints by module
+  const moduleGroups = {};
+  
+  endpoints.forEach((endpoint) => {
+    const moduleName = endpoint.module || "General";
+    
+    if (!moduleGroups[moduleName]) {
+      moduleGroups[moduleName] = [];
+    }
+    
+    moduleGroups[moduleName].push(endpoint);
+  });
+
+  // Create folder for each module
+  for (const [moduleName, moduleEndpoints] of Object.entries(moduleGroups)) {
     const folder = {
-      name: moduleName,
-      item: its.map((i) => {
-        const pathParts = i.path.replace(/^\/+/, "").split("/");
-        return {
-          name: `${i.method} ${i.path}`,
+      name: moduleName.charAt(0).toUpperCase() + moduleName.slice(1),
+      item: moduleEndpoints.map((endpoint) => {
+        const request = {
+          name: `${endpoint.method} ${endpoint.path}`,
           request: {
-            method: i.method,
-            header:
-              i.method === "GET"
-                ? []
-                : [{ key: "Content-Type", value: "application/json" }],
-            body: i.body
-              ? { mode: "raw", raw: JSON.stringify(i.body, null, 2) }
-              : undefined,
+            method: endpoint.method,
+            header: [],
             url: {
-              raw: BASE_URL + i.path,
-              host: BASE_URL.replace(/https?:\/\//, "").split("/")[0],
-              path: pathParts,
+              raw: `{{baseUrl}}${endpoint.path}`,
+              host: ["{{baseUrl}}"],
+              path: endpoint.path.split("/").filter(Boolean),
             },
           },
+          response: [],
         };
+
+        // Add Content-Type header for requests with body
+        if (endpoint.body && Object.keys(endpoint.body).length > 0) {
+          request.request.header.push({
+            key: "Content-Type",
+            value: "application/json",
+            type: "text",
+          });
+
+          request.request.body = {
+            mode: "raw",
+            raw: JSON.stringify(endpoint.body, null, 2),
+            options: {
+              raw: {
+                language: "json",
+              },
+            },
+          };
+        }
+
+        // Add description
+        if (endpoint.handler) {
+          request.request.description = `Handler: ${endpoint.handler}`;
+        }
+
+        return request;
       }),
     };
+
     collection.item.push(folder);
   }
 
   return collection;
 }
 
+// Main execution
 async function main() {
-  const routeFiles = collectRouteFiles();
-  if (!routeFiles.length) {
-    console.error("No route files found under", SRC_DIR);
+  try {
+    console.log("🚀 Generating Postman collection...\n");
+    console.log(`Source Directory: ${SRC_DIR}`);
+    console.log(`Base URL: ${BASE_URL}`);
+    console.log(`API Prefix: ${API_PREFIX}\n`);
+
+    const endpoints = await buildEndpoints();
+
+    if (endpoints.length === 0) {
+      console.error("❌ No endpoints found!");
+      process.exit(1);
+    }
+
+    console.log(`✅ Found ${endpoints.length} endpoints:`);
+    endpoints.forEach((ep) => {
+      console.log(`   ${ep.method.padEnd(6)} ${ep.path}`);
+    });
+
+    const collection = generatePostmanCollection(endpoints);
+
+    // Ensure output directory exists
+    await fs.ensureDir(path.dirname(OUTPUT_FILE));
+    await fs.writeFile(OUTPUT_FILE, JSON.stringify(collection, null, 2), "utf8");
+
+    console.log(`\n✨ Postman collection generated successfully!`);
+    console.log(`📁 Output: ${OUTPUT_FILE}`);
+    console.log(`\n📊 Summary:`);
+    console.log(`   Total Endpoints: ${endpoints.length}`);
+    console.log(`   Modules: ${collection.item.length}`);
+    
+    collection.item.forEach((folder) => {
+      console.log(`   - ${folder.name}: ${folder.item.length} endpoints`);
+    });
+
+  } catch (error) {
+    console.error("❌ Error generating Postman collection:", error);
     process.exit(1);
   }
-
-  const results = [];
-
-  for (const rf of routeFiles) {
-    const routes = findRoutesInFile(rf);
-    for (const r of routes) {
-      // determine module name: relative dir from SRC_DIR, or file basename
-      let moduleName = path.relative(SRC_DIR, path.dirname(r.file));
-      if (!moduleName || moduleName.startsWith(".."))
-        moduleName = path.basename(path.dirname(r.file)) || "root";
-
-      // Special handling for main routes/index.js - don't add extra path segment
-      const isMainRouteIndex = r.file.includes(
-        path.join("src", "routes", "index.js")
-      );
-
-      // For module routes, extract just the module name (e.g., "auth" from "modules/auth")
-      let routePrefix = "";
-      if (moduleName.includes("modules/")) {
-        // Extract the actual module name after "modules/"
-        const parts = moduleName.split(path.sep);
-        const moduleIndex = parts.indexOf("modules");
-        if (moduleIndex !== -1 && parts.length > moduleIndex + 1) {
-          routePrefix = parts[moduleIndex + 1];
-          moduleName = routePrefix; // Use just the module name for grouping
-        }
-      } else if (isMainRouteIndex) {
-        // Main route index shouldn't add any prefix
-        routePrefix = "";
-        moduleName = "root";
-      } else if (moduleName === "routes") {
-        // Routes folder shouldn't add prefix
-        routePrefix = "";
-        moduleName = "root";
-      }
-
-      // Build final path
-      let finalPath;
-      if (routePrefix) {
-        finalPath = path.posix.join(API_PREFIX, routePrefix, r.routePath || "");
-      } else {
-        finalPath = path.posix.join(API_PREFIX, r.routePath || "");
-      }
-
-      // find handler controller file if handler like authController.sendOTP
-      let controllerFile = null;
-      let handlerMethod = null;
-      if (r.handler && r.handler.includes(".")) {
-        const [ctrlVar, method] = r.handler.split(".");
-        handlerMethod = method;
-        if (r.requires && r.requires[ctrlVar]) {
-          const resolved = resolveRequire(r.file, r.requires[ctrlVar]);
-          if (resolved) controllerFile = resolved;
-        }
-      }
-
-      // attempt to find validator file used by controller
-      let bodyExample = null;
-      if (controllerFile) {
-        const validatorFile = findValidatorUsed(controllerFile, handlerMethod);
-        if (validatorFile) {
-          // parse validatorFile
-          bodyExample = inferBodyFromValidatorFile(
-            validatorFile,
-            handlerMethod
-          );
-        }
-        // fallback: search validator files in same module directory
-        if (!bodyExample) {
-          const moduleDir = path.dirname(r.file);
-          const validators = glob.sync(path.join(moduleDir, "*validator.js"));
-          for (const vf of validators) {
-            const candidate = inferBodyFromValidatorFile(vf, handlerMethod);
-            if (candidate) {
-              bodyExample = candidate;
-              break;
-            }
-          }
-        }
-      } else {
-        // if inline handler or no controller, try to find a validator file next to route file
-        const moduleDir = path.dirname(r.file);
-        const validators = glob.sync(path.join(moduleDir, "*validator.js"));
-        for (const vf of validators) {
-          const candidate = inferBodyFromValidatorFile(
-            vf,
-            handlerMethod || r.handler
-          );
-          if (candidate) {
-            bodyExample = candidate;
-            break;
-          }
-        }
-      }
-
-      // If bodyExample still null and method is POST/PUT/PATCH, set empty placeholder
-      if (!bodyExample && ["POST", "PUT", "PATCH"].includes(r.method)) {
-        bodyExample = {
-          /* fill required fields here */
-        };
-      }
-
-      results.push({
-        method: r.method,
-        path: finalPath,
-        module: moduleName,
-        file: r.file,
-        handler: r.handler,
-        body: bodyExample,
-      });
-    }
-  }
-
-  const collection = buildCollection(results);
-
-  const out = path.join(PROJECT_ROOT, "docs", "api", "Rentify-postman.json");
-  await fs.ensureDir(path.dirname(out));
-  await fs.writeFile(out, JSON.stringify(collection, null, 2), "utf8");
-
-  console.log("Wrote Postman collection to", out);
-  console.log("Source scan paths:");
-  for (const f of routeFiles) console.log("  -", f);
-  // if uploaded file present, print it (developer note: uploaded file path recorded)
-  if (INPUT_FILE) console.log("Input file used:", INPUT_FILE);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Run the script
+main();

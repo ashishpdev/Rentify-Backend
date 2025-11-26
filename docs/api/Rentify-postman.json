@@ -1,13 +1,13 @@
 {
   "info": {
-    "name": "Rentify",
-    "_postman_id": "generated-v2",
-    "description": "Auto-generated from files under /Users/ayushkanani/Desktop/web_D/Rentify-Backend/src",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "Rentify API",
+    "description": "Auto-generated API collection for Rentify Backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
   },
   "item": [
     {
-      "name": "auth",
+      "name": "Auth",
       "item": [
         {
           "name": "POST /api/auth/send-otp",
@@ -16,19 +16,33 @@
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/send-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "send-otp"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": {
-              "raw": "http://localhost:3000/api/auth/send-otp",
-              "host": "localhost:3000",
-              "path": ["api", "auth", "send-otp"]
-            }
-          }
+            "description": "Handler: authController.sendOTP"
+          },
+          "response": []
         },
         {
           "name": "POST /api/auth/verify-otp",
@@ -37,19 +51,33 @@
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/verify-otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "verify-otp"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern-example\",\n  \"otpType\": \"REGISTER\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otpType\": \"REGISTER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             },
-            "url": {
-              "raw": "http://localhost:3000/api/auth/verify-otp",
-              "host": "localhost:3000",
-              "path": ["api", "auth", "verify-otp"]
-            }
-          }
+            "description": "Handler: authController.verifyOTP"
+          },
+          "response": []
         },
         {
           "name": "POST /api/auth/complete-registration",
@@ -58,67 +86,42 @@
             "header": [
               {
                 "key": "Content-Type",
-                "value": "application/json"
+                "value": "application/json",
+                "type": "text"
               }
             ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/complete-registration",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "complete-registration"
+              ]
+            },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"website\": \"string\",\n  \"contactPerson\": \"string\",\n  \"contactNumber\": \"pattern-example\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"India\",\n  \"pincode\": \"pattern-example\",\n  \"subscriptionType\": \"TRIAL\",\n  \"billingCycle\": \"MONTHLY\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern-example\",\n  \"ownerRole\": \"OWNER\"\n}"
-            },
-            "url": {
-              "raw": "http://localhost:3000/api/auth/complete-registration",
-              "host": "localhost:3000",
-              "path": ["api", "auth", "complete-registration"]
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "root",
-      "item": [
-        {
-          "name": "GET /api/health",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:3000/api/health",
-              "host": "localhost:3000",
-              "path": ["api", "health"]
-            }
-          }
-        },
-        {
-          "name": "GET /api/",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "http://localhost:3000/api/",
-              "host": "localhost:3000",
-              "path": ["api", ""]
-            }
-          }
-        },
-        {
-          "name": "USE /api/auth",
-          "request": {
-            "method": "USE",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
+              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern123\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
               }
-            ],
-            "url": {
-              "raw": "http://localhost:3000/api/auth",
-              "host": "localhost:3000",
-              "path": ["api", "auth"]
-            }
-          }
+            },
+            "description": "Handler: authController.completeRegistration"
+          },
+          "response": []
         }
       ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
     }
   ]
 }
