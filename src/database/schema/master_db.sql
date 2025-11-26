@@ -1,3 +1,10 @@
+-- ========================================================
+-- ONLY USE WHEN DROP TABLE WHICH IS HAVING FOREIGN KEY CONSTRAINTS
+SET FOREIGN_KEY_CHECKS=0;
+SET FOREIGN_KEY_CHECKS=1;
+-- ========================================================
+
+
 -- Diagram : "https://dbdiagram.io/d/tenant_db-691763986735e11170e19b53"
 -- =========================================================
 -- DATABASE INITIALIZATION
@@ -120,16 +127,16 @@ CREATE TABLE master_otp_status (
 DROP TABLE IF EXISTS master_business;
 CREATE TABLE master_business (
     business_id INT AUTO_INCREMENT PRIMARY KEY,
-    business_name VARCHAR(255) NOT NULL UNIQUE,
+    business_name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     website VARCHAR(255),
     contact_person VARCHAR(255) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
-    address_line VARCHAR(255) NOT NULL,
-    city VARCHAR(100) NOT NULL,
-    state VARCHAR(100) NOT NULL,
-    country VARCHAR(100) DEFAULT 'India',
-    pincode VARCHAR(20) NOT NULL,
+    address_line VARCHAR(255) NULL,
+    city VARCHAR(100) NULL,
+    state VARCHAR(100) NULL,
+    country VARCHAR(100) NULL,
+    pincode VARCHAR(20) NULL,
 
     status_id INT NOT NULL,
     subscription_type_id INT NOT NULL,
@@ -170,7 +177,7 @@ CREATE TABLE master_branch (
     address_line VARCHAR(255) NOT NULL,
     city VARCHAR(100) NOT NULL,
     state VARCHAR(100) NOT NULL,
-    country VARCHAR(100) DEFAULT 'India',
+    country VARCHAR(100) NOT NULL,
     pincode VARCHAR(20) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
     timezone VARCHAR(100) DEFAULT 'Asia/Kolkata',
@@ -903,7 +910,7 @@ CREATE TABLE customer (
   address_line VARCHAR(255) NOT NULL,
   city VARCHAR(100) NOT NULL,
   state VARCHAR(100) NOT NULL,
-  country VARCHAR(100) DEFAULT 'India',
+  country VARCHAR(100) NOT NULL,
   pincode VARCHAR(20) NOT NULL,
 
   created_by VARCHAR(255) NOT NULL,

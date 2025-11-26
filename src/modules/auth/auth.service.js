@@ -89,7 +89,7 @@ class AuthService {
 
   async completeRegistration(registrationData) {
     try {
-      // business email already exists?
+      // Check if business email already exists
       const businessExists = await authRepository.emailExists(
         registrationData.businessEmail
       );
@@ -97,6 +97,7 @@ class AuthService {
         throw new Error("Business email already registered");
       }
 
+      // Check if owner email already exists
       const ownerExists = await authRepository.emailExists(
         registrationData.ownerEmail
       );

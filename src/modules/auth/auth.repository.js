@@ -154,25 +154,16 @@ class AuthRepository {
         // Call stored procedure with proper parameter mapping
         await connection.query(
           `CALL sp_register_business_with_owner(
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
+            ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
           )`,
           [
             registrationData.businessName,
             registrationData.businessEmail,
-            registrationData.website || null,
             registrationData.contactPerson,
             registrationData.contactNumber,
-            registrationData.addressLine,
-            registrationData.city,
-            registrationData.state,
-            registrationData.country || "India",
-            registrationData.pincode,
-            registrationData.subscriptionType || "TRIAL",
-            registrationData.billingCycle || "MONTHLY",
             registrationData.ownerName,
             registrationData.ownerEmail,
             registrationData.ownerContactNumber,
-            registrationData.ownerRole || "OWNER",
             registrationData.contactPerson, // p_created_by
           ]
         );

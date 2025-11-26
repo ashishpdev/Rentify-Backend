@@ -41,41 +41,6 @@ const completeRegistrationSchema = Joi.object({
     "string.email": "Please provide a valid business email address",
     "any.required": "Business email is required",
   }),
-  website: Joi.string().uri().optional().allow(""),
-  contactPerson: Joi.string().min(2).max(255).required().messages({
-    "string.min": "Contact person name must be at least 2 characters",
-    "string.max": "Contact person name must be at most 255 characters",
-    "any.required": "Contact person name is required",
-  }),
-  contactNumber: Joi.string()
-    .pattern(/^[0-9]{10,15}$/)
-    .required()
-    .messages({
-      "string.pattern.base": "Contact number must be 10-15 digits",
-      "any.required": "Contact number is required",
-    }),
-  addressLine: Joi.string().min(5).max(255).required().messages({
-    "string.min": "Address must be at least 5 characters",
-    "any.required": "Address is required",
-  }),
-  city: Joi.string().min(2).max(100).required().messages({
-    "string.min": "City must be at least 2 characters",
-    "any.required": "City is required",
-  }),
-  state: Joi.string().min(2).max(100).required().messages({
-    "string.min": "State must be at least 2 characters",
-    "any.required": "State is required",
-  }),
-  country: Joi.string().max(100).default("India"),
-  pincode: Joi.string()
-    .pattern(/^[0-9]{5,10}$/)
-    .required()
-    .messages({
-      "string.pattern.base": "Pincode must be 5-10 digits",
-      "any.required": "Pincode is required",
-    }),
-  subscriptionType: Joi.string().default("TRIAL"),
-  billingCycle: Joi.string().default("MONTHLY"),
   ownerName: Joi.string().min(2).max(255).required().messages({
     "string.min": "Owner name must be at least 2 characters",
     "any.required": "Owner name is required",
@@ -91,7 +56,6 @@ const completeRegistrationSchema = Joi.object({
       "string.pattern.base": "Owner contact number must be 10-15 digits",
       "any.required": "Owner contact number is required",
     }),
-  ownerRole: Joi.string().default("OWNER"),
 });
 
 // keep existing validate* helpers, using schemas above:
