@@ -815,8 +815,9 @@ CREATE TABLE rental (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
+  user_id INT NOT NULL, -- staff who created the rental
   invoice_no VARCHAR(200) NOT NULL,
-  invoice_photo_id INT NOT NULL,
+  invoice_photo_id INT NULL,
   invoice_date DATETIME(6) NOT NULL,
   start_date DATETIME(6) NOT NULL, -- date when given on rent
   due_date DATETIME(6) NOT NULL,   -- expected return date
@@ -854,6 +855,10 @@ CREATE TABLE rental (
 
   CONSTRAINT fk_rental_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_user FOREIGN KEY (user_id)
+    REFERENCES master_user(master_user_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_rental_invoice_photo FOREIGN KEY (invoice_photo_id)
