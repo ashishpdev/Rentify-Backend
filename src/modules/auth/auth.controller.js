@@ -383,8 +383,9 @@ class AuthController {
    * This endpoint decrypts the access_token and returns the encrypted user data
    * Can be called by client to get user info when needed
    * Does NOT require session validation - only validates access token integrity
+   * REQUIRES: X-Access-Token header (mandatory)
    *
-   * @param {Object} req - Express request with accessToken in body or header
+   * @param {Object} req - Express request with X-Access-Token header
    * @param {Object} res - Express response
    * @param {Function} next - Express next function
    */
@@ -394,15 +395,17 @@ class AuthController {
         ip: req.ip,
       });
 
-      // Extract access token from body or header
-      const accessToken =
-        req.body?.accessToken || req.headers["x-access-token"];
+      // Extract access token from header ONLY (mandatory)
+      const accessToken = req.headers["x-access-token"];
 
       if (!accessToken) {
-        logger.warn("Missing access token in decrypt request", {
+        logger.warn("Missing access token header in decrypt request", {
           ip: req.ip,
         });
-        return ResponseUtil.badRequest(res, "Access token is required");
+        return ResponseUtil.badRequest(
+          res,
+          "X-Access-Token header is required"
+        );
       }
 
       // Validate token structure

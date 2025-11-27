@@ -40,7 +40,7 @@
                 }
               }
             },
-            "description": "Handler: authController.sendOTP"
+            "description": "Handler: authController.sendOTP\n🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -75,7 +75,7 @@
                 }
               }
             },
-            "description": "Handler: authController.verifyOTP"
+            "description": "Handler: authController.verifyOTP\n🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -110,7 +110,7 @@
                 }
               }
             },
-            "description": "Handler: authController.loginWithOTP"
+            "description": "Handler: authController.loginWithOTP\n🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -145,7 +145,34 @@
                 }
               }
             },
-            "description": "Handler: authController.completeRegistration"
+            "description": "Handler: authController.completeRegistration\n🔓 Public endpoint - No authentication required"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/decrypt-token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/decrypt-token",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "decrypt-token"
+              ]
+            },
+            "description": "Handler: authController.decryptUserData\n� Requires x-access-token header only"
           },
           "response": []
         }
@@ -157,6 +184,18 @@
       "key": "baseUrl",
       "value": "http://localhost:3000",
       "type": "string"
+    },
+    {
+      "key": "session_token",
+      "value": "",
+      "type": "string",
+      "description": "Session token from login response"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "Access token from login response"
     }
   ]
 }

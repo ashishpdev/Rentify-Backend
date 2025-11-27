@@ -9,7 +9,7 @@
  *
  * Usage:
  *   node scripts/generate-postman-from-routes.js
- * 
+ *
  * Environment Variables:
  *   BASE_URL (default: http://localhost:3000)
  *   API_PREFIX (default: /api)
@@ -27,7 +27,12 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = process.env.SRC_DIR || path.join(PROJECT_ROOT, "src");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const API_PREFIX = process.env.API_PREFIX || "/api";
-const OUTPUT_FILE = path.join(PROJECT_ROOT, "docs", "api", "Rentify-postman.json");
+const OUTPUT_FILE = path.join(
+  PROJECT_ROOT,
+  "docs",
+  "api",
+  "Rentify-postman.json"
+);
 
 // Utility: Read file safely
 function readFile(filePath) {
@@ -143,7 +148,10 @@ function extractRouterMounts(filePath) {
         const pathArg = node.arguments[0];
         const routerArg = node.arguments[1];
 
-        if (pathArg.type === "StringLiteral" && routerArg.type === "Identifier") {
+        if (
+          pathArg.type === "StringLiteral" &&
+          routerArg.type === "Identifier"
+        ) {
           const mountPath = pathArg.value;
           const routerVar = routerArg.name;
           const modulePath = imports[routerVar];
@@ -187,7 +195,7 @@ function extractRoutes(filePath) {
 
         if (validMethods.includes(method) && node.arguments.length >= 2) {
           const pathArg = node.arguments[0];
-          
+
           if (pathArg.type === "StringLiteral") {
             const routePath = pathArg.value;
             const lastArg = node.arguments[node.arguments.length - 1];
@@ -233,7 +241,7 @@ function extractRoutes(filePath) {
 function findValidatorFile(controllerFilePath) {
   const dir = path.dirname(controllerFilePath);
   const baseName = path.basename(controllerFilePath, ".controller.js");
-  
+
   // Try common validator file patterns
   const patterns = [
     path.join(dir, `${baseName}.validator.js`),
@@ -343,7 +351,11 @@ function parseJoiChain(node) {
 
   for (const { method, args } of chain) {
     // Base types
-    if (["string", "number", "integer", "boolean", "array", "object"].includes(method)) {
+    if (
+      ["string", "number", "integer", "boolean", "array", "object"].includes(
+        method
+      )
+    ) {
       baseType = method;
     }
 
@@ -396,30 +408,35 @@ function findSchemaForMethod(schemas, methodName) {
   if (!methodName) return null;
 
   const methodLower = methodName.toLowerCase();
-  
+
   // Try direct match first: sendOTPSchema -> sendOTP, loginOTPSchema -> loginWithOTP, etc.
   for (const [schemaName, schema] of Object.entries(schemas)) {
     const schemaNameWithoutSuffix = schemaName.replace(/Schema$/, "");
     const schemaLower = schemaNameWithoutSuffix.toLowerCase();
-    
+
     // Exact match after removing 'Schema' suffix
     if (schemaLower === methodLower) {
       return schema;
     }
-    
+
     // Substring match (either way)
-    if (schemaLower.includes(methodLower) || methodLower.includes(schemaLower)) {
+    if (
+      schemaLower.includes(methodLower) ||
+      methodLower.includes(schemaLower)
+    ) {
       return schema;
     }
-    
+
     // Handle word boundary matches (e.g., loginWithOTP matches loginOTP when both are lowercased)
     // Remove common words/separators and compare
     const methodNormalized = methodLower.replace(/with|for|by/g, "");
     const schemaNormalized = schemaLower.replace(/with|for|by/g, "");
-    
-    if (methodNormalized === schemaNormalized || 
-        schemaNormalized.includes(methodNormalized) || 
-        methodNormalized.includes(schemaNormalized)) {
+
+    if (
+      methodNormalized === schemaNormalized ||
+      schemaNormalized.includes(methodNormalized) ||
+      methodNormalized.includes(schemaNormalized)
+    ) {
       return schema;
     }
   }
@@ -430,7 +447,7 @@ function findSchemaForMethod(schemas, methodName) {
 // Build complete endpoint information
 async function buildEndpoints() {
   const mainRouterPath = path.join(SRC_DIR, "routes", "index.js");
-  
+
   if (!fs.existsSync(mainRouterPath)) {
     console.error("Main router not found at:", mainRouterPath);
     return [];
@@ -441,7 +458,7 @@ async function buildEndpoints() {
 
   for (const mount of mounts) {
     const moduleRouteFile = resolveModulePath(mainRouterPath, mount.modulePath);
-    
+
     if (!moduleRouteFile) {
       console.warn(`Could not resolve module: ${mount.modulePath}`);
       continue;
@@ -457,7 +474,7 @@ async function buildEndpoints() {
       // Find validator and extract schemas
       let requestBody = null;
       let schemaFound = false;
-      
+
       if (["POST", "PUT", "PATCH"].includes(route.method)) {
         if (route.controllerName && route.imports[route.controllerName]) {
           const controllerPath = resolveModulePath(
@@ -467,11 +484,11 @@ async function buildEndpoints() {
 
           if (controllerPath) {
             const validatorFile = findValidatorFile(controllerPath);
-            
+
             if (validatorFile) {
               const schemas = extractJoiSchemas(validatorFile);
               requestBody = findSchemaForMethod(schemas, route.methodName);
-              
+
               if (requestBody) {
                 schemaFound = true;
               }
@@ -499,13 +516,36 @@ async function buildEndpoints() {
   return endpoints;
 }
 
+// Determine if endpoint requires authentication
+function isPublicEndpoint(path) {
+  const publicPaths = [
+    "/send-otp",
+    "/verify-otp",
+    "/login-with-otp",
+    "/login",
+    "/register",
+    "/complete-registration",
+    "/signup",
+  ];
+
+  return publicPaths.some((publicPath) => path.includes(publicPath));
+}
+
+// Determine if endpoint requires only access token (not session token)
+function requiresOnlyAccessToken(path) {
+  const accessTokenOnlyPaths = ["/decrypt-token"];
+
+  return accessTokenOnlyPaths.some((tokenPath) => path.includes(tokenPath));
+}
+
 // Generate Postman collection structure
 function generatePostmanCollection(endpoints) {
   const collection = {
     info: {
       name: "Rentify API",
       description: "Auto-generated API collection for Rentify Backend",
-      schema: "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+      schema:
+        "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
       version: "1.0.0",
     },
     item: [],
@@ -515,19 +555,31 @@ function generatePostmanCollection(endpoints) {
         value: BASE_URL,
         type: "string",
       },
+      {
+        key: "session_token",
+        value: "",
+        type: "string",
+        description: "Session token from login response",
+      },
+      {
+        key: "access_token",
+        value: "",
+        type: "string",
+        description: "Access token from login response",
+      },
     ],
   };
 
   // Group endpoints by module
   const moduleGroups = {};
-  
+
   endpoints.forEach((endpoint) => {
     const moduleName = endpoint.module || "General";
-    
+
     if (!moduleGroups[moduleName]) {
       moduleGroups[moduleName] = [];
     }
-    
+
     moduleGroups[moduleName].push(endpoint);
   });
 
@@ -550,6 +602,41 @@ function generatePostmanCollection(endpoints) {
           response: [],
         };
 
+        // Check if endpoint is public (no auth required)
+        const isPublic = isPublicEndpoint(endpoint.path);
+        const onlyAccessToken = requiresOnlyAccessToken(endpoint.path);
+
+        // Add authentication headers for protected endpoints
+        if (!isPublic) {
+          if (onlyAccessToken) {
+            // Only access token required (e.g., decrypt-token)
+            request.request.header.push({
+              key: "x-access-token",
+              value: "{{access_token}}",
+              type: "text",
+              description: "Access token from login response (required)",
+            });
+          } else {
+            // Both session and access token required
+            request.request.header.push(
+              {
+                key: "x-session-token",
+                value: "{{session_token}}",
+                type: "text",
+                description:
+                  "Session token from login response (required for authenticated requests)",
+              },
+              {
+                key: "x-access-token",
+                value: "{{access_token}}",
+                type: "text",
+                description:
+                  "Access token from login response (required for authenticated requests)",
+              }
+            );
+          }
+        }
+
         // Add Content-Type header for requests with body
         if (endpoint.body && Object.keys(endpoint.body).length > 0) {
           request.request.header.push({
@@ -570,9 +657,19 @@ function generatePostmanCollection(endpoints) {
         }
 
         // Add description
+        let description = "";
         if (endpoint.handler) {
-          request.request.description = `Handler: ${endpoint.handler}`;
+          description += `Handler: ${endpoint.handler}\n`;
         }
+        if (isPublic) {
+          description += "🔓 Public endpoint - No authentication required";
+        } else if (onlyAccessToken) {
+          description += "� Requires x-access-token header only";
+        } else {
+          description +=
+            "�🔒 Protected endpoint - Requires x-session-token and x-access-token headers";
+        }
+        request.request.description = description;
 
         return request;
       }),
@@ -610,21 +707,26 @@ async function main() {
 
     // Ensure output directory exists
     await fs.ensureDir(path.dirname(OUTPUT_FILE));
-    await fs.writeFile(OUTPUT_FILE, JSON.stringify(collection, null, 2), "utf8");
+    await fs.writeFile(
+      OUTPUT_FILE,
+      JSON.stringify(collection, null, 2),
+      "utf8"
+    );
 
     console.log(`\n✨ Postman collection generated successfully!`);
     console.log(`📁 Output: ${OUTPUT_FILE}`);
     console.log(`\n📊 Summary:`);
     console.log(`   Total Endpoints: ${endpoints.length}`);
     console.log(`   Modules: ${collection.item.length}`);
-    
-    const withBody = endpoints.filter(ep => ep.body && Object.keys(ep.body).length > 0).length;
+
+    const withBody = endpoints.filter(
+      (ep) => ep.body && Object.keys(ep.body).length > 0
+    ).length;
     console.log(`   Endpoints with body: ${withBody}/${endpoints.length}`);
-    
+
     collection.item.forEach((folder) => {
       console.log(`   - ${folder.name}: ${folder.item.length} endpoints`);
     });
-
   } catch (error) {
     console.error("❌ Error generating Postman collection:", error);
     process.exit(1);
