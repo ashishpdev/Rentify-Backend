@@ -33,7 +33,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpType\": \"REGISTER\"\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp_type_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -68,7 +68,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\"\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -103,7 +103,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\"\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"

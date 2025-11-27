@@ -296,8 +296,7 @@ INSERT INTO master_business_status (code, name, description, created_by) VALUES
 ('ACTIVE', 'Active', 'Business is active', 'system'),
 ('INACTIVE', 'Inactive', 'Business is inactive', 'system'),
 ('SUSPENDED', 'Suspended', 'Business temporarily suspended', 'system'),
-('TERMINATED', 'Terminated', 'Business permanently closed', 'system'),
-('TRIAL', 'Trial', 'Business in trial mode', 'system');
+('TERMINATED', 'Terminated', 'Business permanently closed', 'system');
 
 INSERT INTO master_role_type (code, name, description, created_by) VALUES
 ('OWNER', 'Owner', 'Business Owner with full access', 'system'),

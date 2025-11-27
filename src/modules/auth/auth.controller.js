@@ -16,7 +16,7 @@ class AuthController {
     try {
       logger.info("OTP send request received", {
         email: req.body.email,
-        otpType: req.body.otpType,
+        otp_type_id: req.body.otp_type_id,
         ip: req.ip,
       });
 
@@ -30,22 +30,22 @@ class AuthController {
       }
 
       const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
-      const dto = new SendOTPDTO(value.email, value.otpType);
+      const dto = new SendOTPDTO(value.email, value.otp_type_id);
 
-      const result = await authService.sendOTP(dto.email, dto.otpType, {
+      const result = await authService.sendOTP(dto.email, dto.otp_type_id, {
         ipAddress,
       });
 
       const duration = Date.now() - startTime;
       logger.logPerformance("sendOTP", duration, {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         success: true,
       });
 
       logger.info("OTP sent successfully", {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         otpId: result.otpId,
       });
 
@@ -79,7 +79,7 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      await authService.verifyOTP(value.email, value.otpCode);
+      await authService.verifyOTP(value.email, value.otpCode, value.otp_type_id);
 
       logger.logAuth("OTP_VERIFIED", {
         email: value.email,
@@ -199,7 +199,7 @@ class AuthController {
    * @param {Object} res - Express response object
    * @param {Function} next - Express next middleware function
    */
-  async loginWithOTP(req, res, next) {
+    async loginWithOTP(req, res, next) {
     const startTime = Date.now();
 
     try {
@@ -208,7 +208,6 @@ class AuthController {
         ip: req.ip,
       });
 
-      // Validate input
       const { error, value } = AuthValidator.validateLoginOTP(req.body);
       if (error) {
         logger.warn("Login validation failed", {
@@ -218,18 +217,16 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // Verify OTP and get user details in one call
-      const user = await authService.loginWithOTP(value.email, value.otpCode);
+      const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || null;
+      const userAgent = req.get('user-agent');
 
-      if (
-        !user ||
-        !user.user_id ||
-        !user.business_id ||
-        user.role_id === undefined
-      ) {
+      const user = await authService.loginWithOTP(value.email, value.otpCode, value.otp_type_id, ipAddress, userAgent);
+
+      if (!user || !user.user_id || !user.business_id || user.role_id === undefined) {
         logger.warn("Login failed - invalid user data", {
           email: value.email,
           ip: req.ip,
+          user,
         });
         return ResponseUtil.unauthorized(res, "Invalid login credentials");
       }
@@ -246,6 +243,7 @@ class AuthController {
         userId: user.user_id,
         businessId: user.business_id,
         isOwner: user.is_owner,
+        sessionToken: user.session_token,
         ip: req.ip,
       });
 
@@ -260,40 +258,37 @@ class AuthController {
           user_name: user.user_name,
           contact_number: user.contact_number,
           business_name: user.business_name,
+          session_token: user.session_token,
         },
         "Login successful"
       );
     } catch (err) {
-      logger.logAuth("LOGIN_FAILED", {
-        email: req.body.email,
-        error: err.message,
-        ip: req.ip,
-      });
+      // Handle known failure reasons explicitly so clients get meaningful responses
+      const msg = (err && err.message) || "";
 
-      // Determine appropriate error response
-      if (err.message && err.message.includes("Invalid or expired OTP")) {
-        logger.warn("Login failed - invalid OTP", {
+      if (msg.includes("Invalid or expired OTP")) {
+        logger.warn("OTP verification failed during login", {
           email: req.body.email,
+          reason: msg,
           ip: req.ip,
         });
         return ResponseUtil.unauthorized(res, "Invalid or expired OTP");
       }
 
-      if (err.message && err.message.includes("User not found")) {
-        logger.warn("Login failed - user not found", {
-          email: req.body.email,
-          ip: req.ip,
-        });
-        return ResponseUtil.unauthorized(res, "User not found or inactive");
-      }
-
+      // If stored procedure returned an error message, surface it (but avoid leaking sensitive details)
       logger.logError(err, req, {
         operation: "loginWithOTP",
         email: req.body.email,
+        ip: req.ip,
       });
-      next(err);
+
+      // Return generic server error (error handler will also capture full details)
+      return ResponseUtil.serverError(res, "Failed to login. Please try again.");
+      // OR: if you prefer centralized error handling, call next(err);
+      // next(err);
     }
   }
+
 }
 
 module.exports = new AuthController();
