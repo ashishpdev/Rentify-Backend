@@ -223,52 +223,51 @@ class AuthRepository {
    * @param {string} email - User email
    * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner, name, contact_number, business_name
    */
-  async loginWithOTP(email) {
+  async loginWithOTP(email, ipAddress = null, userAgent = null) {
+  try {
+    const pool = dbConnection.getMasterPool();
+    const connection = await pool.getConnection();
+
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      // Call stored procedure with IP and User Agent
+      await connection.query(
+        `CALL sp_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
+        [email, ipAddress || null, userAgent || null]
+      );
 
-      try {
-        // Call stored procedure to login with OTP
-        await connection.query(
-          `CALL sp_login_with_otp(?, '', @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_error_message)`,
-          [email]
-        );
+      // Get output variables - ADD session_token here
+      const [outputRows] = await connection.query(
+        "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
+      );
 
-        // Get output variables
-        const [outputRows] = await connection.query(
-          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_error_message as error_message"
-        );
+      if (outputRows.length > 0) {
+        const output = outputRows[0];
 
-        if (outputRows.length > 0) {
-          const output = outputRows[0];
-
-          if (!output.user_id || output.error_message !== "Login successful") {
-            throw new Error(
-              output.error_message || "Failed to login: User not found"
-            );
-          }
-
-          return {
-            user_id: output.user_id,
-            business_id: output.business_id,
-            branch_id: output.branch_id,
-            role_id: output.role_id,
-            is_owner: output.is_owner === 1 || output.is_owner === true,
-            user_name: output.user_name,
-            contact_number: output.contact_number,
-            business_name: output.business_name,
-          };
+        if (!output.user_id || output.error_message !== "Login successful") {
+          throw new Error(output.error_message || "Failed to login: User not found");
         }
 
-        throw new Error("Failed to retrieve login data from database");
-      } finally {
-        connection.release();
+        return {
+          user_id: output.user_id,
+          business_id: output.business_id,
+          branch_id: output.branch_id,
+          role_id: output.role_id,
+          is_owner: output.is_owner === 1 || output.is_owner === true,
+          user_name: output.user_name,
+          contact_number: output.contact_number,
+          business_name: output.business_name,
+          session_token: output.session_token, // ADD THIS
+        };
       }
-    } catch (error) {
-      throw new Error(`Failed to login: ${error.message}`);
+
+      throw new Error("Failed to retrieve login data from database");
+    } finally {
+      connection.release();
     }
+  } catch (error) {
+    throw new Error(`Failed to login: ${error.message}`);
   }
+}
 }
 
 module.exports = new AuthRepository();
