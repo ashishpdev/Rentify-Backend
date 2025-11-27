@@ -8,7 +8,7 @@ const router = express.Router();
 // Public routes for OTP and registration flow
 router.post("/send-otp", authController.sendOTP);
 router.post("/verify-otp", authController.verifyOTP);
-router.post("/login-with-otp", authController.loginWithOTP);
+router.post("/login", authController.loginWithOTP);
 router.post("/complete-registration", authController.completeRegistration);
 
 // Decrypt access token - requires X-Access-Token header (mandatory)
@@ -17,10 +17,5 @@ router.post(
   AccessTokenHeaderMiddleware.requireAccessTokenHeader,
   authController.decryptUserData
 );
-
-// Legacy routes
-// router.post("/signup", authController.signup);
-// router.post("/login", authController.login);
-// router.post("/logout", authController.logout);
 
 module.exports = router;

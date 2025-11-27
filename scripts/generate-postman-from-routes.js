@@ -521,11 +521,8 @@ function isPublicEndpoint(path) {
   const publicPaths = [
     "/send-otp",
     "/verify-otp",
-    "/login-with-otp",
     "/login",
-    "/register",
     "/complete-registration",
-    "/signup",
   ];
 
   return publicPaths.some((publicPath) => path.includes(publicPath));
