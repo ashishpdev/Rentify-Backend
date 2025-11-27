@@ -4,7 +4,6 @@ const path = require("path");
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, "../../.env") });
-
 const NODE_ENV = process.env.NODE_ENV || "development";
 
 const parseIntOr = (value, fallback) => {
