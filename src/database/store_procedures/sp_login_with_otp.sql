@@ -17,14 +17,6 @@ CREATE PROCEDURE sp_login_with_otp(
 BEGIN
     DECLARE v_ok INT DEFAULT 1;
     DECLARE v_otp_record_id CHAR(36) DEFAULT NULL;
-    DECLARE v_stored_hash VARCHAR(255) DEFAULT NULL;
-    DECLARE v_attempts INT DEFAULT 0;
-    DECLARE v_max_attempts INT DEFAULT 3;
-    DECLARE v_verified_status_id INT DEFAULT NULL;
-    DECLARE v_failed_status_id INT DEFAULT NULL;
-    DECLARE v_verified_otp_status_id INT DEFAULT NULL;
-    DECLARE v_login_otp_type_id INT DEFAULT NULL;
-    DECLARE v_temporary_user_flag BOOLEAN DEFAULT FALSE;
 
     -- Error handler for rollback
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -47,38 +39,13 @@ BEGIN
     SET p_session_token = NULL;
     SET p_error_message = NULL;
 
-    -- Get VERIFIED and FAILED status IDs
-    SELECT master_otp_status_id
-      INTO v_verified_status_id
-      FROM master_otp_status
-     WHERE code = 'VERIFIED' AND is_deleted = 0
-     LIMIT 1;
-
-    SELECT master_otp_status_id
-      INTO v_failed_status_id
-      FROM master_otp_status
-     WHERE code = 'FAILED' AND is_deleted = 0
-     LIMIT 1;
-
-    -- Get LOGIN OTP type ID (if used elsewhere)
-    SELECT master_otp_type_id
-      INTO v_login_otp_type_id
-      FROM master_otp_type
-     WHERE code = 'LOGIN' AND is_deleted = 0
-     LIMIT 1;
-
-    IF v_verified_status_id IS NULL OR v_failed_status_id IS NULL THEN
-        SET p_error_message = 'OTP status configuration error';
-        SET v_ok = 0;
-    END IF;
-
-    -- Verify OTP (check if already verified)
+    -- Verify OTP (check if already verified with status_id = 2 which is VERIFIED)
     IF v_ok = 1 THEN
-        SELECT id, otp_code_hash, attempts
-          INTO v_otp_record_id, v_stored_hash, v_attempts
+        SELECT id
+          INTO v_otp_record_id
           FROM master_otp
          WHERE target_identifier = p_email
-           AND otp_status_id = v_verified_status_id
+           AND otp_status_id = 2
            AND expires_at > NOW()
          ORDER BY created_at DESC
          LIMIT 1;
@@ -86,9 +53,6 @@ BEGIN
         IF v_otp_record_id IS NULL THEN
             SET p_error_message = 'OTP not verified or has expired';
             SET v_ok = 0;
-        ELSE
-            -- OTP is verified, proceed
-            SET v_verified_otp_status_id = v_verified_status_id;
         END IF;
     END IF;
 
@@ -107,15 +71,19 @@ BEGIN
            AND b.is_active = TRUE
          LIMIT 1;
 
-        -- Generate session token
+        -- Delete existing session for this user (if any)
+        DELETE FROM master_user_session
+         WHERE user_id = p_user_id;
+
+        -- Generate new session token (this will be the ID)
         SET p_session_token = UUID();
 
-        -- Insert session record (remove business_id, use id, created_at, last_active)
+        -- Insert new session record
         INSERT INTO master_user_session (
             id, user_id, session_token, ip_address,
             user_agent, created_at, last_active, is_active
         ) VALUES (
-            UUID(), p_user_id, p_session_token, p_ip_address,
+            p_session_token, p_user_id, p_session_token, p_ip_address,
             p_user_agent, NOW(), NOW(), 1
         );
 
@@ -137,4 +105,4 @@ BEGIN
     ELSE
         ROLLBACK;
     END IF;
-END
+END;

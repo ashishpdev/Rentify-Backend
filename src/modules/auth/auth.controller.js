@@ -81,7 +81,11 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      await authService.verifyOTP(value.email, value.otpCode, value.otp_type_id);
+      await authService.verifyOTP(
+        value.email,
+        value.otpCode,
+        value.otp_type_id
+      );
 
       logger.logAuth("OTP_VERIFIED", {
         email: value.email,
@@ -201,7 +205,7 @@ class AuthController {
    * @param {Object} res - Express response object
    * @param {Function} next - Express next middleware function
    */
-    async loginWithOTP(req, res, next) {
+  async loginWithOTP(req, res, next) {
     const startTime = Date.now();
 
     try {
@@ -219,12 +223,27 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || null;
-      const userAgent = req.get('user-agent');
+      const ipAddress =
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null;
+      const userAgent = req.get("user-agent");
 
-      const user = await authService.loginWithOTP(value.email, value.otpCode, value.otp_type_id, ipAddress, userAgent);
+      const user = await authService.loginWithOTP(
+        value.email,
+        value.otpCode,
+        value.otp_type_id,
+        ipAddress,
+        userAgent
+      );
 
-      if (!user || !user.user_id || !user.business_id || user.role_id === undefined) {
+      if (
+        !user ||
+        !user.user_id ||
+        !user.business_id ||
+        user.role_id === undefined
+      ) {
         logger.warn("Login failed - invalid user data", {
           email: value.email,
           ip: req.ip,
@@ -240,19 +259,8 @@ class AuthController {
         success: true,
       });
 
-      // Create a session in database
-      let sessionToken;
-      try {
-        const sessionInfo = await SessionValidator.createSession(user, 24);
-        sessionToken = sessionInfo.sessionToken;
-      } catch (sessionErr) {
-        logger.error("Failed to create session, but proceeding with login", {
-          error: sessionErr.message,
-          userId: user.user_id,
-        });
-        // If session creation fails, we can continue with a fallback
-        // In production, you might want to fail the login
-      }
+      // Session token is already created by the stored procedure
+      const sessionToken = user.session_token;
 
       // Generate encrypted access token from user data
       let accessToken;
@@ -289,7 +297,9 @@ class AuthController {
         userId: user.user_id,
         businessId: user.business_id,
         isOwner: user.is_owner,
-        sessionToken: sessionToken ? sessionToken.substring(0, 20) + "..." : "failed",
+        sessionToken: sessionToken
+          ? sessionToken.substring(0, 20) + "..."
+          : "failed",
         ip: req.ip,
       });
 
@@ -324,7 +334,10 @@ class AuthController {
       });
 
       // Return generic server error (error handler will also capture full details)
-      return ResponseUtil.serverError(res, "Failed to login. Please try again.");
+      return ResponseUtil.serverError(
+        res,
+        "Failed to login. Please try again."
+      );
       // OR: if you prefer centralized error handling, call next(err);
       // next(err);
     }
@@ -351,7 +364,11 @@ class AuthController {
         ip: req.ip,
       });
 
-      return ResponseUtil.success(res, { logged_out: true }, "Logged out successfully");
+      return ResponseUtil.success(
+        res,
+        { logged_out: true },
+        "Logged out successfully"
+      );
     } catch (err) {
       logger.logError(err, req, {
         operation: "logout",
@@ -366,7 +383,7 @@ class AuthController {
    * This endpoint decrypts the access_token and returns the encrypted user data
    * Can be called by client to get user info when needed
    * Does NOT require session validation - only validates access token integrity
-   * 
+   *
    * @param {Object} req - Express request with accessToken in body or header
    * @param {Object} res - Express response
    * @param {Function} next - Express next function
@@ -378,7 +395,8 @@ class AuthController {
       });
 
       // Extract access token from body or header
-      const accessToken = req.body?.accessToken || req.headers["x-access-token"];
+      const accessToken =
+        req.body?.accessToken || req.headers["x-access-token"];
 
       if (!accessToken) {
         logger.warn("Missing access token in decrypt request", {
@@ -466,7 +484,6 @@ class AuthController {
       return ResponseUtil.unauthorized(res, "Failed to decrypt user data");
     }
   }
-
 }
 
 module.exports = new AuthController();

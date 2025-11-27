@@ -148,46 +148,6 @@
             "description": "Handler: authController.completeRegistration"
           },
           "response": []
-        },
-        {
-          "name": "POST /api/auth/decrypt-user-data",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/decrypt-user-data",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "decrypt-user-data"
-              ]
-            },
-            "description": "Handler: authController.decryptUserData"
-          },
-          "response": []
-        },
-        {
-          "name": "POST /api/auth/logout",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/logout",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "logout"
-              ]
-            },
-            "description": "Handler: authController.logout"
-          },
-          "response": []
         }
       ]
     }
