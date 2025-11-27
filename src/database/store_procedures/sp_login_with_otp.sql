@@ -1,6 +1,4 @@
-DROP PROCEDURE IF EXISTS sp_login_with_otp;
-DELIMITER $$
-
+DROP PROCEDURE sp_login_with_otp;
 CREATE PROCEDURE sp_login_with_otp(
     IN p_email VARCHAR(255),
     IN p_ip_address VARCHAR(255),
@@ -139,5 +137,4 @@ BEGIN
     ELSE
         ROLLBACK;
     END IF;
-END $$
-DELIMITER ;
+END

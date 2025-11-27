@@ -41,7 +41,7 @@ class AuthService {
     return info;
   }
 
-  async sendOTP(email, otpType, options = {}) {
+  async sendOTP(email, otp_type_id, options = {}) {
     const { ipAddress = null } = options;
 
     try {
@@ -51,7 +51,7 @@ class AuthService {
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
         otpCodeHash,
-        otpType,
+        otp_type_id,
         expiryMinutes: 10,
         ipAddress,
       });
@@ -60,7 +60,7 @@ class AuthService {
       await this.sendVerificationCode(email, otpCode, 10);
 
       console.log(
-        `[OTP] Email: ${email}, Type: ${otpType}, Code: ${otpCode}, ID: ${otpRecord.id}`
+        `[OTP] Email: ${email}, Type ID: ${otp_type_id}, Code: ${otpCode}, ID: ${otpRecord.id}`
       );
 
       return {
@@ -73,10 +73,10 @@ class AuthService {
     }
   }
 
-  async verifyOTP(email, otpCode) {
+  async verifyOTP(email, otpCode, otp_type_id) {
     try {
       const hash = this.hashOTP(otpCode);
-      const result = await authRepository.verifyOTP(email, hash);
+      const result = await authRepository.verifyOTP(email, hash, otp_type_id);
 
       if (!result || !result.verified) {
         throw new Error("Invalid or expired OTP");
@@ -129,13 +129,14 @@ class AuthService {
    * Verifies the OTP and returns user details if successful
    * @param {string} email - User email
    * @param {string} otpCode - OTP code (6 digits)
+   * @param {number} otp_type_id - OTP type ID (1 for LOGIN)
    * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner
    */
-  async loginWithOTP(email, otpCode, ipAddress = null, userAgent = null) {
+  async loginWithOTP(email, otpCode, otp_type_id, ipAddress = null, userAgent = null) {
   try {
     // Step 1: Verify OTP code
     const hash = this.hashOTP(otpCode);
-    const verifyResult = await authRepository.verifyOTP(email, hash);
+    const verifyResult = await authRepository.verifyOTP(email, hash, otp_type_id);
 
     if (!verifyResult || !verifyResult.verified) {
       throw new Error("Invalid or expired OTP");

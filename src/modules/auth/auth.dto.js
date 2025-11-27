@@ -4,9 +4,9 @@
  * Send OTP Request DTO
  */
 class SendOTPDTO {
-  constructor(email, otpType) {
+  constructor(email, otp_type_id) {
     this.email = email;
-    this.otpType = otpType;
+    this.otp_type_id = otp_type_id;
   }
 }
 

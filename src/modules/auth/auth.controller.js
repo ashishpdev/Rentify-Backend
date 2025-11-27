@@ -16,7 +16,7 @@ class AuthController {
     try {
       logger.info("OTP send request received", {
         email: req.body.email,
-        otpType: req.body.otpType,
+        otp_type_id: req.body.otp_type_id,
         ip: req.ip,
       });
 
@@ -30,22 +30,22 @@ class AuthController {
       }
 
       const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
-      const dto = new SendOTPDTO(value.email, value.otpType);
+      const dto = new SendOTPDTO(value.email, value.otp_type_id);
 
-      const result = await authService.sendOTP(dto.email, dto.otpType, {
+      const result = await authService.sendOTP(dto.email, dto.otp_type_id, {
         ipAddress,
       });
 
       const duration = Date.now() - startTime;
       logger.logPerformance("sendOTP", duration, {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         success: true,
       });
 
       logger.info("OTP sent successfully", {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         otpId: result.otpId,
       });
 
@@ -79,7 +79,7 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      await authService.verifyOTP(value.email, value.otpCode);
+      await authService.verifyOTP(value.email, value.otpCode, value.otp_type_id);
 
       logger.logAuth("OTP_VERIFIED", {
         email: value.email,
@@ -220,7 +220,7 @@ class AuthController {
       const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection?.remoteAddress || null;
       const userAgent = req.get('user-agent');
 
-      const user = await authService.loginWithOTP(value.email, value.otpCode, ipAddress, userAgent);
+      const user = await authService.loginWithOTP(value.email, value.otpCode, value.otp_type_id, ipAddress, userAgent);
 
       if (!user || !user.user_id || !user.business_id || user.role_id === undefined) {
         logger.warn("Login failed - invalid user data", {

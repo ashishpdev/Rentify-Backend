@@ -1,8 +1,8 @@
 DROP PROCEDURE sp_send_otp;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_send_otp`(
+CREATE PROCEDURE `sp_send_otp`(
     IN p_email VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
-    IN p_otp_type_code VARCHAR(100),
+    IN p_otp_type_id INT,
     IN p_expiry_minutes INT,
     IN p_ip_address VARCHAR(100),
     OUT p_otp_id CHAR(36),
@@ -19,19 +19,19 @@ BEGIN
     SET p_expires_at = NULL;
     SET p_error_message = NULL;
     
-    -- Get OTP type ID first (needed to check if REGISTER type)
+    -- Validate OTP type ID is valid
     SELECT master_otp_type_id
       INTO v_otp_type_id
       FROM master_otp_type
-     WHERE code = p_otp_type_code AND is_deleted = 0
+     WHERE master_otp_type_id = p_otp_type_id AND is_deleted = 0
      LIMIT 1;
     IF v_otp_type_id IS NULL THEN
         SET p_error_message = 'Invalid OTP type';
         SET v_ok = 0;
     END IF;
     
-    -- Only check for duplicate email if OTP type is REGISTER
-    IF v_ok = 1 AND p_otp_type_code = 'REGISTER' THEN
+    -- Only check for duplicate email if OTP type ID is 2 (REGISTER)
+    IF v_ok = 1 AND p_otp_type_id = 2 THEN
         -- Check if email already exists in master_business
         SELECT COUNT(*) INTO v_business_exists
           FROM master_business
@@ -72,7 +72,7 @@ BEGIN
         -- Delete old unverified OTP for this email and type
         DELETE FROM master_otp
          WHERE target_identifier = p_email
-           AND otp_type_id = v_otp_type_id
+           AND otp_type_id = p_otp_type_id
            AND verified_at IS NULL;
         -- Generate new OTP ID
         SET p_otp_id = UUID();
@@ -83,7 +83,7 @@ BEGIN
             expires_at, ip_address, created_by
         )
         VALUES (
-            p_otp_id, p_email, p_otp_code_hash, v_otp_type_id, v_pending_status_id,
+            p_otp_id, p_email, p_otp_code_hash, p_otp_type_id, v_pending_status_id,
             p_expires_at, p_ip_address, 'system'
         );
         SET p_error_message = 'Success';

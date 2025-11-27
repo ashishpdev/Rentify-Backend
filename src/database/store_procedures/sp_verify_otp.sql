@@ -1,7 +1,8 @@
 DROP PROCEDURE sp_verify_otp;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_verify_otp`(
+CREATE PROCEDURE `sp_verify_otp`(
     IN p_email VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
+    IN p_otp_type_id INT,
     OUT p_verified BOOLEAN,
     OUT p_otp_id CHAR(36),
     OUT p_error_message VARCHAR(500)
@@ -33,18 +34,19 @@ BEGIN
         SET v_ok = 0;
     END IF;
     IF v_ok = 1 THEN
-        -- Get most recent PENDING OTP for this email (regardless of type)
+        -- Get most recent PENDING OTP for this email and type
         SELECT id, otp_code_hash, attempts
           INTO v_otp_record_id, v_stored_hash, v_attempts
           FROM master_otp
          WHERE target_identifier = p_email
+           AND otp_type_id = p_otp_type_id
            AND otp_status_id = (SELECT master_otp_status_id FROM master_otp_status WHERE code = 'PENDING' AND is_deleted = 0 LIMIT 1)
            AND expires_at > NOW()
            AND attempts < v_max_attempts
          ORDER BY created_at DESC
          LIMIT 1;
         IF v_otp_record_id IS NULL THEN
-            SET p_error_message = 'No valid OTP found for this email';
+            SET p_error_message = 'No valid OTP found for this email and type';
             SET v_ok = 0;
         END IF;
     END IF;
