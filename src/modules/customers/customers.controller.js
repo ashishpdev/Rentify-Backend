@@ -21,17 +21,15 @@ class CustomerController {
                 return ResponseUtil.badRequest(res, error.details[0].message);
             }
 
-            const dto = new CustomerCreateDTO(value);
-            console.log(req.user);
+            const dto = new CustomerCreateDTO(value, req.user);
+            const result = await customersService.createCustomer(dto);
             
-            res.send("DONE")
-            // const result = await customersService.createCustomer(dto);
-            // return ResponseUtil.success(res, result);
+            return ResponseUtil.success(res, result);
 
 
         } catch (error) {
             logger.logError(error, req, {
-                operation: "sendOTP",
+                operation: "createCustomer",
                 email: req.body.email,
             });
             next(error);

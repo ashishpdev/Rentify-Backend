@@ -45,7 +45,6 @@ class DatabaseConnection {
         database: databaseConfig.master.database,
       });
 
-      console.log("✅ Master DB pool created and connection tested");
       return this.masterPool;
     } catch (err) {
       logger.error("❌ Failed to initialize master DB pool", {

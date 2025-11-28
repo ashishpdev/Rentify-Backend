@@ -8,18 +8,6 @@ const Joi = require("joi");
 
 
 const createCustomerSchema = Joi.object({
-    businessId: Joi.number().integer().positive().required().messages({
-        'number.base': 'Business ID must be a number',
-        'number.integer': 'Business ID must be an integer',
-        'any.required': 'Business ID is required'
-    }),
-
-    branchId: Joi.number().integer().positive().required().messages({
-        'number.base': 'Branch ID must be a number',
-        'number.integer': 'Branch ID must be an integer',
-        'any.required': 'Branch ID is required'
-    }),
-
     firstName: Joi.string().min(2).max(200).required().messages({
         'string.base': 'First name must be text',
         'string.min': 'First name must be at least 2 characters',
@@ -73,13 +61,8 @@ const createCustomerSchema = Joi.object({
         'any.required': 'Pincode is required'
     }),
 
-    created_by: Joi.number().integer().positive().required().messages({
-        'number.base': 'Created by ID must be a number',
-        'number.integer': 'Created by ID must be an integer',
-        'any.required': 'Created by ID is required'
-    }),
-
     // Control fields (optional/managed by system)
+    created_by: Joi.date().iso().optional(),
     created_at: Joi.date().iso().optional(),
     updated_by: Joi.string().max(255).optional().allow(null, ''),
     updated_at: Joi.date().iso().optional(),

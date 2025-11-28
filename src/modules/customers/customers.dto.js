@@ -3,9 +3,9 @@
 
 
 class CustomerCreateDTO {
-    constructor(data) {
-        this.business_id = data.businessId;
-        this.branch_id = data.branchId;
+    constructor(data, userData) {
+        this.business_id = userData.business_id;
+        this.branch_id = userData.branch_id;
         this.first_name = data.firstName;
         this.last_name = data.lastName;
         this.email = data.email;
@@ -15,6 +15,8 @@ class CustomerCreateDTO {
         this.state = data.state;
         this.country = data.country;
         this.postal_code = data.pincode;
+        this.created_by = userData.user_id // User who created this customer
+        this.role_user = userData.user_id // Role user ID (not needed for create)
     }
 }
 
