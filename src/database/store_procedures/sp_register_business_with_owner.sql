@@ -1,5 +1,5 @@
 DROP PROCEDURE sp_register_business_with_owner;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_register_business_with_owner`(
+CREATE PROCEDURE `sp_register_business_with_owner`(
     IN p_business_name VARCHAR(255),
     IN p_business_email VARCHAR(255),
     IN p_contact_person VARCHAR(255),
@@ -88,6 +88,19 @@ BEGIN
             SET p_error_message = 'Business email already exists';
             SET v_ok = 0;
         END IF;
+    END IF;    
+    
+    -- Get business status (ACTIVE)
+    IF v_ok = 1 THEN
+        SELECT master_business_status_id
+          INTO v_business_status_id
+          FROM master_business_status
+         WHERE code = 'ACTIVE' AND is_deleted = 0
+         LIMIT 1;
+        IF v_business_status_id IS NULL THEN
+            SET p_error_message = 'Business status ACTIVE not found';
+            SET v_ok = 0;
+        END IF;
     END IF;
     
     -- Get subscription type (hardcoded to TRIAL)
@@ -121,19 +134,6 @@ BEGIN
          LIMIT 1;
         IF v_billing_cycle_id IS NULL THEN
             SET p_error_message = 'Invalid billing cycle MONTHLY';
-            SET v_ok = 0;
-        END IF;
-    END IF;
-    
-    -- Get business status (TRIAL)
-    IF v_ok = 1 THEN
-        SELECT master_business_status_id
-          INTO v_business_status_id
-          FROM master_business_status
-         WHERE code = 'TRIAL' AND is_deleted = 0
-         LIMIT 1;
-        IF v_business_status_id IS NULL THEN
-            SET p_error_message = 'Business status TRIAL not found';
             SET v_ok = 0;
         END IF;
     END IF;

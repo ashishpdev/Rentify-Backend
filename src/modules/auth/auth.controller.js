@@ -8,6 +8,8 @@ const {
   CompleteRegistrationDTO,
 } = require("./auth.dto");
 const logger = require("../../config/logger.config");
+const TokenUtil = require("../../utils/token.util");
+const SessionValidator = require("../../middlewares/session-validator.middleware");
 
 class AuthController {
   async sendOTP(req, res, next) {
@@ -16,7 +18,7 @@ class AuthController {
     try {
       logger.info("OTP send request received", {
         email: req.body.email,
-        otpType: req.body.otpType,
+        otp_type_id: req.body.otp_type_id,
         ip: req.ip,
       });
 
@@ -30,22 +32,22 @@ class AuthController {
       }
 
       const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
-      const dto = new SendOTPDTO(value.email, value.otpType);
+      const dto = new SendOTPDTO(value.email, value.otp_type_id);
 
-      const result = await authService.sendOTP(dto.email, dto.otpType, {
+      const result = await authService.sendOTP(dto.email, dto.otp_type_id, {
         ipAddress,
       });
 
       const duration = Date.now() - startTime;
       logger.logPerformance("sendOTP", duration, {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         success: true,
       });
 
       logger.info("OTP sent successfully", {
         email: value.email,
-        otpType: value.otpType,
+        otp_type_id: value.otp_type_id,
         otpId: result.otpId,
       });
 
@@ -79,7 +81,11 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      await authService.verifyOTP(value.email, value.otpCode);
+      await authService.verifyOTP(
+        value.email,
+        value.otpCode,
+        value.otp_type_id
+      );
 
       logger.logAuth("OTP_VERIFIED", {
         email: value.email,
@@ -208,7 +214,6 @@ class AuthController {
         ip: req.ip,
       });
 
-      // Validate input
       const { error, value } = AuthValidator.validateLoginOTP(req.body);
       if (error) {
         logger.warn("Login validation failed", {
@@ -218,8 +223,20 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // Verify OTP and get user details in one call
-      const user = await authService.loginWithOTP(value.email, value.otpCode);
+      const ipAddress =
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null;
+      const userAgent = req.get("user-agent");
+
+      const user = await authService.loginWithOTP(
+        value.email,
+        value.otpCode,
+        value.otp_type_id,
+        ipAddress,
+        userAgent
+      );
 
       if (
         !user ||
@@ -230,6 +247,7 @@ class AuthController {
         logger.warn("Login failed - invalid user data", {
           email: value.email,
           ip: req.ip,
+          user,
         });
         return ResponseUtil.unauthorized(res, "Invalid login credentials");
       }
@@ -241,17 +259,14 @@ class AuthController {
         success: true,
       });
 
-      logger.logAuth("LOGIN_SUCCESS", {
-        email: value.email,
-        userId: user.user_id,
-        businessId: user.business_id,
-        isOwner: user.is_owner,
-        ip: req.ip,
-      });
+      // Session token is already created by the stored procedure
+      const sessionToken = user.session_token;
 
-      return ResponseUtil.success(
-        res,
-        {
+      // Generate encrypted access token from user data
+      let accessToken;
+      let accessTokenExpiry;
+      try {
+        const tokenData = {
           user_id: user.user_id,
           business_id: user.business_id,
           branch_id: user.branch_id,
@@ -260,38 +275,216 @@ class AuthController {
           user_name: user.user_name,
           contact_number: user.contact_number,
           business_name: user.business_name,
+          email: value.email,
+        };
+
+        const tokenResult = TokenUtil.generateAccessToken(tokenData);
+        accessToken = tokenResult.accessToken;
+        accessTokenExpiry = tokenResult.expiresAt;
+      } catch (tokenErr) {
+        logger.error("Failed to generate access token", {
+          error: tokenErr.message,
+          userId: user.user_id,
+        });
+        return ResponseUtil.serverError(
+          res,
+          "Failed to generate security tokens"
+        );
+      }
+
+      logger.logAuth("LOGIN_SUCCESS", {
+        email: value.email,
+        userId: user.user_id,
+        businessId: user.business_id,
+        isOwner: user.is_owner,
+        sessionToken: sessionToken
+          ? sessionToken.substring(0, 20) + "..."
+          : "failed",
+        ip: req.ip,
+      });
+
+      return ResponseUtil.success(
+        res,
+        {
+          // Return only tokens - client must call decrypt endpoint for user data
+          session_token: sessionToken || null,
+          access_token: accessToken,
+          token_expires_at: accessTokenExpiry,
         },
         "Login successful"
       );
     } catch (err) {
-      logger.logAuth("LOGIN_FAILED", {
-        email: req.body.email,
-        error: err.message,
-        ip: req.ip,
-      });
+      // Handle known failure reasons explicitly so clients get meaningful responses
+      const msg = (err && err.message) || "";
 
-      // Determine appropriate error response
-      if (err.message && err.message.includes("Invalid or expired OTP")) {
-        logger.warn("Login failed - invalid OTP", {
+      if (msg.includes("Invalid or expired OTP")) {
+        logger.warn("OTP verification failed during login", {
           email: req.body.email,
+          reason: msg,
           ip: req.ip,
         });
         return ResponseUtil.unauthorized(res, "Invalid or expired OTP");
       }
 
-      if (err.message && err.message.includes("User not found")) {
-        logger.warn("Login failed - user not found", {
-          email: req.body.email,
-          ip: req.ip,
-        });
-        return ResponseUtil.unauthorized(res, "User not found or inactive");
-      }
-
+      // If stored procedure returned an error message, surface it (but avoid leaking sensitive details)
       logger.logError(err, req, {
         operation: "loginWithOTP",
         email: req.body.email,
+        ip: req.ip,
       });
-      next(err);
+
+      // Return generic server error (error handler will also capture full details)
+      return ResponseUtil.serverError(
+        res,
+        "Failed to login. Please try again."
+      );
+      // OR: if you prefer centralized error handling, call next(err);
+      // next(err);
+    }
+  }
+
+  /**
+   * Logout user and invalidate session
+   * Requires valid session_token
+   */
+  async logout(req, res, next) {
+    try {
+      const sessionToken = req.sessionToken;
+
+      if (!sessionToken) {
+        return ResponseUtil.badRequest(res, "No active session to logout");
+      }
+
+      // Invalidate the session
+      await SessionValidator.invalidateSession(sessionToken);
+
+      logger.logAuth("LOGOUT_SUCCESS", {
+        userId: req.sessionData?.user_id,
+        sessionId: req.sessionData?.session_id,
+        ip: req.ip,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { logged_out: true },
+        "Logged out successfully"
+      );
+    } catch (err) {
+      logger.logError(err, req, {
+        operation: "logout",
+        userId: req.sessionData?.user_id,
+      });
+      return ResponseUtil.serverError(res, "Failed to logout");
+    }
+  }
+
+  /**
+   * Decrypt access token and return user data
+   * This endpoint decrypts the access_token and returns the encrypted user data
+   * Can be called by client to get user info when needed
+   * Does NOT require session validation - only validates access token integrity
+   * REQUIRES: X-Access-Token header (mandatory)
+   *
+   * @param {Object} req - Express request with X-Access-Token header
+   * @param {Object} res - Express response
+   * @param {Function} next - Express next function
+   */
+  async decryptUserData(req, res, next) {
+    try {
+      logger.debug("Decrypt user data request received", {
+        ip: req.ip,
+      });
+
+      // Extract access token from header ONLY (mandatory)
+      const accessToken = req.headers["x-access-token"];
+
+      if (!accessToken) {
+        logger.warn("Missing access token header in decrypt request", {
+          ip: req.ip,
+        });
+        return ResponseUtil.badRequest(
+          res,
+          "X-Access-Token header is required"
+        );
+      }
+
+      // Validate token structure
+      if (!TokenUtil.isValidTokenStructure(accessToken)) {
+        logger.warn("Invalid access token structure in decrypt request", {
+          ip: req.ip,
+        });
+        return ResponseUtil.badRequest(res, "Invalid access token format");
+      }
+
+      // Decrypt the token to get user data
+      const userData = TokenUtil.decryptAccessToken(accessToken);
+
+      if (!userData || !userData.user_id) {
+        logger.warn("Failed to extract user data from access token", {
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "Invalid access token");
+      }
+
+      // Return only the necessary user data fields
+      const decryptedData = {
+        user_id: userData.user_id,
+        business_id: userData.business_id,
+        branch_id: userData.branch_id,
+        role_id: userData.role_id,
+        is_owner: userData.is_owner,
+        user_name: userData.user_name,
+        contact_number: userData.contact_number,
+        business_name: userData.business_name,
+        email: userData.email,
+      };
+
+      logger.debug("User data decrypted successfully", {
+        userId: userData.user_id,
+        businessId: userData.business_id,
+        ip: req.ip,
+      });
+
+      return ResponseUtil.success(
+        res,
+        decryptedData,
+        "User data decrypted successfully"
+      );
+    } catch (err) {
+      // Handle different error types
+      if (err.message.includes("tampered")) {
+        logger.warn("Tampered access token in decrypt request", {
+          error: err.message,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(
+          res,
+          "Access token has been compromised"
+        );
+      }
+
+      if (err.message.includes("expired")) {
+        logger.warn("Expired access token in decrypt request", {
+          error: err.message,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "Access token has expired");
+      }
+
+      if (err.message.includes("corrupted")) {
+        logger.warn("Corrupted access token in decrypt request", {
+          error: err.message,
+          ip: req.ip,
+        });
+        return ResponseUtil.unauthorized(res, "Access token is corrupted");
+      }
+
+      logger.error("Error decrypting user data", {
+        error: err.message,
+        ip: req.ip,
+      });
+
+      return ResponseUtil.unauthorized(res, "Failed to decrypt user data");
     }
   }
 }
