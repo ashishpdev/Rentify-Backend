@@ -1,6 +1,7 @@
 // Combines all module routes
 const express = require("express");
 const authRoutes = require("../modules/auth/auth.routes");
+const customersRoutes = require("../modules/customers/customers.routes");
 
 const router = express.Router();
 
@@ -29,6 +30,7 @@ router.get("/", (req, res) => {
 
 // Module routes
 router.use("/auth", authRoutes);
+router.use("/customer", customersRoutes);
 
 // 404 handler - changed from "*" to catch-all middleware
 router.use((req, res) => {
