@@ -5,35 +5,18 @@ const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const ENCODING = "utf8";
 
 class TokenUtil {
-  /**
-   * Get encryption key from environment or use default
-   * In production, this MUST come from a secure environment variable
-   * @returns {Buffer} - 32-byte key for AES-256
-   */
+  // Get encryption key from environment variable or default
   static getEncryptionKey() {
-    const keyString = process.env.TOKEN_ENCRYPTION_KEY || "default-insecure-key-change-in-production";
+    // 🛑🛑 WARNING: This is a fallback key and should NOT be used in production
+    const keyString =
+      process.env.TOKEN_ENCRYPTION_KEY ||
+      "default-insecure-key-change-in-production";
     // Ensure key is exactly 32 bytes (256 bits) for AES-256
     const hash = crypto.createHash("sha256").update(keyString).digest();
     return hash;
   }
 
-  /**
-   * Generate encrypted access token from user data
-   * The token contains encrypted user information that can be decrypted and verified
-   * @param {Object} userData - User data to encrypt
-   *   {
-   *     user_id: number,
-   *     business_id: number,
-   *     branch_id: number,
-   *     role_id: number,
-   *     is_owner: boolean,
-   *     user_name: string,
-   *     contact_number: string,
-   *     business_name: string,
-   *     email: string
-   *   }
-   * @returns {Object} - { accessToken: string, expiresAt: timestamp }
-   */
+  // =================== GENERATE ACCESS TOKEN ===================
   static generateAccessToken(userData) {
     try {
       // Validate required fields
@@ -49,7 +32,7 @@ class TokenUtil {
 
       // Add metadata to token
       dataToEncrypt.iat = Math.floor(Date.now() / 1000); // issued at
-      dataToEncrypt.exp = Math.floor(Date.now() / 1000) + (24 * 60 * 60); // expires in 24 hours
+      dataToEncrypt.exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // expires in 24 hours
       dataToEncrypt.type = "access_token"; // token type identifier
 
       // Serialize data to JSON
@@ -59,7 +42,11 @@ class TokenUtil {
       const iv = crypto.randomBytes(16);
 
       // Encrypt the data
-      const cipher = crypto.createCipheriv(ENCRYPTION_ALGORITHM, this.getEncryptionKey(), iv);
+      const cipher = crypto.createCipheriv(
+        ENCRYPTION_ALGORITHM,
+        this.getEncryptionKey(),
+        iv
+      );
       let encrypted = cipher.update(jsonData, ENCODING, "hex");
       encrypted += cipher.final("hex");
 
@@ -67,7 +54,11 @@ class TokenUtil {
       const authTag = cipher.getAuthTag();
 
       // Combine IV + authTag + encrypted data and encode to base64
-      const token = Buffer.concat([iv, authTag, Buffer.from(encrypted, "hex")]).toString("base64");
+      const token = Buffer.concat([
+        iv,
+        authTag,
+        Buffer.from(encrypted, "hex"),
+      ]).toString("base64");
 
       return {
         accessToken: token,
@@ -79,13 +70,7 @@ class TokenUtil {
     }
   }
 
-  /**
-   * Decrypt and validate access token
-   * Returns decrypted user data if token is valid and not tampered
-   * @param {string} token - Encrypted access token
-   * @returns {Object} - Decrypted user data
-   * @throws {Error} - If token is invalid, tampered, or expired
-   */
+  // =================== DECRYPT ACCESS TOKEN ===================
   static decryptAccessToken(token) {
     try {
       if (!token || typeof token !== "string") {
@@ -102,7 +87,11 @@ class TokenUtil {
       const encrypted = buffer.slice(32).toString("hex");
 
       // Create decipher
-      const decipher = crypto.createDecipheriv(ENCRYPTION_ALGORITHM, this.getEncryptionKey(), iv);
+      const decipher = crypto.createDecipheriv(
+        ENCRYPTION_ALGORITHM,
+        this.getEncryptionKey(),
+        iv
+      );
 
       // Set the auth tag for verification
       decipher.setAuthTag(authTag);
@@ -133,7 +122,9 @@ class TokenUtil {
       return userData;
     } catch (err) {
       // Any error in decryption means token is tampered or invalid
-      if (err.message.includes("Unsupported state or unable to authenticate data")) {
+      if (
+        err.message.includes("Unsupported state or unable to authenticate data")
+      ) {
         throw new Error("Access token has been tampered with");
       }
       if (err instanceof SyntaxError) {
@@ -143,11 +134,7 @@ class TokenUtil {
     }
   }
 
-  /**
-   * Verify token structure without decrypting (for quick validation)
-   * @param {string} token - Token to verify
-   * @returns {boolean} - True if token has valid structure
-   */
+  // =================== VALIDATE TOKEN STRUCTURE ===================
   static isValidTokenStructure(token) {
     try {
       if (!token || typeof token !== "string") {
@@ -159,23 +146,6 @@ class TokenUtil {
       return buffer.length >= 33;
     } catch (err) {
       return false;
-    }
-  }
-
-  /**
-   * Extract expiration time from token without decrypting
-   * This is useful for client-side token refresh logic
-   * @param {string} token - Encrypted token
-   * @returns {number|null} - Unix timestamp of expiration or null if unable to determine
-   */
-  static getTokenExpiration(token) {
-    try {
-      const userData = this.decryptAccessToken(token);
-      // Re-encrypt to check expiration time from original
-      // Note: This will fail if token is expired, so we need a different approach
-      return null; // Return null - expiration is validated during decryption
-    } catch (err) {
-      return null;
     }
   }
 }

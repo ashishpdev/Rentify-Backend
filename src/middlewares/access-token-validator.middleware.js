@@ -1,4 +1,4 @@
-const TokenUtil = require("../utils/token.util");
+const TokenUtil = require("../utils/access_token.util");
 const ResponseUtil = require("../utils/response.util");
 const logger = require("../config/logger.config");
 
