@@ -12,7 +12,6 @@ const parseIntOr = (value, fallback) => {
   return Number.isNaN(n) ? fallback : n;
 };
 
-
 const config = {
   nodeEnv: NODE_ENV,
   isProd: NODE_ENV === "production",
