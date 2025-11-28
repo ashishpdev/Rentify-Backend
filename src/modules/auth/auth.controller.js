@@ -1,6 +1,8 @@
 // src/modules/auth/auth.controller.js
 const ResponseUtil = require("../../utils/response.util");
 const authService = require("./auth.service");
+const sessionService = require("./session.service");
+const tokenService = require("./token.service");
 const { AuthValidator } = require("./auth.validator");
 const {
   SendOTPDTO,
@@ -10,6 +12,8 @@ const {
 const logger = require("../../config/logger.config");
 const TokenUtil = require("../../utils/token.util");
 const SessionValidator = require("../../middlewares/session-validator.middleware");
+const { RESPONSE_MESSAGES } = require("../../constants/operations");
+const { RequestContext } = require("../../utils/async-handler.util");
 
 class AuthController {
   async sendOTP(req, res, next) {
@@ -309,7 +313,7 @@ class AuthController {
           // Return only tokens - client must call decrypt endpoint for user data
           session_token: sessionToken || null,
           access_token: accessToken,
-          token_expires_at: accessTokenExpiry,
+          session_expires_at: accessTokenExpiry,
         },
         "Login successful"
       );
@@ -485,6 +489,99 @@ class AuthController {
       });
 
       return ResponseUtil.unauthorized(res, "Failed to decrypt user data");
+    }
+  }
+
+  /**
+   * Extend session expiry by 1 hour
+   * Requires both x-access-token and x-session-token headers
+   * @param {Object} req - Express request with token headers
+   * @param {Object} res - Express response
+   * @param {Function} next - Express next function
+   */
+  async extendSession(req, res, next) {
+    try {
+      const context = RequestContext.from(req);
+
+      // Extract and validate both tokens
+      const { userId, sessionToken } = tokenService.extractAndValidateTokens(
+        req.headers
+      );
+
+      // Call session service to extend expiry
+      const result = await sessionService.extendSession(userId, sessionToken);
+
+      if (!result.isSuccess) {
+        logger.warn("Extend session failed", {
+          ...context,
+          userId,
+          errorMessage: result.errorMessage,
+        });
+        return ResponseUtil.unauthorized(
+          res,
+          result.errorMessage || RESPONSE_MESSAGES.EXTEND_SESSION_FAILED
+        );
+      }
+
+      logger.logAuth("SESSION_EXTENDED", {
+        ...context,
+        userId,
+        newExpiryAt: result.newExpiryAt,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { session_expires_at: result.newExpiryAt },
+        RESPONSE_MESSAGES.SESSION_EXTENDED
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Logout user and invalidate session
+   * Requires only x-access-token header
+   * @param {Object} req - Express request with access token header
+   * @param {Object} res - Express response
+   * @param {Function} next - Express next function
+   */
+  async logout(req, res, next) {
+    try {
+      const context = RequestContext.from(req);
+
+      // Extract and validate access token only
+      const { userId } = tokenService.extractAndValidateAccessToken(
+        req.headers
+      );
+
+      // Call session service to logout
+      const result = await sessionService.logout(userId);
+
+      if (!result.isSuccess) {
+        logger.warn("Logout failed", {
+          ...context,
+          userId,
+          errorMessage: result.errorMessage,
+        });
+        return ResponseUtil.serverError(
+          res,
+          result.errorMessage || RESPONSE_MESSAGES.LOGOUT_FAILED
+        );
+      }
+
+      logger.logAuth("LOGOUT_SUCCESS", {
+        ...context,
+        userId,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { logged_out: true, userId },
+        RESPONSE_MESSAGES.LOGOUT_SUCCESS
+      );
+    } catch (error) {
+      next(error);
     }
   }
 }

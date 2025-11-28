@@ -13,13 +13,7 @@
           "name": "POST /api/auth/send-otp",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/send-otp",
               "host": [
@@ -31,16 +25,7 @@
                 "send-otp"
               ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp_type_id\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: authController.sendOTP\n🔓 Public endpoint - No authentication required"
+            "description": "🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -48,13 +33,7 @@
           "name": "POST /api/auth/verify-otp",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/verify-otp",
               "host": [
@@ -66,16 +45,7 @@
                 "verify-otp"
               ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: authController.verifyOTP\n🔓 Public endpoint - No authentication required"
+            "description": "🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -83,13 +53,7 @@
           "name": "POST /api/auth/login",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/login",
               "host": [
@@ -101,16 +65,7 @@
                 "login"
               ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: authController.loginWithOTP\n🔓 Public endpoint - No authentication required"
+            "description": "🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -118,13 +73,7 @@
           "name": "POST /api/auth/complete-registration",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/complete-registration",
               "host": [
@@ -136,16 +85,7 @@
                 "complete-registration"
               ]
             },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern123\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: authController.completeRegistration\n🔓 Public endpoint - No authentication required"
+            "description": "🔓 Public endpoint - No authentication required"
           },
           "response": []
         },
@@ -172,7 +112,40 @@
                 "decrypt-token"
               ]
             },
-            "description": "Handler: authController.decryptUserData\n� Requires x-access-token header only"
+            "description": "🔒 Requires x-access-token header only"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/extend-session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/extend-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "extend-session"
+              ]
+            },
+            "description": "🔒 Requires both x-session-token and x-access-token headers"
           },
           "response": []
         },
@@ -199,7 +172,7 @@
                 "logout"
               ]
             },
-            "description": "Handler: <inline>\n� Requires x-access-token header only"
+            "description": "🔒 Requires x-access-token header only"
           },
           "response": []
         }
