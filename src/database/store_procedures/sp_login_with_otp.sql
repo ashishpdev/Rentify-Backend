@@ -71,31 +71,49 @@ BEGIN
            AND b.is_active = TRUE
          LIMIT 1;
 
-        -- Delete existing session for this user (if any)
-        DELETE FROM master_user_session
-         WHERE user_id = p_user_id;
+        IF p_user_id IS NOT NULL THEN
+            -- Delete existing sessions for this user (if any)
+            DELETE FROM master_user_session
+             WHERE user_id = p_user_id;
 
-        -- Generate new session token (this will be the ID)
-        SET p_session_token = UUID();
+            -- Generate new session token and ID
+            SET p_session_token = UUID();
 
-        -- Insert new session record
-        INSERT INTO master_user_session (
-            id, user_id, session_token, ip_address,
-            user_agent, created_at, last_active, is_active
-        ) VALUES (
-            p_session_token, p_user_id, p_session_token, p_ip_address,
-            p_user_agent, NOW(), NOW(), 1
-        );
+            -- Insert new session record with 1-hour expiry from now
+            INSERT INTO master_user_session (
+                id,
+                user_id,
+                device_id,
+                device_name,
+                session_token,
+                ip_address,
+                user_agent,
+                created_at,
+                expiry_at,
+                last_active,
+                is_active
+            ) VALUES (
+                p_session_token,
+                p_user_id,
+                CONCAT('device_', p_user_id, '_', DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')),
+                'Web Browser',
+                p_session_token,
+                p_ip_address,
+                p_user_agent,
+                NOW(),
+                DATE_ADD(NOW(), INTERVAL 1 HOUR),
+                NOW(),
+                TRUE
+            );
 
-        -- Delete OTP from master_otp after successful login
-        DELETE FROM master_otp
-         WHERE id = v_otp_record_id;
+            -- Delete OTP from master_otp after successful login
+            DELETE FROM master_otp
+             WHERE id = v_otp_record_id;
 
-        IF p_user_id IS NULL THEN
+            SET p_error_message = 'Login successful';
+        ELSE
             SET p_error_message = 'User not found or inactive';
             SET v_ok = 0;
-        ELSE
-            SET p_error_message = 'Login successful';
         END IF;
     END IF;
 
