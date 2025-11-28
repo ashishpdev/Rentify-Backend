@@ -1,9 +1,3 @@
-/**
- * Session Management Service
- * Handles all session-related database operations
- * Separates concerns: database access, validation, and business logic
- */
-
 const dbConnection = require("../../database/connection");
 const logger = require("../../config/logger.config");
 const {
@@ -13,12 +7,6 @@ const {
 const { SESSION_OPERATIONS } = require("../../constants/operations");
 
 class SessionService {
-  /**
-   * Extend session expiry by 1 hour
-   * @param {number} userId - User ID
-   * @param {string} sessionToken - Session token to validate
-   * @returns {Object} - { isSuccess: boolean, newExpiryAt: datetime, errorMessage: string }
-   */
   async extendSession(userId, sessionToken) {
     let connection;
     try {
@@ -50,7 +38,7 @@ class SessionService {
       };
     } catch (error) {
       if (error.statusCode) {
-        throw error; // Re-throw AppError instances
+        throw error;
       }
       logger.error("SessionService.extendSession error", {
         userId,
@@ -73,11 +61,6 @@ class SessionService {
     }
   }
 
-  /**
-   * Logout user by deleting session
-   * @param {number} userId - User ID
-   * @returns {Object} - { isSuccess: boolean, errorMessage: string }
-   */
   async logout(userId) {
     let connection;
     try {
@@ -108,7 +91,7 @@ class SessionService {
       };
     } catch (error) {
       if (error.statusCode) {
-        throw error; // Re-throw AppError instances
+        throw error;
       }
       logger.error("SessionService.logout error", {
         userId,
