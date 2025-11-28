@@ -1,6 +1,8 @@
 // src/modules/auth/auth.controller.js
 const ResponseUtil = require("../../utils/response.util");
 const authService = require("./auth.service");
+const sessionService = require("./session.service");
+const tokenService = require("./token.service");
 const { AuthValidator } = require("./auth.validator");
 const {
   SendOTPDTO,
@@ -10,6 +12,7 @@ const {
 const logger = require("../../config/logger.config");
 const TokenUtil = require("../../utils/token.util");
 const SessionValidator = require("../../middlewares/session-validator.middleware");
+const { RESPONSE_MESSAGES } = require("../../constants/operations");
 
 class AuthController {
   async sendOTP(req, res, next) {
@@ -200,10 +203,6 @@ class AuthController {
 
   /**
    * Login user with email and OTP
-   * This is the login endpoint that verifies OTP and returns user credentials
-   * @param {Object} req - Express request object with email and otpCode in body
-   * @param {Object} res - Express response object
-   * @param {Function} next - Express next middleware function
    */
   async loginWithOTP(req, res, next) {
     const startTime = Date.now();
@@ -309,7 +308,7 @@ class AuthController {
           // Return only tokens - client must call decrypt endpoint for user data
           session_token: sessionToken || null,
           access_token: accessToken,
-          token_expires_at: accessTokenExpiry,
+          session_expires_at: accessTokenExpiry,
         },
         "Login successful"
       );
@@ -344,50 +343,7 @@ class AuthController {
   }
 
   /**
-   * Logout user and invalidate session
-   * Requires valid session_token
-   */
-  async logout(req, res, next) {
-    try {
-      const sessionToken = req.sessionToken;
-
-      if (!sessionToken) {
-        return ResponseUtil.badRequest(res, "No active session to logout");
-      }
-
-      // Invalidate the session
-      await SessionValidator.invalidateSession(sessionToken);
-
-      logger.logAuth("LOGOUT_SUCCESS", {
-        userId: req.sessionData?.user_id,
-        sessionId: req.sessionData?.session_id,
-        ip: req.ip,
-      });
-
-      return ResponseUtil.success(
-        res,
-        { logged_out: true },
-        "Logged out successfully"
-      );
-    } catch (err) {
-      logger.logError(err, req, {
-        operation: "logout",
-        userId: req.sessionData?.user_id,
-      });
-      return ResponseUtil.serverError(res, "Failed to logout");
-    }
-  }
-
-  /**
    * Decrypt access token and return user data
-   * This endpoint decrypts the access_token and returns the encrypted user data
-   * Can be called by client to get user info when needed
-   * Does NOT require session validation - only validates access token integrity
-   * REQUIRES: X-Access-Token header (mandatory)
-   *
-   * @param {Object} req - Express request with X-Access-Token header
-   * @param {Object} res - Express response
-   * @param {Function} next - Express next function
    */
   async decryptUserData(req, res, next) {
     try {
@@ -485,6 +441,79 @@ class AuthController {
       });
 
       return ResponseUtil.unauthorized(res, "Failed to decrypt user data");
+    }
+  }
+
+  /**
+   * Extend session expiry by 1 hour
+   */
+  async extendSession(req, res, next) {
+    try {
+      const { userId, sessionToken } = tokenService.extractAndValidateTokens(
+        req.headers
+      );
+
+      const result = await sessionService.extendSession(userId, sessionToken);
+
+      if (!result.isSuccess) {
+        logger.warn("Extend session failed", {
+          userId,
+          errorMessage: result.errorMessage,
+        });
+        return ResponseUtil.unauthorized(
+          res,
+          result.errorMessage || RESPONSE_MESSAGES.EXTEND_SESSION_FAILED
+        );
+      }
+
+      logger.logAuth("SESSION_EXTENDED", {
+        userId,
+        newExpiryAt: result.newExpiryAt,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { session_expires_at: result.newExpiryAt },
+        RESPONSE_MESSAGES.SESSION_EXTENDED
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Logout user and invalidate session
+   */
+  async logout(req, res, next) {
+    try {
+      const { userId } = tokenService.extractAndValidateAccessToken(
+        req.headers
+      );
+
+      const result = await sessionService.logout(userId);
+
+      if (!result.isSuccess) {
+        logger.warn("Logout failed", {
+          userId,
+          errorMessage: result.errorMessage,
+        });
+        return ResponseUtil.serverError(
+          res,
+          result.errorMessage || RESPONSE_MESSAGES.LOGOUT_FAILED
+        );
+      }
+
+      logger.logAuth("LOGOUT_SUCCESS", {
+        userId,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { logged_out: true, userId },
+        RESPONSE_MESSAGES.LOGOUT_SUCCESS
+      );
+    } catch (error) {
+      next(error);
     }
   }
 }

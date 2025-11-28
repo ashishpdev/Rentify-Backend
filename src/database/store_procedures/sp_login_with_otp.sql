@@ -1,4 +1,4 @@
-DROP PROCEDURE sp_login_with_otp;
+DROP PROCEDURE IF EXISTS sp_login_with_otp;
 CREATE PROCEDURE sp_login_with_otp(
     IN p_email VARCHAR(255),
     IN p_ip_address VARCHAR(255),
@@ -17,6 +17,8 @@ CREATE PROCEDURE sp_login_with_otp(
 BEGIN
     DECLARE v_ok INT DEFAULT 1;
     DECLARE v_otp_record_id CHAR(36) DEFAULT NULL;
+    DECLARE v_session_created BOOLEAN DEFAULT FALSE;
+    DECLARE v_session_error_message VARCHAR(500);
 
     -- Error handler for rollback
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
@@ -72,45 +74,32 @@ BEGIN
          LIMIT 1;
 
         IF p_user_id IS NOT NULL THEN
-            -- Delete existing sessions for this user (if any)
+            -- Delete existing sessions for this user (if any) before creating new session
             DELETE FROM master_user_session
              WHERE user_id = p_user_id;
 
-            -- Generate new session token and ID
-            SET p_session_token = UUID();
-
-            -- Insert new session record with 1-hour expiry from now
-            INSERT INTO master_user_session (
-                id,
-                user_id,
-                device_id,
-                device_name,
-                session_token,
-                ip_address,
-                user_agent,
-                created_at,
-                expiry_at,
-                last_active,
-                is_active
-            ) VALUES (
-                p_session_token,
-                p_user_id,
-                CONCAT('device_', p_user_id, '_', DATE_FORMAT(NOW(), '%Y%m%d%H%i%s')),
-                'Web Browser',
-                p_session_token,
-                p_ip_address,
-                p_user_agent,
-                NOW(),
-                DATE_ADD(NOW(), INTERVAL 1 HOUR),
-                NOW(),
-                TRUE
+            -- Call sp_session_manage to create a new session (p_action = 1)
+            CALL sp_session_manage(
+                1,                          -- p_action = 1 (Create session)
+                p_user_id,                  -- p_user_id
+                NULL,                       -- p_session_token (NULL for create, will be generated)
+                p_ip_address,               -- p_ip_address
+                p_user_agent,               -- p_user_agent
+                v_session_created,          -- OUT p_is_success
+                p_session_token,            -- OUT p_session_token
+                v_session_error_message     -- OUT p_error_message
             );
 
-            -- Delete OTP from master_otp after successful login
-            DELETE FROM master_otp
-             WHERE id = v_otp_record_id;
+            IF v_session_created = TRUE THEN
+                -- Delete OTP from master_otp after successful login
+                DELETE FROM master_otp
+                 WHERE id = v_otp_record_id;
 
-            SET p_error_message = 'Login successful';
+                SET p_error_message = 'Login successful';
+            ELSE
+                SET p_error_message = CONCAT('Session creation failed: ', v_session_error_message);
+                SET v_ok = 0;
+            END IF;
         ELSE
             SET p_error_message = 'User not found or inactive';
             SET v_ok = 0;

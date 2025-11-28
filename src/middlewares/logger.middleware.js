@@ -1,79 +1,79 @@
 const logger = require("../config/logger.config");
 const morgan = require("morgan");
 
-/**
- * HTTP Request Logger Middleware using Morgan + Winston
- */
 const httpLogger = morgan(
   ":method :url :status :res[content-length] - :response-time ms",
   {
     stream: logger.stream,
     skip: (req, res) => {
-      // Skip logging for health checks in production
       return req.url === "/api/health" && process.env.NODE_ENV === "production";
     },
   }
 );
 
-/**
- * Request Context Logger Middleware
- * Logs detailed request information with timing
- */
 const requestLogger = (req, res, next) => {
   const startTime = Date.now();
 
-  // Log incoming request
-  logger.logRequest(req, {
-    headers: {
-      "content-type": req.get("content-type"),
-      "user-agent": req.get("user-agent"),
-    },
-    query: req.query,
-    body: req.body ? sanitizeBody(req.body) : undefined,
-  });
-
-  // Override res.json to log response
-  const originalJson = res.json.bind(res);
-  res.json = function (data) {
-    const responseTime = Date.now() - startTime;
-
-    logger.logResponse(req, res, {
-      responseTime,
-      dataSize: JSON.stringify(data).length,
+  try {
+    logger.logRequest(req, {
+      headers: {
+        "content-type": req.get("content-type"),
+        "user-agent": req.get("user-agent"),
+      },
+      query: req.query,
+      body: req.body ? sanitizeBody(req.body) : undefined,
     });
 
-    return originalJson(data);
-  };
+    // Capture and log response
+    const originalJson = res.json.bind(res);
+    res.json = function (data) {
+      const responseTime = Date.now() - startTime;
 
-  // Handle response finish
-  res.on("finish", () => {
-    const responseTime = Date.now() - startTime;
-
-    // Log slow requests (> 1000ms)
-    if (responseTime > 1000) {
-      logger.warn("Slow Request Detected", {
-        method: req.method,
-        url: req.originalUrl,
-        responseTime: `${responseTime}ms`,
-        statusCode: res.statusCode,
+      logger.logResponse(req, res, {
+        responseTime,
+        dataSize: JSON.stringify(data).length,
       });
-    }
-  });
 
-  next();
+      return originalJson(data);
+    };
+
+    // Log slow requests as warnings
+    res.on("finish", () => {
+      const responseTime = Date.now() - startTime;
+
+      if (responseTime > 1000) {
+        logger.warn("Slow request detected", {
+          method: req.method,
+          url: req.originalUrl,
+          responseTime: `${responseTime}ms`,
+          statusCode: res.statusCode,
+          userId: req.user?.id,
+        });
+      }
+    });
+
+    next();
+  } catch (error) {
+    logger.error("Error in request logger", {
+      error: error.message,
+      path: req.path,
+    });
+    next(error);
+  }
 };
 
-/**
- * Sanitize sensitive data from request body
- */
 function sanitizeBody(body) {
   const sensitiveFields = [
     "password",
     "token",
     "apiKey",
+    "accessToken",
+    "refreshToken",
     "secret",
     "creditCard",
+    "ssn",
   ];
+
   const sanitized = { ...body };
 
   sensitiveFields.forEach((field) => {
@@ -85,51 +85,57 @@ function sanitizeBody(body) {
   return sanitized;
 }
 
-/**
- * Error Logger Middleware
- * Should be placed before error handler
- */
 const errorLogger = (err, req, res, next) => {
-  logger.logError(err, req, {
-    timestamp: new Date().toISOString(),
-  });
+  try {
+    logger.logError(err, req, {
+      timestamp: new Date().toISOString(),
+      stack: err.stack,
+    });
+  } catch (logError) {
+    console.error("Failed to log error:", logError.message);
+  }
 
   next(err);
 };
 
-/**
- * Performance Logger Middleware
- * Tracks request duration and logs performance metrics
- */
 const performanceLogger = (req, res, next) => {
   const startTime = process.hrtime();
 
   res.on("finish", () => {
-    const [seconds, nanoseconds] = process.hrtime(startTime);
-    const duration = seconds * 1000 + nanoseconds / 1000000; // Convert to milliseconds
+    try {
+      const [seconds, nanoseconds] = process.hrtime(startTime);
+      const duration = seconds * 1000 + nanoseconds / 1000000;
 
-    logger.logPerformance(
-      `${req.method} ${req.originalUrl}`,
-      duration.toFixed(2),
-      {
-        statusCode: res.statusCode,
-        userId: req.user?.id,
-        businessId: req.business?.id,
-      }
-    );
+      logger.logPerformance(
+        `${req.method} ${req.originalUrl}`,
+        duration.toFixed(2),
+        {
+          statusCode: res.statusCode,
+          userId: req.user?.id,
+          businessId: req.user?.business_id,
+          path: req.path,
+        }
+      );
+    } catch (error) {
+      console.error("Failed to log performance:", error.message);
+    }
   });
 
   next();
 };
 
-/**
- * API Version Logger
- * Logs which API version is being used
- */
 const apiVersionLogger = (req, res, next) => {
-  const apiVersion = req.baseUrl || "v1";
-  req.apiVersion = apiVersion;
-  next();
+  try {
+    const apiVersion = req.baseUrl.match(/v\d+/)?.[0] || "v1";
+    req.apiVersion = apiVersion;
+    next();
+  } catch (error) {
+    logger.error("Error in API version logger", {
+      error: error.message,
+      path: req.path,
+    });
+    next(error);
+  }
 };
 
 module.exports = {
