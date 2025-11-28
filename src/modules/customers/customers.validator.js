@@ -8,26 +8,26 @@ const Joi = require("joi");
 
 
 const createCustomerSchema = Joi.object({
-    business_id: Joi.number().integer().positive().required().messages({
+    businessId: Joi.number().integer().positive().required().messages({
         'number.base': 'Business ID must be a number',
         'number.integer': 'Business ID must be an integer',
         'any.required': 'Business ID is required'
     }),
 
-    branch_id: Joi.number().integer().positive().required().messages({
+    branchId: Joi.number().integer().positive().required().messages({
         'number.base': 'Branch ID must be a number',
         'number.integer': 'Branch ID must be an integer',
         'any.required': 'Branch ID is required'
     }),
 
-    first_name: Joi.string().min(2).max(200).required().messages({
+    firstName: Joi.string().min(2).max(200).required().messages({
         'string.base': 'First name must be text',
         'string.min': 'First name must be at least 2 characters',
         'string.max': 'First name must be at most 200 characters',
         'any.required': 'First name is required'
     }),
 
-    last_name: Joi.string().max(200).allow(null, '').optional().messages({
+    lastName: Joi.string().max(200).allow(null, '').optional().messages({
         'string.base': 'Last name must be text',
         'string.max': 'Last name must be at most 200 characters'
     }),
@@ -38,12 +38,12 @@ const createCustomerSchema = Joi.object({
         'any.required': 'Email is required'
     }),
 
-    contact_number: Joi.string().pattern(/^[0-9+\-()\s]{7,20}$/).required().messages({
+    contactNumber: Joi.string().pattern(/^[0-9+\-()\s]{7,20}$/).required().messages({
         'string.pattern.base': 'Contact number must be 7-20 characters and contain only digits, spaces, +, - or ()',
         'any.required': 'Contact number is required'
     }),
 
-    address_line: Joi.string().max(255).required().messages({
+    addressLine: Joi.string().max(255).required().messages({
         'string.base': 'Address must be text',
         'string.max': 'Address must be at most 255 characters',
         'any.required': 'Address is required'

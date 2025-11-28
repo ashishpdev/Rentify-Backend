@@ -4,6 +4,8 @@ const logger = require("../../config/logger.config");
 const TokenUtil = require("../../utils/token.util");
 const SessionValidator = require("../../middlewares/session-validator.middleware");
 const { CustomerValidator } = require("./customers.validator");
+const { CustomerCreateDTO } = require("./customers.dto");
+const customersService = require("./customers.service");
 
 class CustomerController {
 
@@ -11,9 +13,21 @@ class CustomerController {
         try {
 
             const { error, value } = CustomerValidator.validateCreateCustomer(req.body);
-            console.log(error, value);
-            res.send("Customer created");
+            if (error) {
+                logger.warn("Customer creation validation failed", {
+                    email: req.body.email,
+                    error: error.details[0].message,
+                });
+                return ResponseUtil.badRequest(res, error.details[0].message);
+            }
+
+            const dto = new CustomerCreateDTO(value);
+            console.log(req.user);
             
+            res.send("DONE")
+            // const result = await customersService.createCustomer(dto);
+            // return ResponseUtil.success(res, result);
+
 
         } catch (error) {
             logger.logError(error, req, {
