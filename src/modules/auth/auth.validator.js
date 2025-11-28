@@ -11,10 +11,8 @@ const sendOTPSchema = Joi.object({
     "string.email": "Please provide a valid email address",
     "any.required": "Email is required",
   }),
-  otp_type_id: Joi.number().integer().min(1).max(6).required().messages({
+  otp_type_id: Joi.number().integer().required().messages({
     "number.base": "OTP type ID must be a number",
-    "number.min": "OTP type ID must be between 1 and 6",
-    "number.max": "OTP type ID must be between 1 and 6",
     "any.required": "OTP type ID is required",
   }),
 });
@@ -29,10 +27,8 @@ const verifyOTPSchema = Joi.object({
     "string.pattern.base": "OTP must contain only numbers",
     "any.required": "OTP code is required",
   }),
-  otp_type_id: Joi.number().integer().min(1).max(6).required().messages({
+  otp_type_id: Joi.number().integer().required().messages({
     "number.base": "OTP type ID must be a number",
-    "number.min": "OTP type ID must be between 1 and 6",
-    "number.max": "OTP type ID must be between 1 and 6",
     "any.required": "OTP type ID is required",
   }),
 });

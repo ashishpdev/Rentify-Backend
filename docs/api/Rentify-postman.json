@@ -175,6 +175,33 @@
             "description": "Handler: authController.decryptUserData\n� Requires x-access-token header only"
           },
           "response": []
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Handler: <inline>\n� Requires x-access-token header only"
+          },
+          "response": []
         }
       ]
     }

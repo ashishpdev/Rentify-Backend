@@ -530,7 +530,7 @@ function isPublicEndpoint(path) {
 
 // Determine if endpoint requires only access token (not session token)
 function requiresOnlyAccessToken(path) {
-  const accessTokenOnlyPaths = ["/decrypt-token"];
+  const accessTokenOnlyPaths = ["/decrypt-token", "/logout"];
 
   return accessTokenOnlyPaths.some((tokenPath) => path.includes(tokenPath));
 }
