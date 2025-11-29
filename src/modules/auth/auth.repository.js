@@ -1,27 +1,9 @@
-// Authentication repository layer - Database operations
+// Repository layer - Database operations
 const crypto = require("crypto");
 const dbConnection = require("../../database/connection");
 
 class AuthRepository {
-  /**
-   * Generate OTP hash
-   * @param {string} otp - The OTP code
-   * @returns {string} - Hashed OTP
-   */
-  generateOTPHash(otp) {
-    return crypto.createHash("sha256").update(otp).digest("hex");
-  }
-
-  /**
-   * Save OTP to database using stored procedure
-   * @param {Object} otpData - OTP data
-   * @param {string} otpData.targetIdentifier - Email
-   * @param {string} otpData.otpCodeHash - Hashed OTP code
-   * @param {number} otpData.otp_type_id - OTP type ID (1=LOGIN, 2=REGISTER, 3=RESET_PASSWORD, 4=VERIFY_EMAIL, 5=VERIFY_PHONE)
-   * @param {number} otpData.expiryMinutes - OTP expiry in minutes
-   * @param {string} otpData.ipAddress - IP address of requester
-   * @returns {Object} - OTP record with id and expiry
-   */
+  // ========================= SAVE OTP OPERATIONS ==================
   async saveOTP(otpData) {
     try {
       const pool = dbConnection.getMasterPool();
@@ -68,13 +50,7 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Verify OTP code using stored procedure
-   * @param {string} email - Email address
-   * @param {string} otpCodeHash - Hashed OTP code
-   * @param {number} otp_type_id - OTP type ID
-   * @returns {Object} - { verified: boolean, otpId: string }
-   */
+  // ======================== VERIFY OTP OPERATION ===================
   async verifyOTP(email, otpCodeHash, otp_type_id) {
     try {
       const pool = dbConnection.getMasterPool();
@@ -114,36 +90,28 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Check if email is already verified in system
-   * @param {string} email - Email to check
-   * @returns {boolean} - True if email exists
-   */
-  async emailExists(email) {
-    try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+  // // ==================== COMPLETE REGISTRATION =====================
+  // async emailExists(email) {
+  //   try {
+  //     const pool = dbConnection.getMasterPool();
+  //     const connection = await pool.getConnection();
 
-      try {
-        const [rows] = await connection.query(
-          "SELECT master_user_id FROM master_user WHERE email = ? AND is_deleted = 0 LIMIT 1",
-          [email]
-        );
+  //     try {
+  //       const [rows] = await connection.query(
+  //         "SELECT master_user_id FROM master_user WHERE email = ? AND is_deleted = 0 LIMIT 1",
+  //         [email]
+  //       );
 
-        return rows.length > 0;
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to check email existence: ${error.message}`);
-    }
-  }
+  //       return rows.length > 0;
+  //     } finally {
+  //       connection.release();
+  //     }
+  //   } catch (error) {
+  //     throw new Error(`Failed to check email existence: ${error.message}`);
+  //   }
+  // }
 
-  /**
-   * Execute stored procedure to register business with owner
-   * @param {Object} registrationData - Registration data
-   * @returns {Object} - Response with business_id, branch_id, owner_id
-   */
+  // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {
     let connection;
     try {
@@ -153,18 +121,18 @@ class AuthRepository {
       try {
         // Call stored procedure with proper parameter mapping
         await connection.query(
-          `CALL sp_register_business_with_owner(
+          `CALL sp_register_business_branch_owner(
             ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
           )`,
           [
             registrationData.businessName,
             registrationData.businessEmail,
-            registrationData.contactPerson,
-            registrationData.contactNumber,
+            registrationData.ownerName,
+            registrationData.ownerContactNumber,
             registrationData.ownerName,
             registrationData.ownerEmail,
             registrationData.ownerContactNumber,
-            registrationData.contactPerson, // p_created_by
+            registrationData.ownerName, // p_created_by
           ]
         );
 
@@ -219,56 +187,54 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Login user with verified OTP
-   * @param {string} email - User email
-   * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner, name, contact_number, business_name
-   */
+  // ======================== LOGIN WITH OTP ========================
   async loginWithOTP(email, ipAddress = null, userAgent = null) {
-  try {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
-
     try {
-      // Call stored procedure with IP and User Agent
-      await connection.query(
-        `CALL sp_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
-        [email, ipAddress || null, userAgent || null]
-      );
+      const pool = dbConnection.getMasterPool();
+      const connection = await pool.getConnection();
 
-      // Get output variables - ADD session_token here
-      const [outputRows] = await connection.query(
-        "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
-      );
+      try {
+        // Call stored procedure with IP and User Agent
+        await connection.query(
+          `CALL sp_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
+          [email, ipAddress || null, userAgent || null]
+        );
 
-      if (outputRows.length > 0) {
-        const output = outputRows[0];
+        // Get output variables - ADD session_token here
+        const [outputRows] = await connection.query(
+          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
+        );
 
-        if (!output.user_id || output.error_message !== "Login successful") {
-          throw new Error(output.error_message || "Failed to login: User not found");
+        if (outputRows.length > 0) {
+          const output = outputRows[0];
+
+          if (!output.user_id || output.error_message !== "Login successful") {
+            throw new Error(
+              output.error_message || "Failed to login: User not found"
+            );
+          }
+
+          return {
+            user_id: output.user_id,
+            business_id: output.business_id,
+            branch_id: output.branch_id,
+            role_id: output.role_id,
+            is_owner: output.is_owner === 1 || output.is_owner === true,
+            user_name: output.user_name,
+            contact_number: output.contact_number,
+            business_name: output.business_name,
+            session_token: output.session_token, // ADD THIS
+          };
         }
 
-        return {
-          user_id: output.user_id,
-          business_id: output.business_id,
-          branch_id: output.branch_id,
-          role_id: output.role_id,
-          is_owner: output.is_owner === 1 || output.is_owner === true,
-          user_name: output.user_name,
-          contact_number: output.contact_number,
-          business_name: output.business_name,
-          session_token: output.session_token, // ADD THIS
-        };
+        throw new Error("Failed to retrieve login data from database");
+      } finally {
+        connection.release();
       }
-
-      throw new Error("Failed to retrieve login data from database");
-    } finally {
-      connection.release();
+    } catch (error) {
+      throw new Error(`Failed to login: ${error.message}`);
     }
-  } catch (error) {
-    throw new Error(`Failed to login: ${error.message}`);
   }
-}
 }
 
 module.exports = new AuthRepository();

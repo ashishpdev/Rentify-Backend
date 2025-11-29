@@ -7,6 +7,7 @@ CREATE PROCEDURE sp_session_manage(
     IN p_user_agent VARCHAR(255),
     OUT p_is_success BOOLEAN,
     OUT p_session_token_out VARCHAR(255),
+    OUT p_expiry_at DATETIME,
     OUT p_error_message VARCHAR(500)
 )
 BEGIN
@@ -28,6 +29,7 @@ BEGIN
 
     SET p_is_success = FALSE;
     SET p_session_token_out = NULL;
+    SET p_expiry_at = NULL;
     SET p_error_message = NULL;
 
     -- Operation 1: Create session
@@ -73,6 +75,7 @@ BEGIN
             );
 
             SET p_session_token_out = v_new_session_token;
+            SET p_expiry_at = DATE_ADD(NOW(), INTERVAL 1 HOUR);
             SET p_is_success = TRUE;
             SET p_error_message = 'Session created successfully';
         END IF;
@@ -94,6 +97,7 @@ BEGIN
              WHERE session_token = p_session_token AND user_id = p_user_id;
 
             IF ROW_COUNT() > 0 THEN
+                SET p_expiry_at = DATE_ADD(NOW(), INTERVAL 1 HOUR);
                 SET p_is_success = TRUE;
                 SET p_error_message = 'Session expiry extended successfully';
             ELSE

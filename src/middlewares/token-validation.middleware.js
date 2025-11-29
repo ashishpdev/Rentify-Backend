@@ -1,6 +1,6 @@
 const logger = require("../config/logger.config");
 const ResponseUtil = require("../utils/response.util");
-const TokenUtil = require("../utils/token.util");
+const TokenUtil = require("../utils/access_token.util");
 const dbConnection = require("../database/connection");
 
 function createTokenValidationMiddleware(

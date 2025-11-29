@@ -1,20 +1,14 @@
-// src/modules/auth/auth.controller.js
+// controllers -- HTTP layer / request <-> response
 const ResponseUtil = require("../../utils/response.util");
 const authService = require("./auth.service");
-const sessionService = require("./session.service");
-const tokenService = require("./token.service");
 const { AuthValidator } = require("./auth.validator");
-const {
-  SendOTPDTO,
-  VerifyOTPDTO,
-  CompleteRegistrationDTO,
-} = require("./auth.dto");
 const logger = require("../../config/logger.config");
-const TokenUtil = require("../../utils/token.util");
+const AccessTokenUtil = require("../../utils/access_token.util");
 const SessionValidator = require("../../middlewares/session-validator.middleware");
 const { RESPONSE_MESSAGES } = require("../../constants/operations");
 
 class AuthController {
+  // ======================== SEND OTP CONTROLLER ========================
   async sendOTP(req, res, next) {
     const startTime = Date.now();
 
@@ -35,9 +29,9 @@ class AuthController {
       }
 
       const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
-      const dto = new SendOTPDTO(value.email, value.otp_type_id);
 
-      const result = await authService.sendOTP(dto.email, dto.otp_type_id, {
+      // 'value' is already validated and typed - no need for DTO wrapper
+      const result = await authService.sendOTP(value.email, value.otp_type_id, {
         ipAddress,
       });
 
@@ -60,14 +54,39 @@ class AuthController {
         result.message
       );
     } catch (err) {
+      const errorMessage = (err && err.message) || "Failed to send OTP";
+
+      // Handle email already registered
+      if (errorMessage === "Email already registered") {
+        logger.warn("OTP send failed: Email already registered", {
+          email: req.body.email,
+          ip: req.ip,
+        });
+        return ResponseUtil.conflict(res, errorMessage);
+      }
+
+      // Handle invalid OTP type
+      if (errorMessage === "Invalid OTP type") {
+        logger.warn("OTP send failed: Invalid OTP type", {
+          email: req.body.email,
+          otp_type_id: req.body.otp_type_id,
+          ip: req.ip,
+        });
+        return ResponseUtil.badRequest(res, errorMessage);
+      }
+
+      // Log full error for debugging
       logger.logError(err, req, {
         operation: "sendOTP",
         email: req.body.email,
       });
-      next(err);
+
+      // Return generic server error for unknown issues
+      return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
+  // ======================= VERIFY OTP CONTROLLER =======================
   async verifyOTP(req, res, next) {
     try {
       logger.info("OTP verification request received", {
@@ -84,6 +103,7 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
+      // 'value' is already validated - no need for DTO wrapper
       await authService.verifyOTP(
         value.email,
         value.otpCode,
@@ -101,22 +121,27 @@ class AuthController {
         "OTP verified successfully"
       );
     } catch (err) {
-      if (err.message && err.message.includes("Invalid or expired OTP")) {
+      const errorMessage = (err && err.message) || "Failed to verify OTP";
+
+      if (errorMessage === "Invalid or expired OTP") {
         logger.warn("OTP verification failed", {
           email: req.body.email,
-          reason: err.message,
+          reason: errorMessage,
           ip: req.ip,
         });
-        return ResponseUtil.unauthorized(res, err.message);
+        return ResponseUtil.unauthorized(res, errorMessage);
       }
+
       logger.logError(err, req, {
         operation: "verifyOTP",
         email: req.body.email,
       });
-      next(err);
+
+      return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
+  // =================== COMPLETE REGISTRATION CONTROLLER ===================
   async completeRegistration(req, res, next) {
     const startTime = Date.now();
 
@@ -139,10 +164,8 @@ class AuthController {
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // Create DTO only to keep shapes consistent (service expects plain object)
-      const dto = new CompleteRegistrationDTO(value);
-
-      const result = await authService.completeRegistration(dto);
+      // 'value' is already validated - pass it directly to service
+      const result = await authService.completeRegistration(value);
 
       // service already validates ids, but keep check
       if (!result.businessId || !result.branchId || !result.ownerId) {
@@ -182,28 +205,40 @@ class AuthController {
         result.message
       );
     } catch (err) {
-      if (
-        err.message &&
-        (err.message.includes("already registered") ||
-          err.message.includes("already exists"))
-      ) {
-        logger.warn("Registration conflict", {
+      const errorMessage = (err && err.message) || "Registration failed";
+
+      // Handle OTP verification failure
+      if (errorMessage === "Owner email OTP not verified") {
+        logger.warn("Registration failed: OTP not verified", {
           email: req.body.email,
-          reason: err.message,
+          reason: errorMessage,
+          ip: req.ip,
         });
-        return ResponseUtil.conflict(res, err.message);
+        return ResponseUtil.badRequest(res, errorMessage);
       }
+
+      // Handle email mismatch
+      if (errorMessage === "Business email and owner email must be different") {
+        logger.warn("Registration validation failed: Email mismatch", {
+          email: req.body.email,
+          reason: errorMessage,
+          ip: req.ip,
+        });
+        return ResponseUtil.badRequest(res, errorMessage);
+      }
+
+      // Log full error for debugging
       logger.logError(err, req, {
         operation: "completeRegistration",
         email: req.body.email,
       });
-      next(err);
+
+      // Return the error message directly
+      return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  /**
-   * Login user with email and OTP
-   */
+  // ========================= LOGIN WITH OTP CONTROLLER =========================
   async loginWithOTP(req, res, next) {
     const startTime = Date.now();
 
@@ -277,7 +312,7 @@ class AuthController {
           email: value.email,
         };
 
-        const tokenResult = TokenUtil.generateAccessToken(tokenData);
+        const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
         accessToken = tokenResult.accessToken;
         accessTokenExpiry = tokenResult.expiresAt;
       } catch (tokenErr) {
@@ -313,38 +348,30 @@ class AuthController {
         "Login successful"
       );
     } catch (err) {
-      // Handle known failure reasons explicitly so clients get meaningful responses
-      const msg = (err && err.message) || "";
+      const errorMessage = (err && err.message) || "Failed to login";
 
-      if (msg.includes("Invalid or expired OTP")) {
+      if (errorMessage === "Invalid or expired OTP") {
         logger.warn("OTP verification failed during login", {
           email: req.body.email,
-          reason: msg,
+          reason: errorMessage,
           ip: req.ip,
         });
-        return ResponseUtil.unauthorized(res, "Invalid or expired OTP");
+        return ResponseUtil.unauthorized(res, errorMessage);
       }
 
-      // If stored procedure returned an error message, surface it (but avoid leaking sensitive details)
+      // Log full error for debugging
       logger.logError(err, req, {
         operation: "loginWithOTP",
         email: req.body.email,
         ip: req.ip,
       });
 
-      // Return generic server error (error handler will also capture full details)
-      return ResponseUtil.serverError(
-        res,
-        "Failed to login. Please try again."
-      );
-      // OR: if you prefer centralized error handling, call next(err);
-      // next(err);
+      // Return the error message directly
+      return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  /**
-   * Decrypt access token and return user data
-   */
+  // ========================= DECRYPT USER DATA CONTROLLER =========================
   async decryptUserData(req, res, next) {
     try {
       logger.debug("Decrypt user data request received", {
@@ -365,7 +392,7 @@ class AuthController {
       }
 
       // Validate token structure
-      if (!TokenUtil.isValidTokenStructure(accessToken)) {
+      if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
         logger.warn("Invalid access token structure in decrypt request", {
           ip: req.ip,
         });
@@ -373,7 +400,7 @@ class AuthController {
       }
 
       // Decrypt the token to get user data
-      const userData = TokenUtil.decryptAccessToken(accessToken);
+      const userData = AccessTokenUtil.decryptAccessToken(accessToken);
 
       if (!userData || !userData.user_id) {
         logger.warn("Failed to extract user data from access token", {
@@ -444,16 +471,13 @@ class AuthController {
     }
   }
 
-  /**
-   * Extend session expiry by 1 hour
-   */
+  // ========================= EXTEND SESSION CONTROLLER =========================
   async extendSession(req, res, next) {
     try {
-      const { userId, sessionToken } = tokenService.extractAndValidateTokens(
-        req.headers
-      );
+      const userId = req.user.user_id;
+      const sessionToken = req.sessionToken;
 
-      const result = await sessionService.extendSession(userId, sessionToken);
+      const result = await authService.extendSession(userId, sessionToken);
 
       if (!result.isSuccess) {
         logger.warn("Extend session failed", {
@@ -468,29 +492,34 @@ class AuthController {
 
       logger.logAuth("SESSION_EXTENDED", {
         userId,
-        newExpiryAt: result.newExpiryAt,
       });
 
       return ResponseUtil.success(
         res,
-        { session_expires_at: result.newExpiryAt },
+        {
+          extended: true,
+          session_expires_at: result.expiryAt,
+        },
         RESPONSE_MESSAGES.SESSION_EXTENDED
       );
     } catch (error) {
-      next(error);
+      logger.logError(error, req, {
+        operation: "extendSession",
+      });
+      return ResponseUtil.serverError(res, "Failed to extend session");
     }
   }
 
-  /**
-   * Logout user and invalidate session
-   */
+  // ========================= LOGOUT CONTROLLER =========================
   async logout(req, res, next) {
     try {
-      const { userId } = tokenService.extractAndValidateAccessToken(
-        req.headers
-      );
+      // Middleware (requireAccessToken) already validated and attached:
+      // - req.user (from access token)
+      // - req.accessToken (access token)
 
-      const result = await sessionService.logout(userId);
+      const userId = req.user.user_id;
+
+      const result = await authService.logout(userId);
 
       if (!result.isSuccess) {
         logger.warn("Logout failed", {
@@ -513,7 +542,10 @@ class AuthController {
         RESPONSE_MESSAGES.LOGOUT_SUCCESS
       );
     } catch (error) {
-      next(error);
+      logger.logError(error, req, {
+        operation: "logout",
+      });
+      return ResponseUtil.serverError(res, "Failed to logout");
     }
   }
 }

@@ -1,7 +1,5 @@
 DROP PROCEDURE IF EXISTS sp_stock_manage;
-DELIMITER $$
-
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_stock_manage`(
+CREATE PROCEDURE `sp_stock_manage`(
     IN p_action INT,
     IN p_business_id INT,
     IN p_branch_id INT,
@@ -205,6 +203,4 @@ BEGIN
         SELECT 'Invalid action.' AS message, 0 AS success;
 
     END; -- main_block
-END $$
-
-DELIMITER ;
+END;
