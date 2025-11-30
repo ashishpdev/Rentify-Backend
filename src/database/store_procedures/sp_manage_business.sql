@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS sp_business_manage;
-CREATE PROCEDURE `sp_business_manage`(
+DROP PROCEDURE IF EXISTS sp_manage_business;
+CREATE PROCEDURE `sp_manage_business`(
     IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Get
     IN p_business_id INT,
     IN p_business_name VARCHAR(255),

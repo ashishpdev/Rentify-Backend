@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS sp_register_business_branch_owner;
-CREATE PROCEDURE `sp_register_business_branch_owner`(
+DROP PROCEDURE sp_action_register_business_branch_owner;
+CREATE PROCEDURE `sp_action_register_business_branch_owner`(
     IN p_business_name VARCHAR(255),
     IN p_business_email VARCHAR(255),
     IN p_contact_person VARCHAR(255),
@@ -14,8 +14,6 @@ CREATE PROCEDURE `sp_register_business_branch_owner`(
     OUT p_error_message VARCHAR(500)
 )
 BEGIN
-    DECLARE v_register_otp_type_id INT DEFAULT NULL;
-    DECLARE v_verified_status_id INT DEFAULT NULL;
     DECLARE v_owner_otp_verified INT DEFAULT 0;
     DECLARE v_business_temp_id INT DEFAULT NULL;
     DECLARE v_branch_temp_id INT DEFAULT NULL;
@@ -46,43 +44,23 @@ BEGIN
             LEAVE main_block;
         END IF;
         
-        /* --------- Get REGISTER OTP type ID --------- */
-        SELECT master_otp_type_id
-          INTO v_register_otp_type_id
-          FROM master_otp_type
-         WHERE code = 'REGISTER' AND is_deleted = 0
-         LIMIT 1;
-        IF v_register_otp_type_id IS NULL THEN
-            SET p_error_message = 'OTP type configuration error';
-            LEAVE main_block;
-        END IF;
         
-        /* --------- Get VERIFIED status ID --------- */
-        SELECT master_otp_status_id
-          INTO v_verified_status_id
-          FROM master_otp_status
-         WHERE code = 'VERIFIED' AND is_deleted = 0
-         LIMIT 1;
-        IF v_verified_status_id IS NULL THEN
-            SET p_error_message = 'OTP status configuration error';
-            LEAVE main_block;
-        END IF;
-        
+
         /* --------- Check if owner email has verified OTP --------- */
         SELECT COUNT(*) INTO v_owner_otp_verified
         FROM master_otp
         WHERE target_identifier = p_owner_email
-          AND otp_type_id = v_register_otp_type_id
-          AND otp_status_id = v_verified_status_id
+          AND otp_type_id = 1
+          AND otp_status_id = 2
           AND expires_at > NOW();
         
         IF v_owner_otp_verified = 0 THEN
-            SET p_error_message = 'Owner email OTP not verified';
+            SET p_error_message = 'Owner email not verified';
             LEAVE main_block;
         END IF;
         
-        /* --------- Create business using sp_business_manage --------- */
-        CALL sp_business_manage(
+        /* --------- Create business using sp_manage_business --------- */
+        CALL sp_manage_business(
             1,                          -- p_action = CREATE
             NULL,                       -- p_business_id
             p_business_name,
@@ -116,8 +94,8 @@ BEGIN
         
         SET p_branch_id = v_branch_temp_id;
         
-        /* --------- Create owner using sp_owner_manage --------- */
-        CALL sp_owner_manage(
+        /* --------- Create owner using sp_manage_owner --------- */
+        CALL sp_manage_owner(
             1,                          -- p_action = CREATE
             NULL,                       -- p_owner_id
             p_business_id,
@@ -140,8 +118,8 @@ BEGIN
         /* --------- Delete OTP entries for both emails after successful registration --------- */
         DELETE FROM master_otp
          WHERE target_identifier IN (p_business_email, p_owner_email)
-           AND otp_type_id = v_register_otp_type_id;
-        
+           AND otp_type_id = 1 AND otp_status_id = 2;
+
         SET p_error_message = 'Success';
         
     END; -- end main_block

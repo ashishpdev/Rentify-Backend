@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS sp_stock_manage;
-CREATE PROCEDURE `sp_stock_manage`(
+DROP PROCEDURE sp_manage_stock;
+CREATE PROCEDURE `sp_manage_stock`(
     IN p_action INT,
     IN p_business_id INT,
     IN p_branch_id INT,

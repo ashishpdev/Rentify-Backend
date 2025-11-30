@@ -262,19 +262,24 @@ CREATE TABLE master_otp (
     id CHAR(36) PRIMARY KEY,
     target_identifier VARCHAR(255) NULL,      -- email or phone number 
     user_id INT NULL, -- can be null for unregistered users
-    otp_type_id INT NOT NULL,
     otp_code_hash VARCHAR(255) NOT NULL,
+    otp_type_id INT NOT NULL,
     otp_status_id INT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    verified_at DATETIME,
     attempts INT DEFAULT 0,
     max_attempts INT DEFAULT 3,
     ip_address VARCHAR(100),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    verified_at DATETIME,
 
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_by VARCHAR(255),
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    INDEX idx_otp_target (target_identifier),
+    INDEX idx_otp_type (otp_type_id),
+    INDEX idx_otp_status (otp_status_id),
+    INDEX idx_otp_expires (expires_at),
 
     CONSTRAINT fk_otp_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)
@@ -1202,6 +1207,7 @@ DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   total_quantity INT NOT NULL DEFAULT 0,
   available_quantity INT NOT NULL DEFAULT 0,
@@ -1216,6 +1222,10 @@ CREATE TABLE stock (
 
   CONSTRAINT fk_stock_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_product_category FOREIGN KEY (product_category_id)
+    REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_product_model FOREIGN KEY (product_model_id)

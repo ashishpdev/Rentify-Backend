@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS sp_owner_manage;
-CREATE PROCEDURE `sp_owner_manage`(
+DROP PROCEDURE sp_manage_owner;
+CREATE PROCEDURE `sp_manage_owner`(
     IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Get
     IN p_owner_id INT,
     IN p_business_id INT,

@@ -1,5 +1,5 @@
-DROP PROCEDURE sp_customer_manage;
-CREATE PROCEDURE `sp_customer_manage`(
+DROP PROCEDURE IF EXISTS sp_manage_customer;
+CREATE PROCEDURE `sp_manage_customer`(
     IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Get List, 5=Get List Based On Role
     IN p_customer_id INT,
     IN p_business_id INT,
