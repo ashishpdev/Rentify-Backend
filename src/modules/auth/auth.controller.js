@@ -208,7 +208,7 @@ class AuthController {
       const errorMessage = (err && err.message) || "Registration failed";
 
       // Handle OTP verification failure
-      if (errorMessage === "Owner email OTP not verified") {
+      if (errorMessage === "Owner email not verified") {
         logger.warn("Registration failed: OTP not verified", {
           email: req.body.email,
           reason: errorMessage,

@@ -10,34 +10,48 @@ class AuthRepository {
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure to send OTP
+        // Call sp_manage_otp with action=1 (Create OTP)
         await connection.query(
-          `CALL sp_send_otp(?, ?, ?, ?, ?, @p_otp_id, @p_expires_at, @p_error_message)`,
+          `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, ?, ?, @p_id, @p_error_message)`,
           [
-            otpData.targetIdentifier,
-            otpData.otpCodeHash,
-            otpData.otp_type_id,
-            otpData.expiryMinutes,
-            otpData.ipAddress || null,
+            1, // p_action = 1 (Create)
+            null, // target_identifier (not used for create)
+            otpData.targetIdentifier, // p_target_identifier
+            otpData.otpCodeHash, // p_otp_code_hash
+            otpData.otp_type_id, // p_otp_type_id
+            null, // p_otp_status_id (will be set to PENDING)
+            otpData.expiryMinutes, // p_expiry_minutes
+            otpData.ipAddress || null, // p_ip_address
+            "system", // p_created_by
           ]
         );
 
         // Get output variables
         const [outputRows] = await connection.query(
-          "SELECT @p_otp_id as otp_id, @p_expires_at as expires_at, @p_error_message as error_message"
+          "SELECT @p_id as otp_id, @p_error_message as error_message"
         );
 
         if (outputRows.length > 0) {
           const output = outputRows[0];
 
-          if (!output.otp_id || output.error_message !== "Success") {
-            throw new Error(output.error_message || "Failed to save OTP");
+          if (!output.error_message) {
+            throw new Error("No error message returned from stored procedure");
+          }
+
+          if (output.error_message !== "Success") {
+            throw new Error(output.error_message);
+          }
+
+          if (!output.otp_id) {
+            throw new Error("Failed to generate OTP ID");
           }
 
           return {
             id: output.otp_id,
             targetIdentifier: otpData.targetIdentifier,
-            expiresAt: output.expires_at,
+            // Note: This expiresAt is for API response display only
+            // The authoritative expiry time is stored in database in UTC by the stored procedure
+            expiresAt: new Date(Date.now() + otpData.expiryMinutes * 60 * 1000),
           };
         }
 
@@ -57,9 +71,19 @@ class AuthRepository {
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure to verify OTP
+        // Log the hash being sent for verification
+        console.log(
+          "[OTP Verify] Email:",
+          email,
+          "Hash:",
+          otpCodeHash,
+          "Type ID:",
+          otp_type_id
+        );
+
+        // Call sp_action_verify_otp stored procedure
         await connection.query(
-          `CALL sp_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
+          `CALL sp_action_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
           [email, otpCodeHash, otp_type_id]
         );
 
@@ -71,7 +95,22 @@ class AuthRepository {
         if (outputRows.length > 0) {
           const output = outputRows[0];
 
-          if (!output.verified) {
+          console.log("[OTP Verify Result]", {
+            verified: output.verified,
+            otpId: output.otp_id,
+            errorMessage: output.error_message,
+          });
+
+          // Check if error message indicates failure
+          if (output.error_message !== "Success") {
+            // Log to file for debugging
+            const logger = require("../../config/logger.config");
+            logger.error("OTP Verification Failed from SP", {
+              email,
+              errorMessage: output.error_message,
+              verified: output.verified,
+              otpId: output.otp_id
+            });
             throw new Error(output.error_message || "OTP verification failed");
           }
 
@@ -90,27 +129,6 @@ class AuthRepository {
     }
   }
 
-  // // ==================== COMPLETE REGISTRATION =====================
-  // async emailExists(email) {
-  //   try {
-  //     const pool = dbConnection.getMasterPool();
-  //     const connection = await pool.getConnection();
-
-  //     try {
-  //       const [rows] = await connection.query(
-  //         "SELECT master_user_id FROM master_user WHERE email = ? AND is_deleted = 0 LIMIT 1",
-  //         [email]
-  //       );
-
-  //       return rows.length > 0;
-  //     } finally {
-  //       connection.release();
-  //     }
-  //   } catch (error) {
-  //     throw new Error(`Failed to check email existence: ${error.message}`);
-  //   }
-  // }
-
   // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {
     let connection;
@@ -121,7 +139,7 @@ class AuthRepository {
       try {
         // Call stored procedure with proper parameter mapping
         await connection.query(
-          `CALL sp_register_business_branch_owner(
+          `CALL sp_action_register_business_branch_owner(
             ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
           )`,
           [

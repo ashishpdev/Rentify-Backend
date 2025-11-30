@@ -2,6 +2,7 @@
 const authRepository = require("./auth.repository");
 const EmailService = require("../../services/email.service");
 const TokenUtil = require("../../utils/access_token.util");
+const OTPUtil = require("../../utils/otp.util");
 const dbConnection = require("../../database/connection");
 const logger = require("../../config/logger.config");
 const {
@@ -17,15 +18,6 @@ const path = require("path");
 const handlebars = require("handlebars");
 
 class AuthService {
-  generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  hashOTP(otp) {
-    const crypto = require("crypto");
-    return crypto.createHash("sha256").update(otp).digest("hex");
-  }
-
   async _renderOtpTemplate({ otpCode, email, expiryMinutes = 10 }) {
     const filePath = path.join(__dirname, "../../templates/emailOtpHtml.hbs");
     const source = fs.readFileSync(filePath, "utf8");
@@ -58,8 +50,8 @@ class AuthService {
     const { ipAddress = null } = options;
 
     try {
-      const otpCode = this.generateOTP();
-      const otpCodeHash = this.hashOTP(otpCode);
+      const otpCode = OTPUtil.generateOTP();
+      const otpCodeHash = OTPUtil.hashOTP(otpCode);
 
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
@@ -90,7 +82,7 @@ class AuthService {
   // ======================== VERIFY OTP CODE =======================
   async verifyOTP(email, otpCode, otp_type_id) {
     try {
-      const hash = this.hashOTP(otpCode);
+      const hash = OTPUtil.hashOTP(otpCode);
       const result = await authRepository.verifyOTP(email, hash, otp_type_id);
 
       if (!result || !result.verified) {
@@ -98,7 +90,8 @@ class AuthService {
       }
       return true;
     } catch (err) {
-      throw new Error(`Failed to verify OTP: ${err.message}`);
+      // Re-throw the original error message without wrapping
+      throw err;
     }
   }
 
@@ -142,7 +135,7 @@ class AuthService {
   ) {
     try {
       // Step 1: Verify OTP code
-      const hash = this.hashOTP(otpCode);
+      const hash = OTPUtil.hashOTP(otpCode);
       const verifyResult = await authRepository.verifyOTP(
         email,
         hash,
@@ -176,7 +169,8 @@ class AuthService {
         session_token: user.session_token, // ADD THIS
       };
     } catch (err) {
-      throw new Error(`Failed to login: ${err.message}`);
+      // Re-throw the original error message without wrapping
+      throw err;
     }
   }
 
@@ -217,7 +211,7 @@ class AuthService {
       connection = await dbConnection.getMasterPool().getConnection();
 
       await connection.query(
-        `CALL sp_session_manage(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
         [SESSION_OPERATIONS.UPDATE, userId, sessionToken]
       );
 
@@ -272,7 +266,7 @@ class AuthService {
       connection = await dbConnection.getMasterPool().getConnection();
 
       await connection.query(
-        `CALL sp_session_manage(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
         [SESSION_OPERATIONS.DELETE, userId, null]
       );
 
