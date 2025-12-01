@@ -1,6 +1,5 @@
 const express = require("express");
 const CustomerController = require("./customers.controller");
-const AccessTokenHeaderMiddleware = require("../../middlewares/access-token-header.middleware");
 const {
     requireBothTokens,
     requireAccessToken,

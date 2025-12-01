@@ -4,7 +4,6 @@ const authService = require("./auth.service");
 const { AuthValidator } = require("./auth.validator");
 const logger = require("../../config/logger.config");
 const AccessTokenUtil = require("../../utils/access_token.util");
-const SessionValidator = require("../../middlewares/session-validator.middleware");
 const { RESPONSE_MESSAGES } = require("../../constants/operations");
 
 class AuthController {

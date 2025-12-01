@@ -2,6 +2,7 @@ const logger = require("../config/logger.config");
 const ResponseUtil = require("../utils/response.util");
 const AccessTokenUtil = require("../utils/access_token.util");
 const dbConnection = require("../database/connection");
+const { SESSION_OPERATIONS } = require("../constants/operations");
 
 function createTokenValidationMiddleware(
   requireAccess = true,
@@ -9,6 +10,7 @@ function createTokenValidationMiddleware(
 ) {
   return async (req, res, next) => {
     try {
+      // =================== VALIDATE BOTH TOKENS ===================
       if (requireAccess && requireSession) {
         const sessionToken = req.headers["x-session-token"];
         const accessToken = req.headers["x-access-token"];
@@ -26,7 +28,18 @@ function createTokenValidationMiddleware(
           );
         }
 
-        const sessionData = await getSessionFromDB(sessionToken);
+        // First, validate access token to get user_id
+        if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
+          return ResponseUtil.unauthorized(res, "Invalid access token format");
+        }
+
+        const userData = AccessTokenUtil.decryptAccessToken(accessToken);
+        if (!userData || !userData.user_id) {
+          return ResponseUtil.unauthorized(res, "Invalid access token");
+        }
+
+        // Now validate session with user_id from access token
+        const sessionData = await getSessionFromDB(sessionToken, userData.user_id);
         if (!sessionData || !sessionData.is_active) {
           return ResponseUtil.unauthorized(res, "Invalid or inactive session");
         }
@@ -38,27 +51,13 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Session has expired");
         }
 
-        if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
-          return ResponseUtil.unauthorized(res, "Invalid access token format");
-        }
-
-        const userData = AccessTokenUtil.decryptAccessToken(accessToken);
-        if (!userData || !userData.user_id) {
-          return ResponseUtil.unauthorized(res, "Invalid access token");
-        }
-
-        if (userData.user_id !== sessionData.user_id) {
-          return ResponseUtil.unauthorized(
-            res,
-            "Access token does not match session"
-          );
-        }
-
         req.sessionToken = sessionToken;
         req.sessionData = sessionData;
         req.accessToken = accessToken;
         req.user = userData;
-      } else if (requireAccess) {
+      } 
+      // =================== VALIDATE ACCESS TOKEN ===================
+      else if (requireAccess) {
         const accessToken = req.headers["x-access-token"];
 
         if (!accessToken) {
@@ -79,7 +78,9 @@ function createTokenValidationMiddleware(
 
         req.accessToken = accessToken;
         req.user = userData;
-      } else if (requireSession) {
+      }
+      // =================== VALIDATE SESSION TOKEN =================== 
+      else if (requireSession) {
         const sessionToken = req.headers["x-session-token"];
 
         if (!sessionToken) {
@@ -89,7 +90,18 @@ function createTokenValidationMiddleware(
           );
         }
 
-        const sessionData = await getSessionFromDB(sessionToken);
+        // Try to get user_id from access token if provided
+        let userId = null;
+        if (accessToken && AccessTokenUtil.isValidTokenStructure(accessToken)) {
+          try {
+            const userData = AccessTokenUtil.decryptAccessToken(accessToken);
+            userId = userData?.user_id || null;
+          } catch (e) {
+            // Access token invalid, continue without user_id
+          }
+        }
+
+        const sessionData = await getSessionFromDB(sessionToken, userId);
         if (!sessionData || !sessionData.is_active) {
           return ResponseUtil.unauthorized(res, "Invalid or inactive session");
         }
@@ -121,20 +133,40 @@ function createTokenValidationMiddleware(
   };
 }
 
-async function getSessionFromDB(sessionToken) {
+async function getSessionFromDB(sessionToken, userId = null) {
   let connection;
   try {
     const pool = dbConnection.getMasterPool();
     connection = await pool.getConnection();
 
-    const [rows] = await connection.query(
-      `SELECT id, user_id, device_id, device_name, ip_address, user_agent, is_active, created_at, expiry_at 
-       FROM master_user_session 
-       WHERE session_token = ? LIMIT 1`,
-      [sessionToken]
+    // Use sp_manage_session with action=4 (Get session)
+    await connection.query(
+      `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+      [SESSION_OPERATIONS.GET, userId, sessionToken]
     );
 
-    return rows && rows.length > 0 ? rows[0] : null;
+    // Get output parameters
+    const [outputRows] = await connection.query(
+      "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
+    );
+
+    if (!outputRows || outputRows.length === 0) {
+      return null;
+    }
+
+    const output = outputRows[0];
+
+    if (!output.is_success || !output.session_token) {
+      return null;
+    }
+
+    // Return session data structure compatible with middleware expectations
+    return {
+      session_token: output.session_token,
+      expiry_at: output.expiry_at,
+      user_id: userId,
+      is_active: true // If SP returns success, session is active
+    };
   } finally {
     if (connection) connection.release();
   }

@@ -2,8 +2,10 @@
  * Session Management Operation Codes
  */
 const SESSION_OPERATIONS = {
+  CREATE : 1, // Create new session
   UPDATE: 2, // Extend session expiry
   DELETE: 3, // Logout (delete session)
+  GET  : 4, // Get session details
 };
 
 /**
