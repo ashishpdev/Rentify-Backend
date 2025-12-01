@@ -6,7 +6,6 @@ const routes = require("./routes");
 const errorHandler = require("./middlewares/error-handler.middleware");
 const config = require("./config/env.config");
 // const setupSwagger = require("./config/swagger.config");
-const logger = require("./config/logger.config");
 const {
   httpLogger,
   requestLogger,
@@ -27,7 +26,7 @@ app.use(
 app.use(
   cors({
     origin:
-      config.nodeEnv === "production" ? "your-production-domain.com" : "*",
+      config.nodeEnv === "production" ? "rentzfy.com" : "*",
     credentials: true,
   })
 );

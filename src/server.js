@@ -3,6 +3,7 @@ const config = require("./config/env.config");
 const dbConnection = require("./database/connection");
 const logger = require("./config/logger.config");
 
+
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
   logger.error("UNCAUGHT EXCEPTION! 💥 Shutting down...", {
