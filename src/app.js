@@ -26,7 +26,7 @@ app.use(
 app.use(
   cors({
     origin:
-      config.nodeEnv === "production" ? "your-production-domain.com" : "*",
+      config.nodeEnv === "production" ? "rentzfy.com" : "*",
     credentials: true,
   })
 );
