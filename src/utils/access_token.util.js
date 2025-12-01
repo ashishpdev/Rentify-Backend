@@ -5,14 +5,30 @@ const ENCRYPTION_ALGORITHM = "aes-256-gcm";
 const ENCODING = "utf8";
 
 class TokenUtil {
-  // Get encryption key from environment variable or default
+  // Get encryption key from environment variable
   static getEncryptionKey() {
-    // 🛑🛑 WARNING: This is a fallback key and should NOT be used in production
-    const keyString =
-      process.env.TOKEN_ENCRYPTION_KEY ||
-      "default-insecure-key-change-in-production";
+    const keyString = process.env.TOKEN_ENCRYPTION_KEY;
+    
+    if (!keyString) {
+      // In production, fail fast if key is not set
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(
+          "CRITICAL: TOKEN_ENCRYPTION_KEY environment variable is required in production. " +
+          "Set a strong, random key of at least 32 characters."
+        );
+      }
+      // In development, warn and use fallback (never in production!)
+      console.warn(
+        "⚠️  WARNING: TOKEN_ENCRYPTION_KEY not set. Using insecure default key. " +
+        "This is acceptable only for local development."
+      );
+    }
+    
     // Ensure key is exactly 32 bytes (256 bits) for AES-256
-    const hash = crypto.createHash("sha256").update(keyString).digest();
+    const hash = crypto
+      .createHash("sha256")
+      .update(keyString || "dev-only-insecure-key-do-not-use-in-prod")
+      .digest();
     return hash;
   }
 
@@ -122,8 +138,11 @@ class TokenUtil {
       return userData;
     } catch (err) {
       // Any error in decryption means token is tampered or invalid
+      // Check for GCM authentication failure (tampered token)
       if (
-        err.message.includes("Unsupported state or unable to authenticate data")
+        err.code === "ERR_OSSL_EVP_BAD_DECRYPT" ||
+        err.message.includes("Unsupported state or unable to authenticate data") ||
+        err.message.includes("bad decrypt")
       ) {
         throw new Error("Access token has been tampered with");
       }

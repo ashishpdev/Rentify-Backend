@@ -62,27 +62,70 @@ const requestLogger = (req, res, next) => {
   }
 };
 
-function sanitizeBody(body) {
-  const sensitiveFields = [
-    "password",
-    "token",
-    "apiKey",
-    "accessToken",
-    "refreshToken",
-    "secret",
-    "creditCard",
-    "ssn",
-  ];
+// Set of sensitive field names (lowercase for case-insensitive matching)
+const SENSITIVE_FIELDS = new Set([
+  "password",
+  "token",
+  "apikey",
+  "api_key",
+  "accesstoken",
+  "access_token",
+  "refreshtoken",
+  "refresh_token",
+  "secret",
+  "secretkey",
+  "secret_key",
+  "creditcard",
+  "credit_card",
+  "cardnumber",
+  "card_number",
+  "cvv",
+  "cvc",
+  "ssn",
+  "socialsecurity",
+  "social_security",
+  "pin",
+  "otp",
+  "authorization",
+  "auth",
+  "privatekey",
+  "private_key",
+]);
 
-  const sanitized = { ...body };
+/**
+ * Deep sanitize an object by recursively redacting sensitive fields.
+ * Handles nested objects and arrays.
+ * @param {any} obj - The object to sanitize
+ * @param {Set<string>} sensitiveFields - Set of lowercase field names to redact
+ * @param {number} maxDepth - Maximum recursion depth to prevent stack overflow
+ * @returns {any} - Sanitized copy of the object
+ */
+function deepSanitize(obj, sensitiveFields = SENSITIVE_FIELDS, maxDepth = 10) {
+  // Base cases
+  if (maxDepth <= 0) return "[MAX_DEPTH_EXCEEDED]";
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== "object") return obj;
 
-  sensitiveFields.forEach((field) => {
-    if (sanitized[field]) {
-      sanitized[field] = "***REDACTED***";
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    return obj.map((item) => deepSanitize(item, sensitiveFields, maxDepth - 1));
+  }
+
+  // Handle objects
+  const sanitized = {};
+  for (const key of Object.keys(obj)) {
+    const lowerKey = key.toLowerCase();
+    if (sensitiveFields.has(lowerKey)) {
+      sanitized[key] = "***REDACTED***";
+    } else {
+      sanitized[key] = deepSanitize(obj[key], sensitiveFields, maxDepth - 1);
     }
-  });
-
+  }
   return sanitized;
+}
+
+function sanitizeBody(body) {
+  return deepSanitize(body);
 }
 
 const errorLogger = (err, req, res, next) => {
