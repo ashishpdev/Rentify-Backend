@@ -1,5 +1,5 @@
-DROP PROCEDURE sp_login_with_otp;
-CREATE PROCEDURE sp_login_with_otp(
+DROP PROCEDURE sp_action_login_with_otp;
+CREATE PROCEDURE sp_action_login_with_otp(
     IN p_email VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
     IN p_ip_address VARCHAR(255),
@@ -21,6 +21,7 @@ BEGIN
     DECLARE v_expires_at DATETIME(6) DEFAULT NULL;
     DECLARE v_verified_status_id INT DEFAULT NULL;
     DECLARE v_session_created BOOLEAN DEFAULT FALSE;
+    DECLARE v_session_expiry_at DATETIME DEFAULT NULL;
     DECLARE v_session_error_message VARCHAR(500);
 
     -- Error handler for rollback
@@ -118,6 +119,7 @@ BEGIN
             p_user_agent,               -- p_user_agent
             v_session_created,          -- OUT p_is_success
             p_session_token,            -- OUT p_session_token
+            v_session_expiry_at,        -- OUT p_expiry_at
             v_session_error_message     -- OUT p_error_message
         );
 

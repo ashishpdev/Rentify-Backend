@@ -214,7 +214,7 @@ class AuthRepository {
       try {
         // Call stored procedure with OTP hash, IP and User Agent
         await connection.query(
-          `CALL sp_login_with_otp(?, ?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
+          `CALL sp_action_login_with_otp(?, ?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
           [email, otpCodeHash, ipAddress || null, userAgent || null]
         );
 
