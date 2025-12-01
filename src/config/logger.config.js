@@ -1,6 +1,7 @@
 const winston = require("winston");
 const DailyRotateFile = require("winston-daily-rotate-file");
 const path = require("path");
+const fs = require("fs");
 const config = require("./env.config");
 
 // Define log levels
@@ -52,8 +53,11 @@ const consoleFormat = winston.format.combine(
   })
 );
 
-// Define logs directory
+// Define logs directory and ensure it exists
 const logsDir = path.join(__dirname, "../../logs");
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 // Transport: Console
 const consoleTransport = new winston.transports.Console({

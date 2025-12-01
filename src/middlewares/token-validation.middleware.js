@@ -12,8 +12,8 @@ function createTokenValidationMiddleware(
     try {
       // =================== VALIDATE BOTH TOKENS ===================
       if (requireAccess && requireSession) {
-        const sessionToken = req.headers["x-session-token"];
-        const accessToken = req.headers["x-access-token"];
+        const sessionToken = req.headers["x-session-token"]?.trim();
+        const accessToken = req.headers["x-access-token"]?.trim();
 
         if (!sessionToken) {
           return ResponseUtil.badRequest(
@@ -58,7 +58,7 @@ function createTokenValidationMiddleware(
       } 
       // =================== VALIDATE ACCESS TOKEN ===================
       else if (requireAccess) {
-        const accessToken = req.headers["x-access-token"];
+        const accessToken = req.headers["x-access-token"]?.trim();
 
         if (!accessToken) {
           return ResponseUtil.badRequest(
@@ -81,7 +81,7 @@ function createTokenValidationMiddleware(
       }
       // =================== VALIDATE SESSION TOKEN =================== 
       else if (requireSession) {
-        const sessionToken = req.headers["x-session-token"];
+        const sessionToken = req.headers["x-session-token"]?.trim();
 
         if (!sessionToken) {
           return ResponseUtil.badRequest(
