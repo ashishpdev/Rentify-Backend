@@ -3,40 +3,32 @@ name: Deploy Node.js App to VPS
 on:
   push:
     branches:
-      - master   # Trigger CI/CD when pushing to main branch
+      - master
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout repo
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Install Node modules (CI)
       - name: Install Dependencies
         run: npm install
 
-      # 3. Build if needed (optional)
-      # - name: Build
-      #   run: npm run build
-
-      # 4. Upload files to server
       - name: Upload to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          source: "."                      # upload entire project
-          target: ${{ secrets.SSH_PATH }}   # server app directory
+          source: "."
+          target: ${{ secrets.SSH_PATH }}
           overwrite: true
           rm: true
           strip_components: 1
-          exclude: ".git,node_modules,.github"
+          exclude: ".git,node_modules,.github,.env"
 
-      # 5. SSH into VPS and restart PM2
       - name: Restart App on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -46,5 +38,5 @@ jobs:
           script: |
             cd ${{ secrets.SSH_PATH }}
             npm install 
-            pm2 restart 0 
+            pm2 restart server 
             pm2 save
