@@ -1,8 +1,6 @@
 //  src/modules/customers/customers.controller.js
 const ResponseUtil = require("../../utils/response.util");
 const logger = require("../../config/logger.config");
-const TokenUtil = require("../../utils/token.util");
-const SessionValidator = require("../../middlewares/session-validator.middleware");
 const { CustomerValidator } = require("./customers.validator");
 const { CustomerCreateDTO } = require("./customers.dto");
 const customersService = require("./customers.service");
