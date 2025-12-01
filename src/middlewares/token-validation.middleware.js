@@ -1,6 +1,6 @@
 const logger = require("../config/logger.config");
 const ResponseUtil = require("../utils/response.util");
-const TokenUtil = require("../utils/token.util");
+const AccessTokenUtil = require("../utils/access_token.util");
 const dbConnection = require("../database/connection");
 
 function createTokenValidationMiddleware(
@@ -38,11 +38,11 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Session has expired");
         }
 
-        if (!TokenUtil.isValidTokenStructure(accessToken)) {
+        if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
           return ResponseUtil.unauthorized(res, "Invalid access token format");
         }
 
-        const userData = TokenUtil.decryptAccessToken(accessToken);
+        const userData = AccessTokenUtil.decryptAccessToken(accessToken);
         if (!userData || !userData.user_id) {
           return ResponseUtil.unauthorized(res, "Invalid access token");
         }
@@ -68,11 +68,11 @@ function createTokenValidationMiddleware(
           );
         }
 
-        if (!TokenUtil.isValidTokenStructure(accessToken)) {
+        if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
           return ResponseUtil.unauthorized(res, "Invalid access token format");
         }
 
-        const userData = TokenUtil.decryptAccessToken(accessToken);
+        const userData = AccessTokenUtil.decryptAccessToken(accessToken);
         if (!userData || !userData.user_id) {
           return ResponseUtil.unauthorized(res, "Invalid access token");
         }

@@ -1,61 +1,57 @@
-// Authentication repository layer - Database operations
+// Repository layer - Database operations
 const crypto = require("crypto");
 const dbConnection = require("../../database/connection");
 
 class AuthRepository {
-  /**
-   * Generate OTP hash
-   * @param {string} otp - The OTP code
-   * @returns {string} - Hashed OTP
-   */
-  generateOTPHash(otp) {
-    return crypto.createHash("sha256").update(otp).digest("hex");
-  }
-
-  /**
-   * Save OTP to database using stored procedure
-   * @param {Object} otpData - OTP data
-   * @param {string} otpData.targetIdentifier - Email
-   * @param {string} otpData.otpCodeHash - Hashed OTP code
-   * @param {number} otpData.otp_type_id - OTP type ID (1=LOGIN, 2=REGISTER, 3=RESET_PASSWORD, 4=VERIFY_EMAIL, 5=VERIFY_PHONE)
-   * @param {number} otpData.expiryMinutes - OTP expiry in minutes
-   * @param {string} otpData.ipAddress - IP address of requester
-   * @returns {Object} - OTP record with id and expiry
-   */
+  // ========================= SAVE OTP OPERATIONS ==================
   async saveOTP(otpData) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure to send OTP
+        // Call sp_manage_otp with action=1 (Create OTP)
         await connection.query(
-          `CALL sp_send_otp(?, ?, ?, ?, ?, @p_otp_id, @p_expires_at, @p_error_message)`,
+          `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, ?, ?, @p_id, @p_error_message)`,
           [
-            otpData.targetIdentifier,
-            otpData.otpCodeHash,
-            otpData.otp_type_id,
-            otpData.expiryMinutes,
-            otpData.ipAddress || null,
+            1, // p_action = 1 (Create)
+            null, // target_identifier (not used for create)
+            otpData.targetIdentifier, // p_target_identifier
+            otpData.otpCodeHash, // p_otp_code_hash
+            otpData.otp_type_id, // p_otp_type_id
+            null, // p_otp_status_id (will be set to PENDING)
+            otpData.expiryMinutes, // p_expiry_minutes
+            otpData.ipAddress || null, // p_ip_address
+            "system", // p_created_by
           ]
         );
 
         // Get output variables
         const [outputRows] = await connection.query(
-          "SELECT @p_otp_id as otp_id, @p_expires_at as expires_at, @p_error_message as error_message"
+          "SELECT @p_id as otp_id, @p_error_message as error_message"
         );
 
         if (outputRows.length > 0) {
           const output = outputRows[0];
 
-          if (!output.otp_id || output.error_message !== "Success") {
-            throw new Error(output.error_message || "Failed to save OTP");
+          if (!output.error_message) {
+            throw new Error("No error message returned from stored procedure");
+          }
+
+          if (output.error_message !== "Success") {
+            throw new Error(output.error_message);
+          }
+
+          if (!output.otp_id) {
+            throw new Error("Failed to generate OTP ID");
           }
 
           return {
             id: output.otp_id,
             targetIdentifier: otpData.targetIdentifier,
-            expiresAt: output.expires_at,
+            // Note: This expiresAt is for API response display only
+            // The authoritative expiry time is stored in database in UTC by the stored procedure
+            expiresAt: new Date(Date.now() + otpData.expiryMinutes * 60 * 1000),
           };
         }
 
@@ -68,22 +64,26 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Verify OTP code using stored procedure
-   * @param {string} email - Email address
-   * @param {string} otpCodeHash - Hashed OTP code
-   * @param {number} otp_type_id - OTP type ID
-   * @returns {Object} - { verified: boolean, otpId: string }
-   */
+  // ======================== VERIFY OTP OPERATION ===================
   async verifyOTP(email, otpCodeHash, otp_type_id) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure to verify OTP
+        // Log the hash being sent for verification
+        console.log(
+          "[OTP Verify] Email:",
+          email,
+          "Hash:",
+          otpCodeHash,
+          "Type ID:",
+          otp_type_id
+        );
+
+        // Call sp_action_verify_otp stored procedure
         await connection.query(
-          `CALL sp_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
+          `CALL sp_action_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
           [email, otpCodeHash, otp_type_id]
         );
 
@@ -95,7 +95,22 @@ class AuthRepository {
         if (outputRows.length > 0) {
           const output = outputRows[0];
 
-          if (!output.verified) {
+          console.log("[OTP Verify Result]", {
+            verified: output.verified,
+            otpId: output.otp_id,
+            errorMessage: output.error_message,
+          });
+
+          // Check if error message indicates failure
+          if (output.error_message !== "Success") {
+            // Log to file for debugging
+            const logger = require("../../config/logger.config");
+            logger.error("OTP Verification Failed from SP", {
+              email,
+              errorMessage: output.error_message,
+              verified: output.verified,
+              otpId: output.otp_id,
+            });
             throw new Error(output.error_message || "OTP verification failed");
           }
 
@@ -114,36 +129,7 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Check if email is already verified in system
-   * @param {string} email - Email to check
-   * @returns {boolean} - True if email exists
-   */
-  async emailExists(email) {
-    try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
-
-      try {
-        const [rows] = await connection.query(
-          "SELECT master_user_id FROM master_user WHERE email = ? AND is_deleted = 0 LIMIT 1",
-          [email]
-        );
-
-        return rows.length > 0;
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to check email existence: ${error.message}`);
-    }
-  }
-
-  /**
-   * Execute stored procedure to register business with owner
-   * @param {Object} registrationData - Registration data
-   * @returns {Object} - Response with business_id, branch_id, owner_id
-   */
+  // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {
     let connection;
     try {
@@ -153,18 +139,18 @@ class AuthRepository {
       try {
         // Call stored procedure with proper parameter mapping
         await connection.query(
-          `CALL sp_register_business_with_owner(
+          `CALL sp_action_register_business_branch_owner(
             ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
           )`,
           [
             registrationData.businessName,
             registrationData.businessEmail,
-            registrationData.contactPerson,
-            registrationData.contactNumber,
+            registrationData.ownerName,
+            registrationData.ownerContactNumber,
             registrationData.ownerName,
             registrationData.ownerEmail,
             registrationData.ownerContactNumber,
-            registrationData.contactPerson, // p_created_by
+            registrationData.ownerName, // p_created_by
           ]
         );
 
@@ -219,56 +205,54 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Login user with verified OTP
-   * @param {string} email - User email
-   * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner, name, contact_number, business_name
-   */
-  async loginWithOTP(email, ipAddress = null, userAgent = null) {
-  try {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
-
+  // ======================== LOGIN WITH OTP ========================
+  async loginWithOTP(email, otpCodeHash, ipAddress = null, userAgent = null) {
     try {
-      // Call stored procedure with IP and User Agent
-      await connection.query(
-        `CALL sp_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
-        [email, ipAddress || null, userAgent || null]
-      );
+      const pool = dbConnection.getMasterPool();
+      const connection = await pool.getConnection();
 
-      // Get output variables - ADD session_token here
-      const [outputRows] = await connection.query(
-        "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
-      );
+      try {
+        // Call stored procedure with OTP hash, IP and User Agent
+        await connection.query(
+          `CALL sp_login_with_otp(?, ?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
+          [email, otpCodeHash, ipAddress || null, userAgent || null]
+        );
 
-      if (outputRows.length > 0) {
-        const output = outputRows[0];
+        // Get output variables - ADD session_token here
+        const [outputRows] = await connection.query(
+          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
+        );
 
-        if (!output.user_id || output.error_message !== "Login successful") {
-          throw new Error(output.error_message || "Failed to login: User not found");
+        if (outputRows.length > 0) {
+          const output = outputRows[0];
+
+          if (!output.user_id || output.error_message !== "Login successful") {
+            throw new Error(
+              output.error_message || "Failed to login: User not found"
+            );
+          }
+
+          return {
+            user_id: output.user_id,
+            business_id: output.business_id,
+            branch_id: output.branch_id,
+            role_id: output.role_id,
+            is_owner: output.is_owner === 1 || output.is_owner === true,
+            user_name: output.user_name,
+            contact_number: output.contact_number,
+            business_name: output.business_name,
+            session_token: output.session_token, // ADD THIS
+          };
         }
 
-        return {
-          user_id: output.user_id,
-          business_id: output.business_id,
-          branch_id: output.branch_id,
-          role_id: output.role_id,
-          is_owner: output.is_owner === 1 || output.is_owner === true,
-          user_name: output.user_name,
-          contact_number: output.contact_number,
-          business_name: output.business_name,
-          session_token: output.session_token, // ADD THIS
-        };
+        throw new Error("Failed to retrieve login data from database");
+      } finally {
+        connection.release();
       }
-
-      throw new Error("Failed to retrieve login data from database");
-    } finally {
-      connection.release();
+    } catch (error) {
+      throw new Error(`Failed to login: ${error.message}`);
     }
-  } catch (error) {
-    throw new Error(`Failed to login: ${error.message}`);
   }
-}
 }
 
 module.exports = new AuthRepository();

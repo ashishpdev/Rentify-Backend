@@ -1,10 +1,5 @@
-// src/modules/auth/auth.validator.js
+// Validators --  Input validation & sanitization
 const Joi = require("joi");
-
-/**
- * Export Joi schema objects so we can reuse them to generate docs.
- * Keep the validate* helpers for runtime validation.
- */
 
 const sendOTPSchema = Joi.object({
   email: Joi.string().email().required().messages({
@@ -69,10 +64,10 @@ const completeRegistrationSchema = Joi.object({
     "any.required": "Owner email is required",
   }),
   ownerContactNumber: Joi.string()
-    .pattern(/^[0-9]{10,15}$/)
+    .pattern(/^[0-9]{10}$/)
     .required()
     .messages({
-      "string.pattern.base": "Owner contact number must be 10-15 digits",
+      "string.pattern.base": "Owner contact number must be 10 digits",
       "any.required": "Owner contact number is required",
     }),
 });
