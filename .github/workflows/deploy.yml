@@ -3,7 +3,7 @@ name: Test Secrets Echo
 on:
   push:
     branches:
-      - feature/product-model
+      - master
 
 jobs:
   test:
