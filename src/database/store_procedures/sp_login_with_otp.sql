@@ -1,6 +1,7 @@
 DROP PROCEDURE sp_login_with_otp;
 CREATE PROCEDURE sp_login_with_otp(
     IN p_email VARCHAR(255),
+    IN p_otp_code_hash VARCHAR(255),
     IN p_ip_address VARCHAR(255),
     IN p_user_agent VARCHAR(255),
     OUT p_user_id INT,
@@ -16,6 +17,9 @@ CREATE PROCEDURE sp_login_with_otp(
 )
 BEGIN
     DECLARE v_otp_record_id CHAR(36) DEFAULT NULL;
+    DECLARE v_otp_status_id INT DEFAULT NULL;
+    DECLARE v_expires_at DATETIME(6) DEFAULT NULL;
+    DECLARE v_verified_status_id INT DEFAULT NULL;
     DECLARE v_session_created BOOLEAN DEFAULT FALSE;
     DECLARE v_session_error_message VARCHAR(500);
 
@@ -42,19 +46,44 @@ BEGIN
 
         START TRANSACTION;
 
-        -- Verify OTP (check if already verified with status_id = 2 which is VERIFIED)
-        SELECT id
-          INTO v_otp_record_id
+        -- Get VERIFIED status ID
+        SELECT master_otp_status_id
+          INTO v_verified_status_id
+          FROM master_otp_status
+         WHERE code = 'VERIFIED' AND is_deleted = 0
+         LIMIT 1;
+
+        -- Find OTP record by email, hash, and type (LOGIN)
+        -- Check if OTP matches the provided hash and hasn't expired
+        SELECT id, otp_status_id, expires_at
+          INTO v_otp_record_id, v_otp_status_id, v_expires_at
           FROM master_otp
          WHERE target_identifier = p_email
-           AND otp_status_id = 2
-           AND expires_at > UTC_TIMESTAMP()
+           AND otp_code_hash = p_otp_code_hash
+           AND otp_type_id = 1
          ORDER BY created_at DESC
          LIMIT 1;
 
+        -- Check if OTP record was found
         IF v_otp_record_id IS NULL THEN
-            SET p_error_message = 'OTP not verified or has expired';
+            SET p_error_message = 'Invalid OTP code';
             LEAVE main_block;
+        END IF;
+
+        -- Check if OTP has expired
+        IF UTC_TIMESTAMP() > v_expires_at THEN
+            SET p_error_message = 'OTP has expired';
+            LEAVE main_block;
+        END IF;
+
+        -- Mark OTP as verified if not already verified
+        IF v_otp_status_id != v_verified_status_id THEN
+            UPDATE master_otp
+            SET 
+                verified_at = UTC_TIMESTAMP(6),
+                otp_status_id = v_verified_status_id,
+                updated_at = UTC_TIMESTAMP(6)
+            WHERE id = v_otp_record_id;
         END IF;
 
         -- Fetch user details from master_user

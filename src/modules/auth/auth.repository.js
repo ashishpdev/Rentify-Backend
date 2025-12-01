@@ -109,7 +109,7 @@ class AuthRepository {
               email,
               errorMessage: output.error_message,
               verified: output.verified,
-              otpId: output.otp_id
+              otpId: output.otp_id,
             });
             throw new Error(output.error_message || "OTP verification failed");
           }
@@ -206,16 +206,16 @@ class AuthRepository {
   }
 
   // ======================== LOGIN WITH OTP ========================
-  async loginWithOTP(email, ipAddress = null, userAgent = null) {
+  async loginWithOTP(email, otpCodeHash, ipAddress = null, userAgent = null) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure with IP and User Agent
+        // Call stored procedure with OTP hash, IP and User Agent
         await connection.query(
-          `CALL sp_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
-          [email, ipAddress || null, userAgent || null]
+          `CALL sp_login_with_otp(?, ?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
+          [email, otpCodeHash, ipAddress || null, userAgent || null]
         );
 
         // Get output variables - ADD session_token here

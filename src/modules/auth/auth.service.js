@@ -134,21 +134,13 @@ class AuthService {
     userAgent = null
   ) {
     try {
-      // Step 1: Verify OTP code
+      // Hash the OTP code
       const hash = OTPUtil.hashOTP(otpCode);
-      const verifyResult = await authRepository.verifyOTP(
-        email,
-        hash,
-        otp_type_id
-      );
 
-      if (!verifyResult || !verifyResult.verified) {
-        throw new Error("Invalid or expired OTP");
-      }
-
-      // Step 2: Fetch user details and create session - PASS ip and userAgent
+      // Login with OTP - verification happens inside the stored procedure
       const user = await authRepository.loginWithOTP(
         email,
+        hash,
         ipAddress,
         userAgent
       );
@@ -166,7 +158,7 @@ class AuthService {
         user_name: user.user_name,
         contact_number: user.contact_number,
         business_name: user.business_name,
-        session_token: user.session_token, // ADD THIS
+        session_token: user.session_token,
       };
     } catch (err) {
       // Re-throw the original error message without wrapping

@@ -50,7 +50,7 @@ BEGIN
         SELECT COUNT(*) INTO v_owner_otp_verified
         FROM master_otp
         WHERE target_identifier = p_owner_email
-          AND otp_type_id = 1
+          AND otp_type_id = 2
           AND otp_status_id = 2
           AND expires_at > NOW();
         
@@ -118,7 +118,7 @@ BEGIN
         /* --------- Delete OTP entries for both emails after successful registration --------- */
         DELETE FROM master_otp
          WHERE target_identifier IN (p_business_email, p_owner_email)
-           AND otp_type_id = 1 AND otp_status_id = 2;
+           AND otp_type_id = 2 AND otp_status_id = 2;
 
         SET p_error_message = 'Success';
         
