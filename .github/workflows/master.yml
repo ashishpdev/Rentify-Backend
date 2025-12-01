@@ -10,13 +10,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
+      - name: 🚀 Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install Dependencies
+      - name: 📦 Install Dependencies
         run: npm install
 
-      - name: Upload to VPS
+      - name: 📤 Upload to VPS (without .env)
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -29,7 +29,7 @@ jobs:
           strip_components: 1
           exclude: ".git,node_modules,.github,.env"
 
-      - name: Restart App on VPS
+      - name: 🔄 Restart App on VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -37,6 +37,6 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             cd ${{ secrets.SSH_PATH }}
-            npm install 
-            pm2 restart server 
+            npm install --production
+            pm2 restart 0
             pm2 save
