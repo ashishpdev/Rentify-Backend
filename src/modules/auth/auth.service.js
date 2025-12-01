@@ -1,20 +1,23 @@
-// src/modules/auth/auth.service.js
+// service -- Business logic / orchestration
 const authRepository = require("./auth.repository");
 const EmailService = require("../../services/email.service");
+const TokenUtil = require("../../utils/access_token.util");
+const OTPUtil = require("../../utils/otp.util");
+const dbConnection = require("../../database/connection");
+const logger = require("../../config/logger.config");
+const {
+  DatabaseError,
+  AuthenticationError,
+} = require("../../utils/errors.util");
+const {
+  SESSION_OPERATIONS,
+  TOKEN_HEADERS,
+} = require("../../constants/operations");
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
 
 class AuthService {
-  generateOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
-  }
-
-  hashOTP(otp) {
-    const crypto = require("crypto");
-    return crypto.createHash("sha256").update(otp).digest("hex");
-  }
-
   async _renderOtpTemplate({ otpCode, email, expiryMinutes = 10 }) {
     const filePath = path.join(__dirname, "../../templates/emailOtpHtml.hbs");
     const source = fs.readFileSync(filePath, "utf8");
@@ -22,6 +25,7 @@ class AuthService {
     return template({ otpCode, email, EXPIRY_MIN: expiryMinutes });
   }
 
+  // ======================== SEND OTP EMAIL ========================
   async sendVerificationCode(email, otp, expiryMinutes = 10) {
     const html = await this._renderOtpTemplate({
       otpCode: otp,
@@ -41,12 +45,13 @@ class AuthService {
     return info;
   }
 
+  // ========================= OTP SERVICES =========================
   async sendOTP(email, otp_type_id, options = {}) {
     const { ipAddress = null } = options;
 
     try {
-      const otpCode = this.generateOTP();
-      const otpCodeHash = this.hashOTP(otpCode);
+      const otpCode = OTPUtil.generateOTP();
+      const otpCodeHash = OTPUtil.hashOTP(otpCode);
 
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
@@ -69,13 +74,15 @@ class AuthService {
         expiresAt: otpRecord.expiresAt,
       };
     } catch (err) {
-      throw new Error(`Failed to send OTP: ${err.message}`);
+      // Re-throw with original error message from repository/SP
+      throw err;
     }
   }
 
+  // ======================== VERIFY OTP CODE =======================
   async verifyOTP(email, otpCode, otp_type_id) {
     try {
-      const hash = this.hashOTP(otpCode);
+      const hash = OTPUtil.hashOTP(otpCode);
       const result = await authRepository.verifyOTP(email, hash, otp_type_id);
 
       if (!result || !result.verified) {
@@ -83,27 +90,21 @@ class AuthService {
       }
       return true;
     } catch (err) {
-      throw new Error(`Failed to verify OTP: ${err.message}`);
+      // Re-throw the original error message without wrapping
+      throw err;
     }
   }
 
+  // ===================== COMPLETE REGISTRATION ====================
   async completeRegistration(registrationData) {
     try {
-      // Check if business email already exists
-      const businessExists = await authRepository.emailExists(
-        registrationData.businessEmail
-      );
-      if (businessExists) {
-        throw new Error("Business email already registered");
-      }
-
-      // Check if owner email already exists
-      const ownerExists = await authRepository.emailExists(
-        registrationData.ownerEmail
-      );
-      if (ownerExists) {
-        throw new Error("Owner email already registered");
-      }
+      // // Check if owner email already exists
+      // const ownerExists = await authRepository.emailExists(
+      //   registrationData.ownerEmail
+      // );
+      // if (ownerExists) {
+      //   throw new Error("Owner email already registered");
+      // }
 
       const created = await authRepository.registerBusinessWithOwner(
         registrationData
@@ -124,14 +125,7 @@ class AuthService {
     }
   }
 
-  /**
-   * Login user with email and OTP verification
-   * Verifies the OTP and returns user details if successful
-   * @param {string} email - User email
-   * @param {string} otpCode - OTP code (6 digits)
-   * @param {number} otp_type_id - OTP type ID (1 for LOGIN)
-   * @returns {Object} - User object with user_id, business_id, branch_id, role_id, is_owner
-   */
+  // ======================== LOGIN WITH OTP ========================
   async loginWithOTP(
     email,
     otpCode,
@@ -140,21 +134,13 @@ class AuthService {
     userAgent = null
   ) {
     try {
-      // Step 1: Verify OTP code
-      const hash = this.hashOTP(otpCode);
-      const verifyResult = await authRepository.verifyOTP(
-        email,
-        hash,
-        otp_type_id
-      );
+      // Hash the OTP code
+      const hash = OTPUtil.hashOTP(otpCode);
 
-      if (!verifyResult || !verifyResult.verified) {
-        throw new Error("Invalid or expired OTP");
-      }
-
-      // Step 2: Fetch user details and create session - PASS ip and userAgent
+      // Login with OTP - verification happens inside the stored procedure
       const user = await authRepository.loginWithOTP(
         email,
+        hash,
         ipAddress,
         userAgent
       );
@@ -172,10 +158,143 @@ class AuthService {
         user_name: user.user_name,
         contact_number: user.contact_number,
         business_name: user.business_name,
-        session_token: user.session_token, // ADD THIS
+        session_token: user.session_token,
       };
     } catch (err) {
-      throw new Error(`Failed to login: ${err.message}`);
+      // Re-throw the original error message without wrapping
+      throw err;
+    }
+  }
+
+  // ============================ TOKEN METHODS ===========================
+  // ======================== EXTRACT ACCESS TOKEN ========================
+  extractAccessToken(headers) {
+    return headers[TOKEN_HEADERS.ACCESS] || null;
+  }
+
+  // ======================== EXTRACT SESSION TOKEN ========================
+  extractSessionToken(headers) {
+    return headers[TOKEN_HEADERS.SESSION] || null;
+  }
+
+  // ============================ VALIDATE TOKEN ===========================
+  validateAccessToken(token) {
+    if (!TokenUtil.isValidTokenStructure(token)) {
+      throw new Error("Invalid access token format");
+    }
+
+    const userData = TokenUtil.decryptAccessToken(token);
+    if (!userData || !userData.user_id) {
+      throw new Error("Invalid access token");
+    }
+
+    return userData;
+  }
+
+  // =========================== SESSION METHODS ===========================
+  // ======================== EXTEND SESSION ========================
+  async extendSession(userId, sessionToken) {
+    let connection;
+    try {
+      if (!userId || !sessionToken) {
+        throw new AuthenticationError("User ID and session token are required");
+      }
+
+      connection = await dbConnection.getMasterPool().getConnection();
+
+      await connection.query(
+        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        [SESSION_OPERATIONS.UPDATE, userId, sessionToken]
+      );
+
+      const [outputRows] = await connection.query(
+        "SELECT @p_is_success as is_success, @p_expiry_at as expiry_at, @p_error_message as error_message"
+      );
+
+      if (!outputRows || outputRows.length === 0) {
+        throw new DatabaseError("Failed to retrieve extend session output");
+      }
+
+      const output = outputRows[0];
+
+      return {
+        isSuccess: output.is_success === 1 || output.is_success === true,
+        expiryAt: output.expiry_at,
+        errorMessage: output.error_message,
+      };
+    } catch (error) {
+      if (error.statusCode) {
+        throw error;
+      }
+      logger.error("AuthService.extendSession error", {
+        userId,
+        error: error.message,
+      });
+      throw new DatabaseError(
+        `Failed to extend session: ${error.message}`,
+        error
+      );
+    } finally {
+      if (connection) {
+        try {
+          connection.release();
+        } catch (releaseError) {
+          logger.warn("Error releasing database connection", {
+            error: releaseError.message,
+          });
+        }
+      }
+    }
+  }
+
+  // ======================== LOGOUT ========================
+  async logout(userId) {
+    let connection;
+    try {
+      if (!userId) {
+        throw new AuthenticationError("User ID is required");
+      }
+
+      connection = await dbConnection.getMasterPool().getConnection();
+
+      await connection.query(
+        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        [SESSION_OPERATIONS.DELETE, userId, null]
+      );
+
+      const [outputRows] = await connection.query(
+        "SELECT @p_is_success as is_success, @p_error_message as error_message"
+      );
+
+      if (!outputRows || outputRows.length === 0) {
+        throw new DatabaseError("Failed to retrieve logout output");
+      }
+
+      const output = outputRows[0];
+
+      return {
+        isSuccess: output.is_success === 1 || output.is_success === true,
+        errorMessage: output.error_message,
+      };
+    } catch (error) {
+      if (error.statusCode) {
+        throw error;
+      }
+      logger.error("AuthService.logout error", {
+        userId,
+        error: error.message,
+      });
+      throw new DatabaseError(`Failed to logout: ${error.message}`, error);
+    } finally {
+      if (connection) {
+        try {
+          connection.release();
+        } catch (releaseError) {
+          logger.warn("Error releasing database connection", {
+            error: releaseError.message,
+          });
+        }
+      }
     }
   }
 }

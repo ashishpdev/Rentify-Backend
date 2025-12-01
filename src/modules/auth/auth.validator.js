@@ -1,20 +1,13 @@
-// src/modules/auth/auth.validator.js
+// Validators --  Input validation & sanitization
 const Joi = require("joi");
-
-/**
- * Export Joi schema objects so we can reuse them to generate docs.
- * Keep the validate* helpers for runtime validation.
- */
 
 const sendOTPSchema = Joi.object({
   email: Joi.string().email().required().messages({
     "string.email": "Please provide a valid email address",
     "any.required": "Email is required",
   }),
-  otp_type_id: Joi.number().integer().min(1).max(6).required().messages({
+  otp_type_id: Joi.number().integer().required().messages({
     "number.base": "OTP type ID must be a number",
-    "number.min": "OTP type ID must be between 1 and 6",
-    "number.max": "OTP type ID must be between 1 and 6",
     "any.required": "OTP type ID is required",
   }),
 });
@@ -29,10 +22,8 @@ const verifyOTPSchema = Joi.object({
     "string.pattern.base": "OTP must contain only numbers",
     "any.required": "OTP code is required",
   }),
-  otp_type_id: Joi.number().integer().min(1).max(6).required().messages({
+  otp_type_id: Joi.number().integer().required().messages({
     "number.base": "OTP type ID must be a number",
-    "number.min": "OTP type ID must be between 1 and 6",
-    "number.max": "OTP type ID must be between 1 and 6",
     "any.required": "OTP type ID is required",
   }),
 });
@@ -73,10 +64,10 @@ const completeRegistrationSchema = Joi.object({
     "any.required": "Owner email is required",
   }),
   ownerContactNumber: Joi.string()
-    .pattern(/^[0-9]{10,15}$/)
+    .pattern(/^[0-9]{10}$/)
     .required()
     .messages({
-      "string.pattern.base": "Owner contact number must be 10-15 digits",
+      "string.pattern.base": "Owner contact number must be 10 digits",
       "any.required": "Owner contact number is required",
     }),
 });

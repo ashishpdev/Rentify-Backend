@@ -530,9 +530,16 @@ function isPublicEndpoint(path) {
 
 // Determine if endpoint requires only access token (not session token)
 function requiresOnlyAccessToken(path) {
-  const accessTokenOnlyPaths = ["/decrypt-token"];
+  const accessTokenOnlyPaths = ["/decrypt-token", "/logout"];
 
   return accessTokenOnlyPaths.some((tokenPath) => path.includes(tokenPath));
+}
+
+// Determine if endpoint requires both access token and session token
+function requiresBothTokens(path) {
+  const bothTokensPaths = ["/extend-session"];
+
+  return bothTokensPaths.some((tokenPath) => path.includes(tokenPath));
 }
 
 // Generate Postman collection structure
@@ -602,11 +609,30 @@ function generatePostmanCollection(endpoints) {
         // Check if endpoint is public (no auth required)
         const isPublic = isPublicEndpoint(endpoint.path);
         const onlyAccessToken = requiresOnlyAccessToken(endpoint.path);
+        const bothTokens = requiresBothTokens(endpoint.path);
 
         // Add authentication headers for protected endpoints
         if (!isPublic) {
-          if (onlyAccessToken) {
-            // Only access token required (e.g., decrypt-token)
+          if (bothTokens) {
+            // Both tokens required (e.g., extend-session)
+            request.request.header.push(
+              {
+                key: "x-session-token",
+                value: "{{session_token}}",
+                type: "text",
+                description:
+                  "Session token from login response (required for authenticated requests)",
+              },
+              {
+                key: "x-access-token",
+                value: "{{access_token}}",
+                type: "text",
+                description:
+                  "Access token from login response (required for authenticated requests)",
+              }
+            );
+          } else if (onlyAccessToken) {
+            // Only access token required (e.g., decrypt-token, logout)
             request.request.header.push({
               key: "x-access-token",
               value: "{{access_token}}",
@@ -660,11 +686,13 @@ function generatePostmanCollection(endpoints) {
         }
         if (isPublic) {
           description += "🔓 Public endpoint - No authentication required";
+        } else if (bothTokens) {
+          description += "🔒 Requires both x-session-token and x-access-token headers";
         } else if (onlyAccessToken) {
-          description += "� Requires x-access-token header only";
+          description += "🔒 Requires x-access-token header only";
         } else {
           description +=
-            "�🔒 Protected endpoint - Requires x-session-token and x-access-token headers";
+            "🔒 Protected endpoint - Requires x-session-token and x-access-token headers";
         }
         request.request.description = description;
 

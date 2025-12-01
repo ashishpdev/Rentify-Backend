@@ -172,7 +172,67 @@
                 "decrypt-token"
               ]
             },
-            "description": "Handler: authController.decryptUserData\n� Requires x-access-token header only"
+            "description": "Handler: authController.decryptUserData\n🔒 Requires x-access-token header only"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/extend-session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/extend-session",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "extend-session"
+              ]
+            },
+            "description": "Handler: authController.extendSession\n🔒 Requires both x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/auth/logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "logout"
+              ]
+            },
+            "description": "Handler: authController.logout\n🔒 Requires x-access-token header only"
           },
           "response": []
         }

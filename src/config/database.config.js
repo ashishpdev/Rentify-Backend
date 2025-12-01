@@ -7,6 +7,7 @@ const defaultPoolOptions = {
   queueLimit: config.database.queueLimit || 0,
   enableKeepAlive: true,
   keepAliveInitialDelay: 0,
+  timezone: "+00:00", // Force UTC timezone for all connections
 };
 
 const databaseConfig = {
