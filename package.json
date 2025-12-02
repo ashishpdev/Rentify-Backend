@@ -43,7 +43,6 @@
     "@babel/parser": "^7.28.5",
     "@babel/traverse": "^7.28.5",
     "fs-extra": "^11.3.2",
-    "glob": "^13.0.0",
     "nodemon": "^3.1.11",
     "swagger-autogen": "^2.23.7"
   }

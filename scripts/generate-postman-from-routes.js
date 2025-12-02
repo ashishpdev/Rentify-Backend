@@ -18,7 +18,6 @@
 
 const fs = require("fs-extra");
 const path = require("path");
-const glob = require("glob");
 const parser = require("@babel/parser");
 const traverse = require("@babel/traverse").default;
 
@@ -687,7 +686,8 @@ function generatePostmanCollection(endpoints) {
         if (isPublic) {
           description += "🔓 Public endpoint - No authentication required";
         } else if (bothTokens) {
-          description += "🔒 Requires both x-session-token and x-access-token headers";
+          description +=
+            "🔒 Requires both x-session-token and x-access-token headers";
         } else if (onlyAccessToken) {
           description += "🔒 Requires x-access-token header only";
         } else {
