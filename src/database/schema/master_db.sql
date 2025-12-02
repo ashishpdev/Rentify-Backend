@@ -584,12 +584,42 @@ INSERT IGNORE INTO notification_status (notification_status_id, code, name, desc
 -- CORE: categories, models, asset units
 -- ============================
 
+-- product_segment (electronics, furniture, appliances)
+DROP TABLE IF EXISTS product_segment;
+CREATE TABLE product_segment (
+  product_segment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  code VARCHAR(128) NOT NULL,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  CONSTRAINT uq_product_segment_business_branch_code UNIQUE (business_id, branch_id, code),
+  INDEX idx_product_segment_business (business_id),
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at DATETIME(6),
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_product_segment_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_segment_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
 -- product_category (CAMERA, LAPTOP, MIC)
 DROP TABLE IF EXISTS product_category;
 CREATE TABLE product_category (
   product_category_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_segment_id INT NOT NULL,
   code VARCHAR(128) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -610,6 +640,10 @@ CREATE TABLE product_category (
 
   CONSTRAINT fk_product_category_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_category_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
@@ -619,6 +653,7 @@ CREATE TABLE product_model (
   product_model_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL, 
   model_name VARCHAR(255) NOT NULL,
   description TEXT,
@@ -652,6 +687,10 @@ CREATE TABLE product_model (
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
+  CONSTRAINT fk_product_model_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
   CONSTRAINT fk_product_model_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
@@ -664,6 +703,7 @@ CREATE TABLE asset (
   asset_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   serial_number VARCHAR(200) UNIQUE NOT NULL,
@@ -706,6 +746,10 @@ CREATE TABLE asset (
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
+  CONSTRAINT fk_asset_product_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
   CONSTRAINT fk_asset_product_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -735,11 +779,12 @@ CREATE TABLE asset (
 -- ============================================================================
 
 -- Stores each specific item that was rented as part of that rental.
-DROP TABLE IF EXISTS product_rental_status;
+DROP TABLE IF EXISTS rental_item;
 CREATE TABLE rental_item (
   rental_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NULL,
   asset_id INT NULL,
@@ -763,6 +808,10 @@ CREATE TABLE rental_item (
   CONSTRAINT fk_product_rental_status_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_rental_status_product_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE, 
 
   CONSTRAINT fk_product_rental_status_product_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
@@ -881,14 +930,14 @@ CREATE TABLE customer (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   first_name VARCHAR(200) NOT NULL,
-  last_name VARCHAR(200),
+  last_name VARCHAR(200) NULL,
   email VARCHAR(255) NOT NULL,
   contact_number VARCHAR(80) NOT NULL,
-  address_line VARCHAR(255) NOT NULL,
-  city VARCHAR(100) NOT NULL,
-  state VARCHAR(100) NOT NULL,
-  country VARCHAR(100) NOT NULL,
-  pincode VARCHAR(20) NOT NULL,
+  address_line VARCHAR(255)  NULL,
+  city VARCHAR(100)  NULL,
+  state VARCHAR(100)  NULL,
+  country VARCHAR(100)  NULL,
+  pincode VARCHAR(20)  NULL,
 
   created_by VARCHAR(255) NOT NULL,
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),

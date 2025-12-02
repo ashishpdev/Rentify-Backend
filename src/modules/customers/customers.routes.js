@@ -1,17 +1,14 @@
 const express = require("express");
 const CustomerController = require("./customers.controller");
-const {
-    requireBothTokens,
-    requireAccessToken,
-} = require("../../middlewares/token-validation.middleware");
+const { requireBothTokens } = require("../../middlewares/token-validation.middleware");
+
 const router = express.Router();
 
 // Customer Routes
-router.post("/create", requireAccessToken, CustomerController.createCustomer);
-// router.get("/list", getCustomerList);    
-// router.get("/details/:customerId", getCustomerDetails);
-// router.post("/update/:customerId", updateCustomer);
-// router.delete("/delete/:customerId", deleteCustomer);
-
+router.post("/create", requireBothTokens, CustomerController.createCustomer);
+router.post("/update/:customerId", requireBothTokens, CustomerController.updateCustomer);
+router.post("/get/:customerId", requireBothTokens, CustomerController.getCustomer);
+router.post("/list", requireBothTokens, CustomerController.getAllCustomers);
+router.post("/delete/:customerId", requireBothTokens, CustomerController.deleteCustomer);
 
 module.exports = router;
