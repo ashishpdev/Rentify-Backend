@@ -8,22 +8,22 @@ class TokenUtil {
   // Get encryption key from environment variable
   static getEncryptionKey() {
     const keyString = process.env.TOKEN_ENCRYPTION_KEY;
-    
+
     if (!keyString) {
       // In production, fail fast if key is not set
       if (process.env.NODE_ENV === "production") {
         throw new Error(
           "CRITICAL: TOKEN_ENCRYPTION_KEY environment variable is required in production. " +
-          "Set a strong, random key of at least 32 characters."
+            "Set a strong, random key of at least 32 characters."
         );
       }
       // In development, warn and use fallback (never in production!)
       console.warn(
         "⚠️  WARNING: TOKEN_ENCRYPTION_KEY not set. Using insecure default key. " +
-        "This is acceptable only for local development."
+          "This is acceptable only for local development."
       );
     }
-    
+
     // Ensure key is exactly 32 bytes (256 bits) for AES-256
     const hash = crypto
       .createHash("sha256")
@@ -141,7 +141,9 @@ class TokenUtil {
       // Check for GCM authentication failure (tampered token)
       if (
         err.code === "ERR_OSSL_EVP_BAD_DECRYPT" ||
-        err.message.includes("Unsupported state or unable to authenticate data") ||
+        err.message.includes(
+          "Unsupported state or unable to authenticate data"
+        ) ||
         err.message.includes("bad decrypt")
       ) {
         throw new Error("Access token has been tampered with");

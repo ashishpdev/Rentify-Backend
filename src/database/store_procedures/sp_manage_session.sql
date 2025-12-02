@@ -135,22 +135,24 @@ BEGIN
                 LEAVE main_block;
             END IF;
 
-            SELECT 
-                session_token,
-                expiry_at
-            INTO 
-                p_session_token_out,
-                p_expiry_at
-            FROM 
-                master_user_session
-            WHERE 
-                session_token = p_session_token AND user_id = p_user_id;
+                SELECT 
+                    session_token,
+                    expiry_at
+                INTO 
+                    p_session_token_out,
+                    p_expiry_at
+                FROM 
+                    master_user_session
+                WHERE 
+                    session_token = p_session_token
+                    AND is_active = TRUE
+                    AND expiry_at > UTC_TIMESTAMP();
 
             IF p_session_token_out IS NOT NULL THEN
                 SET p_is_success = TRUE;
                 SET p_error_message = 'Session retrieved successfully';
             ELSE
-                SET p_error_message = 'Session not found';
+                SET p_error_message = 'Session not found or expired';
                 LEAVE main_block;
             END IF;
             LEAVE main_block;
