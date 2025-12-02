@@ -1,11 +1,18 @@
 -- ========================================================
+-- RENTAL MANAGEMENT SYSTEM - MASTER DATABASE SCHEMA
+-- ========================================================
+-- TIME ZONE: All timestamps stored in UTC
+-- Server timezone should be set to UTC to avoid conversion issues
+-- ========================================================
+
+-- Force UTC timezone for this session
+SET time_zone = '+00:00';
+
+-- ========================================================
 -- ONLY USE WHEN DROP TABLE WHICH IS HAVING FOREIGN KEY CONSTRAINTS
 -- SET FOREIGN_KEY_CHECKS=0;
 -- SET FOREIGN_KEY_CHECKS=1;
--- DROP TABLE IF EXISTS master_owner;
--- DROP TABLE IF EXISTS master_user;
 -- ========================================================
-
 
 -- Diagram : "https://dbdiagram.io/d/tenant_db-691763986735e11170e19b53"
 -- =========================================================
@@ -25,10 +32,10 @@ CREATE TABLE master_business_status (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -40,10 +47,10 @@ CREATE TABLE master_role_type (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     is_deleted TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB;
@@ -58,10 +65,10 @@ CREATE TABLE master_subscription_type (
     max_users INT DEFAULT 1,
     max_items INT DEFAULT 20,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -73,10 +80,10 @@ CREATE TABLE master_subscription_status (
     name VARCHAR(255) NOT NULL,
     description TEXT,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -87,10 +94,10 @@ CREATE TABLE master_billing_cycle (
     code VARCHAR(100) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -101,10 +108,10 @@ CREATE TABLE master_otp_type (
     code VARCHAR(100) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -115,10 +122,10 @@ CREATE TABLE master_otp_status (
     code VARCHAR(100) NOT NULL UNIQUE,
     name VARCHAR(255) NOT NULL,
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -146,10 +153,10 @@ CREATE TABLE master_business (
     billing_cycle_id INT NOT NULL,
 
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0,
 
@@ -182,13 +189,13 @@ CREATE TABLE master_branch (
     country VARCHAR(100) NOT NULL,
     pincode VARCHAR(20) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
-    timezone VARCHAR(100) NOT NULL,
+    timezone VARCHAR(100) NOT NULL COMMENT 'Display timezone for this branch (e.g., Asia/Kolkata). All data stored in UTC.',
 
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_deleted TINYINT(1) DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
 
@@ -211,10 +218,10 @@ CREATE TABLE master_user (
     contact_number VARCHAR(50) NOT NULL,
 
     created_by VARCHAR(255) NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted_at DATETIME,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    deleted_at TIMESTAMP(6) NULL,
     is_active BOOLEAN DEFAULT TRUE,
     is_deleted TINYINT(1) DEFAULT 0,
 
@@ -246,11 +253,14 @@ CREATE TABLE master_user_session (
     user_agent VARCHAR(500),
     session_token VARCHAR(255) NOT NULL UNIQUE,
 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expiry_at DATETIME NOT NULL,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_active DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
+    expiry_at TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp for session expiry',
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+    last_active TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp of last activity',
     is_active BOOLEAN DEFAULT TRUE,
+
+    INDEX idx_session_expiry (expiry_at),
+    INDEX idx_session_user (user_id),
 
     CONSTRAINT fk_session_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)
@@ -260,21 +270,21 @@ CREATE TABLE master_user_session (
 DROP TABLE IF EXISTS master_otp;
 CREATE TABLE master_otp (
     id CHAR(36) PRIMARY KEY,
-    target_identifier VARCHAR(255) NULL,      -- email or phone number 
-    user_id INT NULL, -- can be null for unregistered users
+    target_identifier VARCHAR(255) NULL COMMENT 'Email or phone number',
+    user_id INT NULL COMMENT 'Can be null for unregistered users',
     otp_code_hash VARCHAR(255) NOT NULL,
     otp_type_id INT NOT NULL,
     otp_status_id INT NOT NULL,
     attempts INT DEFAULT 0,
     max_attempts INT DEFAULT 3,
     ip_address VARCHAR(100),
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL,
-    verified_at DATETIME,
+    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
+    expires_at TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp for OTP expiry',
+    verified_at TIMESTAMP(6) NULL COMMENT 'UTC timestamp when verified',
 
     created_by VARCHAR(255) NOT NULL,
     updated_by VARCHAR(255),
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
 
     INDEX idx_otp_target (target_identifier),
     INDEX idx_otp_type (otp_type_id),
@@ -346,7 +356,7 @@ INSERT into master_otp_status (code, name, created_by) VALUES
 ('EXPIRED', 'Expired', 'system'),
 ('FAILED', 'Failed', 'system');
 -- =========================================================
--- END OF FILE
+-- PRODUCT/ASSET ENUM TABLES (UTC timestamps)
 -- =========================================================
 
 -- Status before give on rent
@@ -357,10 +367,10 @@ CREATE TABLE product_status (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -372,10 +382,10 @@ CREATE TABLE product_condition (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -388,10 +398,10 @@ CREATE TABLE product_rental_status (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -403,10 +413,10 @@ CREATE TABLE billing_period (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -418,10 +428,10 @@ CREATE TABLE payment_mode (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -433,10 +443,10 @@ CREATE TABLE maintenance_status (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -448,15 +458,14 @@ CREATE TABLE reservation_status (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
--- Tables for notification system
 DROP TABLE IF EXISTS source_type;
 CREATE TABLE source_type (
   source_type_id INT NOT NULL PRIMARY KEY,
@@ -464,7 +473,10 @@ CREATE TABLE source_type (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -476,7 +488,10 @@ CREATE TABLE contact_type (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -488,7 +503,10 @@ CREATE TABLE notification_channel (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
@@ -500,13 +518,17 @@ CREATE TABLE notification_status (
   name VARCHAR(200) NOT NULL,
   description TEXT,
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
 -- =========================================================
 -- Seed lookup rows (INSERT IGNORE to avoid duplicates)
+-- =========================================================
 INSERT IGNORE INTO product_status (code, name, description, created_by) VALUES
   ('AVAILABLE','Available','Item is available for rent','system'),
   ('RESERVED','Reserved','Item reserved, not available','system'),
@@ -597,10 +619,10 @@ CREATE TABLE product_segment (
   INDEX idx_product_segment_business (business_id),
 
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -627,10 +649,10 @@ CREATE TABLE product_category (
   INDEX idx_product_category_business (business_id),
 
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -654,7 +676,7 @@ CREATE TABLE product_model (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_segment_id INT NOT NULL,
-  product_category_id INT NOT NULL, 
+  product_category_id INT NOT NULL,
   model_name VARCHAR(255) NOT NULL,
   description TEXT,
   product_images JSON NULL, -- array of image product_image_id
@@ -663,12 +685,12 @@ CREATE TABLE product_model (
   default_warranty_days INT,
   total_quantity INT NOT NULL DEFAULT 0,
   available_quantity INT NOT NULL DEFAULT 0,
-
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -729,16 +751,16 @@ CREATE TABLE asset (
   INDEX idx_asset_model_branch (product_model_id, branch_id),
 
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
 
-    CONSTRAINT fk_asset_business FOREIGN KEY (business_id)
+  CONSTRAINT fk_asset_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
@@ -773,11 +795,42 @@ CREATE TABLE asset (
   CONSTRAINT fk_asset_source_type FOREIGN KEY (source_type_id)
     REFERENCES source_type(source_type_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-
 ) ENGINE=InnoDB;
 
--- ============================================================================
+DROP TABLE IF EXISTS customer;
+CREATE TABLE customer (
+  customer_id INT UNIQUE NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  first_name VARCHAR(200) NOT NULL,
+  last_name VARCHAR(200) NULL,
+  email VARCHAR(255) NOT NULL,
+  contact_number VARCHAR(80) NOT NULL,
+  address_line VARCHAR(255) NULL,
+  city VARCHAR(100) NULL,
+  state VARCHAR(100) NULL,
+  country VARCHAR(100) NULL,
+  pincode VARCHAR(20) NULL,
 
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_customer_business_contact (business_id, contact_number),
+  UNIQUE KEY uq_customer_email_business_branch (email, business_id, branch_id),
+
+  CONSTRAINT fk_customer_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_customer_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
 -- Stores each specific item that was rented as part of that rental.
 DROP TABLE IF EXISTS rental_item;
 CREATE TABLE rental_item (
@@ -786,8 +839,8 @@ CREATE TABLE rental_item (
   branch_id INT NOT NULL,
   product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
-  product_model_id INT NULL,
-  asset_id INT NULL,
+  product_model_id INT NOT NULL,
+  asset_id INT NOT NULL,
   customer_id INT NOT NULL,
   item_images JSON NULL, -- array of image URLs at time of rental
   rent_price DECIMAL(14,2) NOT NULL,
@@ -797,7 +850,7 @@ CREATE TABLE rental_item (
   created_by VARCHAR(255),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
 
   CONSTRAINT chk_item_images_json_valid CHECK (JSON_VALID(item_images)),
 
@@ -827,7 +880,7 @@ CREATE TABLE rental_item (
 
   CONSTRAINT fk_product_rental_status_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE  
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS invoice_photos;
@@ -836,11 +889,11 @@ CREATE TABLE invoice_photos (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
-  rental_id INT NOT NULL,
-  url VARCHAR(1024) NOT NULL,
-  uploaded_by VARCHAR(255),
-  uploaded_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  notes TEXT,
+  invoice_url VARCHAR(2048) NOT NULL,
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT fk_invoice_photo_business FOREIGN KEY (business_id)
@@ -853,31 +906,25 @@ CREATE TABLE invoice_photos (
 
   CONSTRAINT fk_invoice_photo_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_invoice_photo_rental FOREIGN KEY (rental_id)
-    REFERENCES rental(rental_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 
 ) ENGINE=InnoDB;
 
--- NOT GENERATED 
--- Represents one complete rental transaction — like a bill or invoice.
 DROP TABLE IF EXISTS rental;
 CREATE TABLE rental (
   rental_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
-  user_id INT NOT NULL, -- staff who created the rental
+  user_id INT NOT NULL COMMENT 'Staff who created the rental',
   invoice_no VARCHAR(200) NOT NULL,
   invoice_photo_id INT NULL,
-  invoice_date DATETIME(6) NOT NULL,
-  start_date DATETIME(6) NOT NULL, -- date when given on rent
-  due_date DATETIME(6) NOT NULL,   -- expected return date
-  end_date DATETIME(6),            -- actual returned date
+  invoice_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+  start_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp when given on rent',
+  due_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp - expected return date',
+  end_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp - actual returned date',
   total_items INT NOT NULL DEFAULT 0,
-  all_rental_item_id JSON NOT NULL, -- array of all rental_item_id in this rental
+  all_rental_item_id JSON NOT NULL COMMENT 'Array of all rental_item_id in this rental',
   security_deposit DECIMAL(12,2) NOT NULL DEFAULT 0,
   subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
@@ -887,13 +934,16 @@ CREATE TABLE rental (
   billing_period_id INT NOT NULL,
   currency VARCHAR(16) DEFAULT 'INR',
   notes TEXT,
+
   INDEX idx_rental_business (business_id),
   INDEX idx_rental_customer (customer_id),
+  INDEX idx_rental_dates (start_date, due_date),
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -924,61 +974,27 @@ CREATE TABLE rental (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS customer;
-CREATE TABLE customer (
-  customer_id INT UNIQUE NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  first_name VARCHAR(200) NOT NULL,
-  last_name VARCHAR(200) NULL,
-  email VARCHAR(255) NOT NULL,
-  contact_number VARCHAR(80) NOT NULL,
-  address_line VARCHAR(255)  NULL,
-  city VARCHAR(100)  NULL,
-  state VARCHAR(100)  NULL,
-  country VARCHAR(100)  NULL,
-  pincode VARCHAR(20)  NULL,
-
-  created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
-
-  INDEX idx_customer_business_contact (business_id, contact_number),
-  UNIQUE KEY uq_customer_email_business_branch (email, business_id, branch_id),
-
-  CONSTRAINT fk_customer_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_customer_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- NOT GENERATED 
 DROP TABLE IF EXISTS rental_payments;
 CREATE TABLE rental_payments (
   rental_payment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   rental_id INT NOT NULL,
-  paid_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  paid_on TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
   amount DECIMAL(14,2) NOT NULL,
   mode_of_payment_id INT,
   reference_no VARCHAR(255),
   notes TEXT,
+  
   created_by VARCHAR(200),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  INDEX idx_rental_payment_rental (rental_id),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_rental_payment_rental (rental_id),
 
   CONSTRAINT fk_rental_payment_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -995,12 +1011,12 @@ CREATE TABLE rental_payments (
   CONSTRAINT fk_payment_mode FOREIGN KEY (mode_of_payment_id)
     REFERENCES payment_mode(payment_mode_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-
 ) ENGINE=InnoDB;
 
--- ============================
--- Other tables referencing asset (branch_id/business_id NOT NULL)
--- ============================
+-- =========================================================
+-- MAINTENANCE & TRACKING TABLES (UTC timestamps)
+-- =========================================================
+
 DROP TABLE IF EXISTS maintenance_records;
 CREATE TABLE maintenance_records (
   maintenance_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1009,19 +1025,20 @@ CREATE TABLE maintenance_records (
   asset_id INT NOT NULL,
   maintenance_status_id INT NOT NULL,
   reported_by VARCHAR(255),
-  reported_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  reported_on TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
   assigned_to VARCHAR(255),
-  scheduled_date DATETIME(6),
-  completed_on DATETIME(6),
+  scheduled_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
+  completed_on TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
   cost DECIMAL(14,2),
   remarks TEXT,
-  -- attachments JSON,
+  
   INDEX idx_maintenance_inv (asset_id),
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -1049,17 +1066,17 @@ CREATE TABLE damage_reports (
   branch_id INT NOT NULL,
   asset_id INT NOT NULL,
   reported_by_id INT,
-  reported_on DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  reported_on TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
   description TEXT NOT NULL,
-  -- attachments JSON,
   estimated_cost DECIMAL(14,2),
   resolved TINYINT(1) DEFAULT 0,
   resolution_notes TEXT,
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -1082,17 +1099,17 @@ CREATE TABLE item_history (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   asset_id INT NOT NULL,
-  changed_field VARCHAR(255) NOT NULL, -- e.g. 'product_status_id', 'branch_id', 'location', 'serial_number'
-  old_value TEXT NULL,                -- textual representation of previous value
-  new_value TEXT NULL,                -- textual representation of new value
-
+  changed_field VARCHAR(255) NOT NULL COMMENT 'e.g. status_id, branch_id, location, serial_number',
+  old_value TEXT NULL COMMENT 'Textual representation of previous value',
+  new_value TEXT NULL COMMENT 'Textual representation of new value',
   changed_by VARCHAR(255) NULL,
-  note TEXT,                   
+  note TEXT,
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -1112,6 +1129,11 @@ CREATE TABLE item_history (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+
+-- =========================================================
+-- RESERVATIONS & DEPOSITS (UTC timestamps)
+-- =========================================================
+
 DROP TABLE IF EXISTS reservations;
 CREATE TABLE reservations (
   reservation_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1120,15 +1142,18 @@ CREATE TABLE reservations (
   customer_id INT NOT NULL,
   product_model_id INT NOT NULL,
   reservation_status_id INT NOT NULL,
-  reserved_from DATETIME(6) NOT NULL,
-  reserved_until DATETIME(6) NOT NULL,
+  reserved_from TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+  reserved_until TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_reservations_dates (reserved_from, reserved_until),
 
   CONSTRAINT fk_reservation_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1163,9 +1188,13 @@ CREATE TABLE product_images (
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
+  
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT fk_product_image_business FOREIGN KEY (business_id)
@@ -1197,9 +1226,13 @@ CREATE TABLE asset_images (
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
+  
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT fk_asset_image_business FOREIGN KEY (business_id)
@@ -1219,6 +1252,10 @@ CREATE TABLE asset_images (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+-- =========================================================
+-- BORROW RECORDS & STOCK (UTC timestamps)
+-- =========================================================
+
 DROP TABLE IF EXISTS borrow_records;
 CREATE TABLE borrow_records (
   borrow_record_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1227,16 +1264,20 @@ CREATE TABLE borrow_records (
   asset_id INT NOT NULL,
   lender_business_name VARCHAR(255) NOT NULL,
   lender_branch_name VARCHAR(255) NOT NULL,
-  borrowed_date DATETIME(6) NOT NULL,
-  due_date DATETIME(6),
-  returned_date DATETIME(6),
+  borrowed_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+  due_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
+  returned_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
   status VARCHAR(64) DEFAULT 'ACTIVE',
   quantity INT DEFAULT 1,
   purchase_bill_url VARCHAR(1024),
   notes TEXT,
+  
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT fk_borrow_record_business FOREIGN KEY (business_id)
@@ -1256,14 +1297,25 @@ DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
+  product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   total_quantity INT NOT NULL DEFAULT 0,
   available_quantity INT NOT NULL DEFAULT 0,
   reserved_quantity INT NOT NULL DEFAULT 0,
   borrowed_quantity INT NOT NULL DEFAULT 0,
-  last_updated DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
+  
   PRIMARY KEY (business_id, branch_id, product_model_id),
+
+  INDEX idx_stock_business_category (business_id, product_category_id),
+  INDEX idx_stock_business_segment (business_id, product_segment_id),
+  INDEX idx_stock_business_branch (business_id, branch_id),
+  INDEX idx_stock_last_updated (last_updated),
+
+  CONSTRAINT fk_stock_product_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1272,16 +1324,18 @@ CREATE TABLE stock (
   CONSTRAINT fk_stock_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-
   CONSTRAINT fk_stock_product_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+    ON DELETE RESTRICT ON UPDATE CASCADE, 
 
   CONSTRAINT fk_stock_product_model FOREIGN KEY (product_model_id)
     REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE  
+
 ) ENGINE=InnoDB;
 
+
+-- =========================================================
 DROP TABLE IF EXISTS location_history;
 CREATE TABLE location_history (
   location_history_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1298,13 +1352,15 @@ CREATE TABLE location_history (
   state VARCHAR(100),
   country VARCHAR(100),
   pincode VARCHAR(20),
-  recorded_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  recorded_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
+  
   INDEX idx_loc_hist_inv (business_id, asset_id, recorded_at),
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -1321,6 +1377,7 @@ CREATE TABLE location_history (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
+
 DROP TABLE IF EXISTS deposit;
 CREATE TABLE deposit (
   deposit_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1328,15 +1385,16 @@ CREATE TABLE deposit (
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
   amount DECIMAL(14,2) NOT NULL,
-  held_since DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
-  released_on DATETIME(6),
+  held_since TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
+  released_on TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
   released_amount DECIMAL(14,2),
   notes TEXT,
+  
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
@@ -1354,7 +1412,6 @@ CREATE TABLE deposit (
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS notification_log;
--- NOT GENERATED
 CREATE TABLE notification_log (
   notification_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
@@ -1374,22 +1431,21 @@ CREATE TABLE notification_log (
   notification_status VARCHAR(255) NOT NULL,
   provider_response TEXT NULL,
   attempt_count INT NOT NULL DEFAULT 0,
-  scheduled_for DATETIME(6) NULL, 
-  sent_on DATETIME(6) NULL,       -- when it was actually sent
-  delivered_on DATETIME(6) NULL,  -- if provider reports final delivery
+  scheduled_for TIMESTAMP(6) NULL, 
+  sent_on TIMESTAMP(6) NULL,       -- when it was actually sent
+  delivered_on TIMESTAMP(6) NULL,  -- if provider reports final delivery
 
   external_reference VARCHAR(512) NULL, -- provider message id / external id
   reference_entity VARCHAR(128) NULL,   -- e.g. 'rental','asset','customer' - helpful for quick queries
 
   created_by VARCHAR(255) NOT NULL,
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
-  updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at DATETIME(6),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
-  -- indexes for fast queries
   INDEX idx_notification_business (business_id),
   INDEX idx_notification_branch (branch_id),
   INDEX idx_notification_customer (customer_id),
@@ -1416,18 +1472,6 @@ CREATE TABLE notification_log (
 
   CONSTRAINT fk_notification_log_rental FOREIGN KEY (rental_id)
     REFERENCES rental(rental_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_notification_log_contact_type FOREIGN KEY (contact_type)
-    REFERENCES contact_type(contact_type_id)    
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_notification_log_channel FOREIGN KEY (channel)
-    REFERENCES notification_channel(notification_channel_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_notification_log_status FOREIGN KEY (notification_status)
-    REFERENCES notification_status(notification_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 
 ) ENGINE=InnoDB;
