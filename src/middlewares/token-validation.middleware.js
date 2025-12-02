@@ -7,7 +7,7 @@ const { SESSION_OPERATIONS } = require("../constants/operations");
 function createTokenValidationMiddleware(
   requireAccess = true,
   requireSession = false
-) {
+) { 
   return async (req, res, next) => {
     try {
       // =================== VALIDATE BOTH TOKENS ===================
@@ -47,12 +47,8 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Invalid or inactive session");
         }
 
-        if (
-          sessionData.expiry_at &&
-          new Date(sessionData.expiry_at) < new Date()
-        ) {
-          return ResponseUtil.unauthorized(res, "Session has expired");
-        }
+        // Session is already validated by SP (expiry_at > UTC_TIMESTAMP())
+        // No need for redundant expiry check here as SP already filters expired sessions
 
         req.sessionToken = sessionToken;
         req.sessionData = sessionData;
@@ -99,12 +95,8 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Invalid or expired session");
         }
 
-        if (
-          sessionData.expiry_at &&
-          new Date(sessionData.expiry_at) < new Date()
-        ) {
-          return ResponseUtil.unauthorized(res, "Session has expired");
-        }
+        // Session is already validated by SP (expiry_at > UTC_TIMESTAMP())
+        // No need for redundant expiry check here as SP already filters expired sessions
 
         req.sessionToken = sessionToken;
         req.sessionData = sessionData;

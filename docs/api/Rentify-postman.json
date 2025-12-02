@@ -237,6 +237,235 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "POST /api/customer/create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contactNumber\": \"pattern123\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CustomerController.createCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/customer/update/:customerId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/update/:customerId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "update",
+                ":customerId"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contactNumber\": \"pattern123\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CustomerController.updateCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/customer/get/:customerId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/get/:customerId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "get",
+                ":customerId"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CustomerController.getCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/customer/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "list"
+              ]
+            },
+            "description": "Handler: CustomerController.getAllCustomers\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/customer/delete/:customerId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/customer/delete/:customerId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "customer",
+                "delete",
+                ":customerId"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CustomerController.deleteCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
