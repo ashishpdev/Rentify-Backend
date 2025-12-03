@@ -172,6 +172,3 @@ proc_body: BEGIN
 
 
 END proc_body;
-;
-;
-;
