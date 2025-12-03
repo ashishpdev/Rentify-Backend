@@ -1,41 +1,93 @@
 DROP PROCEDURE IF EXISTS sp_product_manage;
-CREATE PROCEDURE `sp_product_manage`(
-    IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Read Single, 5=Read All
-    IN p_product_model_id INT,
-    IN p_business_id INT,
-    IN p_branch_id INT,
-    IN p_product_category_id INT,
-    IN p_model_name VARCHAR(255),
-    IN p_description TEXT,
-    IN p_product_images JSON,
-    IN p_default_rent DECIMAL(10,2),
-    IN p_default_deposit DECIMAL(10,2),
-    IN p_default_warranty_days INT,
-    IN p_total_quantity INT,
-    IN p_available_quantity INT,
-    IN p_user_id INT,
-    IN p_role_id INT
+CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_product_manage`(
+    IN  p_action INT,                          -- 1=Create, 2=Update, 3=Delete, 4=GetSingle, 5=GetAll
+    IN  p_product_model_id INT,
+    IN  p_business_id INT,
+    IN  p_branch_id INT,
+    IN  p_product_category_id INT,
+    IN  p_model_name VARCHAR(255),
+    IN  p_description TEXT,
+    IN  p_product_images JSON,
+    IN  p_default_rent DECIMAL(10,2),
+    IN  p_default_deposit DECIMAL(10,2),
+    IN  p_default_warranty_days INT,
+    IN  p_total_quantity INT,
+    IN  p_available_quantity INT,
+    IN  p_user_id INT,
+    IN  p_role_id INT,
+
+    OUT p_success BOOLEAN,
+    OUT p_id INT,
+    OUT p_data JSON,
+    OUT p_error_code VARCHAR(50),
+    OUT p_error_message VARCHAR(500)
 )
-main_block: BEGIN
+proc_body: BEGIN
+
+    /* ================================================================
+       DECLARATIONS
+       ================================================================ */
     DECLARE v_role_id INT DEFAULT NULL;
-    /* ---------------- GET USER ROLE ---------------- */
+
+
+
+    /* ================================================================
+       GLOBAL ERROR HANDLER
+       ================================================================ */
+    DECLARE EXIT HANDLER FOR SQLEXCEPTION
+    BEGIN
+        ROLLBACK;
+
+        SET p_success = FALSE;
+
+        IF p_error_code IS NULL THEN
+            SET p_error_code = 'ERR_SQL_EXCEPTION';
+            SET p_error_message = 'Unexpected database error occurred.';
+        END IF;
+    END;
+
+
+
+    /* ================================================================
+       RESET OUTPUT PARAMETERS
+       ================================================================ */
+    SET p_success = FALSE;
+    SET p_id = NULL;
+    SET p_data = NULL;
+    SET p_error_code = NULL;
+    SET p_error_message = NULL;
+
+
+
+    /* ================================================================
+       ROLE VALIDATION
+       ================================================================ */
     SELECT role_id INTO v_role_id
     FROM master_user
     WHERE role_id = p_role_id
     LIMIT 1;
+
     IF v_role_id IS NULL THEN
-        SELECT 'Unauthorized: Role not found.' AS message, 0 AS success;
-        LEAVE main_block;
+        SET p_error_code = 'ERR_ROLE_NOT_FOUND';
+        SET p_error_message = 'User role not found.';
+        LEAVE proc_body;
     END IF;
-    /* ---------------- BLOCK MODIFY ACTIONS ---------------- */
+
     IF p_action IN (1,2,3) AND v_role_id NOT IN (1,2,3) THEN
-        SELECT 'Unauthorized: No permission to modify product.' AS message, 0 AS success;
-        LEAVE main_block;
+        SET p_error_code = 'ERR_PERMISSION_DENIED';
+        SET p_error_message = 'You do not have permission to modify products.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ========================= CREATE ============================== */
-    /* =============================================================== */
+
+
+
+    /* ================================================================
+       ACTION 1: CREATE PRODUCT
+       ================================================================ */
     IF p_action = 1 THEN
+
+        START TRANSACTION;
+
         INSERT INTO product_model (
             business_id, branch_id, product_category_id,
             model_name, description, product_images,
@@ -52,13 +104,26 @@ main_block: BEGIN
             p_user_id, NOW(),
             1, 0
         );
-        SELECT CONCAT('Product created successfully. ID=', LAST_INSERT_ID()) AS message, 1 AS success;
-        LEAVE main_block;
+
+        SET p_id = LAST_INSERT_ID();
+
+        COMMIT;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Product created successfully.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ========================= UPDATE ============================== */
-    /* =============================================================== */
+
+
+
+    /* ================================================================
+       ACTION 2: UPDATE PRODUCT
+       ================================================================ */
     IF p_action = 2 THEN
+
+        START TRANSACTION;
+
         UPDATE product_model
         SET 
             product_category_id = p_product_category_id,
@@ -74,13 +139,32 @@ main_block: BEGIN
             updated_at = NOW()
         WHERE product_model_id = p_product_model_id
           AND is_deleted = 0;
-        SELECT CONCAT('Product updated successfully. ID=', p_product_model_id) AS message, 1 AS success;
-        LEAVE main_block;
+
+        IF ROW_COUNT() = 0 THEN
+            ROLLBACK;
+            SET p_error_code = 'ERR_NOT_FOUND';
+            SET p_error_message = 'Product not found or already deleted.';
+            LEAVE proc_body;
+        END IF;
+
+        COMMIT;
+
+        SET p_id = p_product_model_id;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Product updated successfully.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ========================= DELETE ============================== */
-    /* =============================================================== */
+
+
+
+    /* ================================================================
+       ACTION 3: DELETE PRODUCT (SOFT DELETE)
+       ================================================================ */
     IF p_action = 3 THEN
+
+        START TRANSACTION;
+
         UPDATE product_model
         SET 
             is_deleted = 1,
@@ -90,72 +174,109 @@ main_block: BEGIN
             updated_at = NOW()
         WHERE product_model_id = p_product_model_id
           AND is_deleted = 0;
-        SELECT CONCAT('Product deleted successfully. ID=', p_product_model_id) AS message, 1 AS success;
-        LEAVE main_block;
+
+        IF ROW_COUNT() = 0 THEN
+            ROLLBACK;
+            SET p_error_code = 'ERR_NOT_FOUND';
+            SET p_error_message = 'Product not found or already deleted.';
+            LEAVE proc_body;
+        END IF;
+
+        COMMIT;
+
+        SET p_id = p_product_model_id;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Product deleted successfully.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ===================== READ SINGLE ============================= */
-    /* =============================================================== */
+
+
+
+    /* ================================================================
+       ACTION 4: GET SINGLE PRODUCT
+       ================================================================ */
     IF p_action = 4 THEN
-        SELECT 
-            pm.product_model_id,
-            pm.business_id,
-            pm.branch_id,
-            pm.product_category_id,
-            pm.model_name,
-            pm.description,
-            pm.product_images,
-            pm.default_rent,
-            pm.default_deposit,
-            pm.default_warranty_days,
-            pm.total_quantity,
-            pm.available_quantity,
-            pm.is_active,
-            pm.created_by,
-            pm.created_at,
-            pm.updated_by,
-            pm.updated_at,
-            pm.deleted_at,
-            pm.is_deleted
-        FROM product_model pm
-        WHERE pm.product_model_id = p_product_model_id
-          AND pm.is_deleted = 0
+
+        SELECT JSON_OBJECT(
+            'product_model_id', product_model_id,
+            'business_id', business_id,
+            'branch_id', branch_id,
+            'product_category_id', product_category_id,
+            'model_name', model_name,
+            'description', description,
+            'product_images', product_images,
+            'default_rent', default_rent,
+            'default_deposit', default_deposit,
+            'default_warranty_days', default_warranty_days,
+            'total_quantity', total_quantity,
+            'available_quantity', available_quantity,
+            'created_by', created_by,
+            'created_at', created_at,
+            'updated_by', updated_by,
+            'updated_at', updated_at,
+            'is_active', is_active,
+            'is_deleted', is_deleted
+        )
+        INTO p_data
+        FROM product_model
+        WHERE product_model_id = p_product_model_id
+          AND is_deleted = 0
         LIMIT 1;
-        SELECT 'Single product fetched.' AS message, 1 AS success;
-        LEAVE main_block;
+
+        IF p_data IS NULL THEN
+            SET p_error_code = 'ERR_NOT_FOUND';
+            SET p_error_message = 'Product not found.';
+            LEAVE proc_body;
+        END IF;
+
+        SET p_id = p_product_model_id;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Product fetched successfully.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ===================== READ ALL ================================ */
-    /* =============================================================== */
+
+
+
+    /* ================================================================
+       ACTION 5: GET ALL PRODUCTS
+       ================================================================ */
     IF p_action = 5 THEN
-        SELECT 
-            pm.product_model_id,
-            pm.business_id,
-            pm.branch_id,
-            pm.product_category_id,
-            pm.model_name,
-            pm.description,
-            pm.product_images,
-            pm.default_rent,
-            pm.default_deposit,
-            pm.default_warranty_days,
-            pm.total_quantity,
-            pm.available_quantity,
-            pm.is_active,
-            pm.created_by,
-            pm.created_at,
-            pm.updated_by,
-            pm.updated_at
-        FROM product_model pm
-        WHERE pm.business_id = p_business_id
-          AND pm.branch_id = p_branch_id
-          AND pm.is_deleted = 0
-        ORDER BY pm.created_at DESC;
-        SELECT 'Product list fetched.' AS message, 1 AS success;
-        LEAVE main_block;
+
+        SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'product_model_id', product_model_id,
+                'product_category_id', product_category_id,
+                'model_name', model_name,
+                'description', description,
+                'default_rent', default_rent,
+                'default_deposit', default_deposit,
+                'default_warranty_days', default_warranty_days,
+                'total_quantity', total_quantity,
+                'available_quantity', available_quantity,
+                'created_at', created_at
+            )
+        )
+        INTO p_data
+        FROM product_model
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND is_deleted = 0
+        ORDER BY created_at DESC;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Product list fetched successfully.';
+        LEAVE proc_body;
     END IF;
-    /* =============================================================== */
-    /* ===================== INVALID ACTION ========================== */
-    /* =============================================================== */
-    SELECT 'Invalid action provided.' AS message, 0 AS success;
+
+
+
+    /* ================================================================
+       INVALID ACTION
+       ================================================================ */
+    SET p_error_code = 'ERR_INVALID_ACTION';
+    SET p_error_message = 'Invalid action provided.';
+
 END;
