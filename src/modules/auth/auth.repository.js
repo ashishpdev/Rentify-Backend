@@ -4,15 +4,13 @@ const dbConnection = require("../../database/connection");
 class AuthRepository {
   // ========================= SAVE OTP OPERATIONS ==================
   async saveOTP(otpData) {
-
     const pool = dbConnection.getMasterPool();
     const connection = await pool.getConnection();
 
     try {
       // Call sp_manage_otp with action=1 (Create OTP)
       await connection.query(
-        `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, 
-          @p_success, @p_id, @p_expires_at, @p_otp_code_hash_out, @p_error_code, @p_error_message)`,
+        `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_expires_at, @p_otp_code_hash_out, @p_error_code, @p_error_message)`,
         [
           1, // p_action = 1 (Create)
           otpData.targetIdentifier, // p_target_identifier
@@ -35,7 +33,7 @@ class AuthRepository {
            @p_error_message      AS p_error_message`
       );
 
-      const outPutData = (outputRows && outputRows[0]) ? outputRows[0] : {};
+      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
 
       const success =
         outPutData.p_success === 1 ||
@@ -45,12 +43,15 @@ class AuthRepository {
 
       if (!success) {
         const code = outPutData.p_error_code || "ERR_UNKNOWN";
-        const message = outPutData.p_error_message || "Unknown error from stored procedure";
+        const message =
+          outPutData.p_error_message || "Unknown error from stored procedure";
         throw new Error(`${code}: ${message}`);
       }
 
       if (!outPutData.p_id) {
-        throw new Error("Stored procedure succeeded but did not return an OTP id (p_id)");
+        throw new Error(
+          "Stored procedure succeeded but did not return an OTP id (p_id)"
+        );
       }
       return {
         success: true,
@@ -62,7 +63,6 @@ class AuthRepository {
         p_error_code: outPutData.p_error_code,
         p_error_message: outPutData.p_error_message,
       };
-
     } catch (err) {
       throw new Error(`Failed to save OTP: ${err.message}`);
     } finally {
@@ -91,7 +91,7 @@ class AuthRepository {
             @p_error_message as error_message`
       );
 
-      const outPutData = (outputRows && outputRows[0]) ? outputRows[0] : {};
+      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
 
       const success =
         outPutData.p_success === 1 ||
@@ -101,12 +101,15 @@ class AuthRepository {
 
       if (!success) {
         const code = outPutData.p_error_code || "ERR_UNKNOWN";
-        const message = outPutData.p_error_message || "Unknown error from stored procedure";
+        const message =
+          outPutData.p_error_message || "Unknown error from stored procedure";
         throw new Error(`${code}: ${message}`);
       }
 
       if (!outPutData.p_id) {
-        throw new Error("Stored procedure succeeded but did not return an OTP id (p_id)");
+        throw new Error(
+          "Stored procedure succeeded but did not return an OTP id (p_id)"
+        );
       }
 
       return {
@@ -115,14 +118,12 @@ class AuthRepository {
         p_error_code: outPutData.p_error_code,
         p_error_message: outPutData.p_error_message,
       };
-
     } catch (error) {
       throw new Error(`Failed to verify OTP: ${error.message}`);
     } finally {
       connection.release();
     }
   }
-
 
   // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {
