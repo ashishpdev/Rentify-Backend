@@ -53,6 +53,7 @@ class AuthRepository {
         throw new Error("Stored procedure succeeded but did not return an OTP id (p_id)");
       }
       return {
+        success: true,
         id: outPutData.p_id,
         targetIdentifier: otpData.targetIdentifier,
         // Note: This expiresAt is for API response display only
@@ -63,7 +64,6 @@ class AuthRepository {
       };
 
     } catch (err) {
-      // keep error message friendly and useful for callers
       throw new Error(`Failed to save OTP: ${err.message}`);
     } finally {
       connection.release();
@@ -72,68 +72,57 @@ class AuthRepository {
 
   // ======================== VERIFY OTP OPERATION ===================
   async verifyOTP(email, otpCodeHash, otp_type_id) {
+    const pool = dbConnection.getMasterPool();
+    const connection = await pool.getConnection();
+
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      // Call stored procedure SP
+      await connection.query(
+        `CALL sp_action_verify_otp(?, ?, ?, @p_success, @p_otp_id, @p_error_code, @p_error_message)`,
+        [email, otpCodeHash, otp_type_id]
+      );
 
-      try {
-        // Log the hash being sent for verification
-        console.log(
-          "[OTP Verify] Email:",
-          email,
-          "Hash:",
-          otpCodeHash,
-          "Type ID:",
-          otp_type_id
-        );
+      // Get output variables
+      const [outputRows] = await connection.query(
+        `SELECT 
+            @p_success as success, 
+            @p_otp_id as otp_id, 
+            @p_error_code as error_code, 
+            @p_error_message as error_message`
+      );
 
-        // Call sp_action_verify_otp stored procedure
-        await connection.query(
-          `CALL sp_action_verify_otp(?, ?, ?, @p_verified, @p_otp_id, @p_error_message)`,
-          [email, otpCodeHash, otp_type_id]
-        );
+      const outPutData = (outputRows && outputRows[0]) ? outputRows[0] : {};
 
-        // Get output variables
-        const [outputRows] = await connection.query(
-          "SELECT @p_verified as verified, @p_otp_id as otp_id, @p_error_message as error_message"
-        );
+      const success =
+        outPutData.p_success === 1 ||
+        outPutData.p_success === "1" ||
+        outPutData.p_success === true ||
+        outPutData.p_success === "true";
 
-        if (outputRows.length > 0) {
-          const output = outputRows[0];
-
-          console.log("[OTP Verify Result]", {
-            verified: output.verified,
-            otpId: output.otp_id,
-            errorMessage: output.error_message,
-          });
-
-          // Check if error message indicates failure
-          if (output.error_message !== "Success") {
-            // Log to file for debugging
-            const logger = require("../../config/logger.config");
-            logger.error("OTP Verification Failed from SP", {
-              email,
-              errorMessage: output.error_message,
-              verified: output.verified,
-              otpId: output.otp_id,
-            });
-            throw new Error(output.error_message || "OTP verification failed");
-          }
-
-          return {
-            verified: output.verified === 1 || output.verified === true,
-            otpId: output.otp_id,
-          };
-        }
-
-        throw new Error("Failed to retrieve stored procedure output");
-      } finally {
-        connection.release();
+      if (!success) {
+        const code = outPutData.p_error_code || "ERR_UNKNOWN";
+        const message = outPutData.p_error_message || "Unknown error from stored procedure";
+        throw new Error(`${code}: ${message}`);
       }
+
+      if (!outPutData.p_id) {
+        throw new Error("Stored procedure succeeded but did not return an OTP id (p_id)");
+      }
+
+      return {
+        success: true,
+        otpId: outPutData.p_otp_id,
+        p_error_code: outPutData.p_error_code,
+        p_error_message: outPutData.p_error_message,
+      };
+
     } catch (error) {
       throw new Error(`Failed to verify OTP: ${error.message}`);
+    } finally {
+      connection.release();
     }
   }
+
 
   // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {

@@ -3,8 +3,9 @@ CREATE PROCEDURE `sp_action_verify_otp`(
     IN p_target_identifier VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
     IN p_otp_type_id INT,
-    OUT p_verified BOOLEAN,
+    OUT p_success BOOLEAN,
     OUT p_otp_id CHAR(36),
+    OUT p_error_code VARCHAR(50),
     OUT p_error_message VARCHAR(500)
 )
 BEGIN
@@ -20,20 +21,23 @@ BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
-        SET p_verified = FALSE;
-        SET p_error_message = 'Database error occurred during OTP verification';
+        IF p_error_code IS NULL THEN
+            SET p_success = FALSE;
+            SET p_error_code = 'ERR_SQL_EXCEPTION';
+            SET p_error_message = 'Database error occurred during OTP verification';
+        END IF;
     END;
     
-    SET p_verified = FALSE;
+    SET p_success = FALSE;
     SET p_otp_id = NULL;
+    SET p_error_code = NULL;
     SET p_error_message = NULL;
     
     main_block: BEGIN
         -- Validate OTP type ID is valid
-        SELECT master_otp_type_id
-          INTO v_otp_type_id
+        SELECT master_otp_type_id INTO v_otp_type_id
           FROM master_otp_type
-         WHERE master_otp_type_id = p_otp_type_id AND is_deleted = 0
+         WHERE master_otp_type_id = p_otp_type_id AND is_deleted = 0 AND is_active = TRUE
          LIMIT 1;
         IF v_otp_type_id IS NULL THEN
             SET p_error_message = 'Invalid OTP type';
@@ -99,10 +103,10 @@ BEGIN
         COMMIT;
         
         -- Return success
-        SET p_verified = TRUE;
+        SET p_success = TRUE;
         SET p_otp_id = v_otp_id;
-        SET p_error_message = 'Success';
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'OTP verified successfully';
         
-    END; -- end main_block
-
+    END main_block;
 END;
