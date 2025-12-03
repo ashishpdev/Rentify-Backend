@@ -1,66 +1,72 @@
 // Repository layer - Database operations
-const crypto = require("crypto");
 const dbConnection = require("../../database/connection");
 
 class AuthRepository {
   // ========================= SAVE OTP OPERATIONS ==================
   async saveOTP(otpData) {
+
+    const pool = dbConnection.getMasterPool();
+    const connection = await pool.getConnection();
+
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      // Call sp_manage_otp with action=1 (Create OTP)
+      await connection.query(
+        `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, 
+          @p_success, @p_id, @p_expires_at, @p_otp_code_hash_out, @p_error_code, @p_error_message)`,
+        [
+          1, // p_action = 1 (Create)
+          otpData.targetIdentifier, // p_target_identifier
+          otpData.otpCodeHash, // p_otp_code_hash
+          otpData.otp_type_id, // p_otp_type_id
+          otpData.expiryMinutes || null, // p_expiry_minutes
+          otpData.ipAddress || null, // p_ip_address
+          otpData.createdBy || "system", // p_created_by
+        ]
+      );
 
-      try {
-        // Call sp_manage_otp with action=1 (Create OTP)
-        await connection.query(
-          `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, ?, ?, @p_id, @p_error_message)`,
-          [
-            1, // p_action = 1 (Create)
-            null, // target_identifier (not used for create)
-            otpData.targetIdentifier, // p_target_identifier
-            otpData.otpCodeHash, // p_otp_code_hash
-            otpData.otp_type_id, // p_otp_type_id
-            null, // p_otp_status_id (will be set to PENDING)
-            otpData.expiryMinutes, // p_expiry_minutes
-            otpData.ipAddress || null, // p_ip_address
-            "system", // p_created_by
-          ]
-        );
+      // Get output variables
+      const [outputRows] = await connection.query(
+        `SELECT
+           @p_success            AS p_success,
+           @p_id                 AS p_id,
+           @p_expires_at         AS p_expires_at,
+           @p_otp_code_hash_out  AS p_otp_code_hash_out,
+           @p_error_code         AS p_error_code,
+           @p_error_message      AS p_error_message`
+      );
 
-        // Get output variables
-        const [outputRows] = await connection.query(
-          "SELECT @p_id as otp_id, @p_error_message as error_message"
-        );
+      const outPutData = (outputRows && outputRows[0]) ? outputRows[0] : {};
 
-        if (outputRows.length > 0) {
-          const output = outputRows[0];
+      const success =
+        outPutData.p_success === 1 ||
+        outPutData.p_success === "1" ||
+        outPutData.p_success === true ||
+        outPutData.p_success === "true";
 
-          if (!output.error_message) {
-            throw new Error("No error message returned from stored procedure");
-          }
-
-          if (output.error_message !== "Success") {
-            throw new Error(output.error_message);
-          }
-
-          if (!output.otp_id) {
-            throw new Error("Failed to generate OTP ID");
-          }
-
-          return {
-            id: output.otp_id,
-            targetIdentifier: otpData.targetIdentifier,
-            // Note: This expiresAt is for API response display only
-            // The authoritative expiry time is stored in database in UTC by the stored procedure
-            expiresAt: new Date(Date.now() + otpData.expiryMinutes * 60 * 1000),
-          };
-        }
-
-        throw new Error("Failed to retrieve stored procedure output");
-      } finally {
-        connection.release();
+      if (!success) {
+        const code = outPutData.p_error_code || "ERR_UNKNOWN";
+        const message = outPutData.p_error_message || "Unknown error from stored procedure";
+        throw new Error(`${code}: ${message}`);
       }
-    } catch (error) {
-      throw new Error(`Failed to save OTP: ${error.message}`);
+
+      if (!outPutData.p_id) {
+        throw new Error("Stored procedure succeeded but did not return an OTP id (p_id)");
+      }
+      return {
+        id: outPutData.p_id,
+        targetIdentifier: otpData.targetIdentifier,
+        // Note: This expiresAt is for API response display only
+        // The authoritative expiry time is stored in database in UTC by the stored procedure
+        expiresAt: outPutData.p_expires_at,
+        p_error_code: outPutData.p_error_code,
+        p_error_message: outPutData.p_error_message,
+      };
+
+    } catch (err) {
+      // keep error message friendly and useful for callers
+      throw new Error(`Failed to save OTP: ${err.message}`);
+    } finally {
+      connection.release();
     }
   }
 
