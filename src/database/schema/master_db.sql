@@ -250,7 +250,6 @@ CREATE TABLE master_user_session (
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
     ip_address VARCHAR(100),
-    user_agent VARCHAR(500),
     session_token VARCHAR(255) NOT NULL UNIQUE,
 
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
@@ -274,7 +273,7 @@ CREATE TABLE master_otp (
     user_id INT NULL COMMENT 'Can be null for unregistered users',
     otp_code_hash VARCHAR(255) NOT NULL,
     otp_type_id INT NOT NULL,
-    otp_status_id INT NOT NULL,
+    otp_status_id INT NOT NULL DEFAULT 1, -- Default to PENDING
     attempts INT DEFAULT 0,
     max_attempts INT DEFAULT 3,
     ip_address VARCHAR(100),

@@ -3,7 +3,6 @@ CREATE PROCEDURE sp_action_login_with_otp(
     IN p_email VARCHAR(255),
     IN p_otp_code_hash VARCHAR(255),
     IN p_ip_address VARCHAR(255),
-    IN p_user_agent VARCHAR(255),
     OUT p_user_id INT,
     OUT p_business_id INT,
     OUT p_branch_id INT,
@@ -116,7 +115,6 @@ BEGIN
             p_user_id,                  -- p_user_id
             NULL,                       -- p_session_token (NULL for create, will be generated)
             p_ip_address,               -- p_ip_address
-            p_user_agent,               -- p_user_agent
             v_session_created,          -- OUT p_is_success
             p_session_token,            -- OUT p_session_token
             v_session_expiry_at,        -- OUT p_expiry_at

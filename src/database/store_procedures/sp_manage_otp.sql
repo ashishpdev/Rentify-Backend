@@ -24,9 +24,12 @@ proc_body: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
-        SET p_success = FALSE;
-        SET p_error_code = 'ERR_SQL_EXCEPTION';
-        SET p_error_message = 'Database error during OTP operation';
+        IF p_error_code IS NULL THEN
+            SET p_success = FALSE;
+            SET p_error_code = 'ERR_SQL_EXCEPTION';
+            SET p_error_message = 'Database error during OTP operation';
+        END IF;
+
     END;
 
     SET p_success = FALSE;
