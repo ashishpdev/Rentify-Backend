@@ -39,6 +39,9 @@ const RESPONSE_MESSAGES = {
   INVALID_TOKEN: "Invalid access token",
   TOKEN_COMPROMISED: "Access token has been compromised",
   TOKEN_EXPIRED: "Access token has expired",
+  SESSION_TOKEN_EXPIRED: "Session token has expired",
+  SESSION_TOKEN_COMPROMISED: "Session token has been compromised",
+  INVALID_SESSION_TOKEN: "Invalid session token",
   EXTEND_SESSION_FAILED: "Failed to extend session",
   LOGOUT_FAILED: "Failed to logout",
 };
@@ -49,6 +52,7 @@ const RESPONSE_MESSAGES = {
 const ERROR_MESSAGES = {
   TAMPERED_TOKEN: "tampered",
   EXPIRED_TOKEN: "expired",
+  INVALID_SESSION: "Invalid or expired session",
 };
 
 module.exports = {

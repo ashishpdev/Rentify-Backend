@@ -1,8 +1,7 @@
 const logger = require("../config/logger.config");
 const ResponseUtil = require("../utils/response.util");
 const AccessTokenUtil = require("../utils/access_token.util");
-const dbConnection = require("../database/connection");
-const { SESSION_OPERATIONS } = require("../constants/operations");
+const SessionTokenUtil = require("../utils/session_token.util");
 
 function createTokenValidationMiddleware(
   requireAccess = true,
@@ -28,7 +27,7 @@ function createTokenValidationMiddleware(
           );
         }
 
-        // First, validate access token to get user_id
+        // Validate access token structure and decrypt
         if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
           return ResponseUtil.unauthorized(res, "Invalid access token format");
         }
@@ -38,20 +37,44 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Invalid access token");
         }
 
-        // Now validate session with user_id from access token
-        const sessionData = await getSessionFromDB(
-          sessionToken,
-          userData.user_id
-        );
-        if (!sessionData || !sessionData.is_active) {
-          return ResponseUtil.unauthorized(res, "Invalid or inactive session");
+        // Validate session token structure and decrypt (no DB call needed)
+        if (!SessionTokenUtil.isValidTokenStructure(sessionToken)) {
+          return ResponseUtil.unauthorized(res, "Invalid session token format");
         }
 
-        // Session is already validated by SP (expiry_at > UTC_TIMESTAMP())
-        // No need for redundant expiry check here as SP already filters expired sessions
+        const sessionValidation =
+          SessionTokenUtil.validateSessionToken(sessionToken);
+        if (!sessionValidation.isValid) {
+          // Check specific error type
+          if (sessionValidation.error.includes("expired")) {
+            return ResponseUtil.unauthorized(res, "Session token expired");
+          }
+          if (sessionValidation.error.includes("tampered")) {
+            return ResponseUtil.unauthorized(
+              res,
+              "Session token has been compromised"
+            );
+          }
+          return ResponseUtil.unauthorized(res, "Invalid session token");
+        }
+
+        const sessionData = sessionValidation.sessionData;
+
+        // Verify user_id in session matches access token user_id
+        if (sessionData.user_id !== userData.user_id) {
+          return ResponseUtil.unauthorized(res, "Token user mismatch");
+        }
 
         req.sessionToken = sessionToken;
-        req.sessionData = sessionData;
+        req.sessionData = {
+          user_id: sessionData.user_id,
+          business_id: sessionData.business_id,
+          branch_id: sessionData.branch_id,
+          device_id: sessionData.device_id,
+          ip_address: sessionData.ip_address,
+          expiry_at: sessionData.expiry_at,
+          is_active: true,
+        };
         req.accessToken = accessToken;
         req.user = userData;
       }
@@ -89,17 +112,38 @@ function createTokenValidationMiddleware(
           );
         }
 
-        // Validate session token (UUID) from database
-        const sessionData = await getSessionFromDB(sessionToken, userId);
-        if (!sessionData) {
+        // Validate session token structure and decrypt (no DB call needed)
+        if (!SessionTokenUtil.isValidTokenStructure(sessionToken)) {
+          return ResponseUtil.unauthorized(res, "Invalid session token format");
+        }
+
+        const sessionValidation =
+          SessionTokenUtil.validateSessionToken(sessionToken);
+        if (!sessionValidation.isValid) {
+          if (sessionValidation.error.includes("expired")) {
+            return ResponseUtil.unauthorized(res, "Session token expired");
+          }
+          if (sessionValidation.error.includes("tampered")) {
+            return ResponseUtil.unauthorized(
+              res,
+              "Session token has been compromised"
+            );
+          }
           return ResponseUtil.unauthorized(res, "Invalid or expired session");
         }
 
-        // Session is already validated by SP (expiry_at > UTC_TIMESTAMP())
-        // No need for redundant expiry check here as SP already filters expired sessions
+        const sessionData = sessionValidation.sessionData;
 
         req.sessionToken = sessionToken;
-        req.sessionData = sessionData;
+        req.sessionData = {
+          user_id: sessionData.user_id,
+          business_id: sessionData.business_id,
+          branch_id: sessionData.branch_id,
+          device_id: sessionData.device_id,
+          ip_address: sessionData.ip_address,
+          expiry_at: sessionData.expiry_at,
+          is_active: true,
+        };
       }
 
       next();
@@ -109,68 +153,17 @@ function createTokenValidationMiddleware(
       if (error.message.includes("tampered")) {
         return ResponseUtil.unauthorized(
           res,
-          "Access token has been compromised"
+          "Token has been compromised"
         );
+      }
+
+      if (error.message.includes("expired")) {
+        return ResponseUtil.unauthorized(res, "Token has expired");
       }
 
       return ResponseUtil.unauthorized(res, "Token validation failed");
     }
   };
-}
-
-async function getSessionFromDB(sessionToken, userId = null) {
-  let connection;
-  try {
-    const pool = dbConnection.getMasterPool();
-    connection = await pool.getConnection();
-
-    // Use sp_manage_session with action=4 (Get session)
-    await connection.query(
-      `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
-      [SESSION_OPERATIONS.GET, userId, sessionToken]
-    );
-
-    // Get output parameters
-    const [outputRows] = await connection.query(
-      "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
-    );
-
-    if (!outputRows || outputRows.length === 0) {
-      logger.debug(
-        "Session validation failed: No output from stored procedure",
-        {
-          sessionToken: sessionToken?.substring(0, 8) + "...",
-        }
-      );
-      return null;
-    }
-
-    const output = outputRows[0];
-
-    if (!output.is_success || !output.session_token) {
-      logger.debug("Session validation failed", {
-        sessionToken: sessionToken?.substring(0, 8) + "...",
-        errorMessage: output.error_message,
-      });
-      return null;
-    }
-
-    // Return session data structure compatible with middleware expectations
-    return {
-      session_token: output.session_token, // UUID
-      expiry_at: output.expiry_at,
-      user_id: userId, // May be null if not provided
-      is_active: true, // If SP returns success, session is valid and active
-    };
-  } catch (error) {
-    logger.error("Database error during session validation", {
-      error: error.message,
-      sessionToken: sessionToken?.substring(0, 8) + "...",
-    });
-    return null;
-  } finally {
-    if (connection) connection.release();
-  }
 }
 
 const requireBothTokens = createTokenValidationMiddleware(true, true);

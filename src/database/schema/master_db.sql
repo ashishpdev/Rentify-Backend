@@ -247,10 +247,10 @@ DROP TABLE IF EXISTS master_user_session;
 CREATE TABLE master_user_session (
     id CHAR(36) PRIMARY KEY,
     user_id INT NOT NULL,
+    session_token VARCHAR(255) NOT NULL UNIQUE,
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
     ip_address VARCHAR(100),
-    session_token VARCHAR(255) NOT NULL UNIQUE,
 
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
     expiry_at TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp for session expiry',

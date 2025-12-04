@@ -204,26 +204,27 @@ class AuthRepository {
   }
 
   // ======================== LOGIN WITH OTP ========================
-  async loginWithOTP(email, otpCodeHash, ipAddress = null, userAgent = null) {
+  async loginWithOTP(email, otpCodeHash, ipAddress = null) {
     try {
       const pool = dbConnection.getMasterPool();
       const connection = await pool.getConnection();
 
       try {
-        // Call stored procedure with OTP hash, IP and User Agent
+        // Call stored procedure with OTP hash, IP - validates OTP and returns user info
         await connection.query(
-          `CALL sp_action_login_with_otp(?, ?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_session_token, @p_error_message)`,
-          [email, otpCodeHash, ipAddress || null, userAgent || null]
+          `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_error_message)`,
+          [email, otpCodeHash, ipAddress || null]
         );
 
-        // Get output variables - ADD session_token here
+        // Get output variables
         const [outputRows] = await connection.query(
-          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_session_token as session_token, @p_error_message as error_message"
+          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_error_message as error_message"
         );
 
         if (outputRows.length > 0) {
           const output = outputRows[0];
 
+          // Check for error
           if (!output.user_id || output.error_message !== "Login successful") {
             throw new Error(
               output.error_message || "Failed to login: User not found"
@@ -239,7 +240,6 @@ class AuthRepository {
             user_name: output.user_name,
             contact_number: output.contact_number,
             business_name: output.business_name,
-            session_token: output.session_token, // ADD THIS
           };
         }
 
@@ -249,6 +249,42 @@ class AuthRepository {
       }
     } catch (error) {
       throw new Error(`Failed to login: ${error.message}`);
+    }
+  }
+
+  // ======================== CREATE SESSION ========================
+  async createSession(userId, sessionToken, sessionExpiryAt, ipAddress = null) {
+    try {
+      const pool = dbConnection.getMasterPool();
+      const connection = await pool.getConnection();
+
+      try {
+        await connection.query(
+          `CALL sp_manage_session(?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+          [1, userId, sessionToken, ipAddress, sessionExpiryAt]
+        );
+
+        const [outputRows] = await connection.query(
+          "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
+        );
+
+        if (!outputRows || outputRows.length === 0) {
+          throw new Error("Failed to create session: No output from procedure");
+        }
+
+        const output = outputRows[0];
+
+        return {
+          isSuccess: output.is_success === 1 || output.is_success === true,
+          sessionToken: output.session_token,
+          expiryAt: output.expiry_at,
+          errorMessage: output.error_message,
+        };
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      throw new Error(`Failed to create session: ${error.message}`);
     }
   }
 }
