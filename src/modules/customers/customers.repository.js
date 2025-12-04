@@ -63,6 +63,15 @@ class CustomerRepository {
         }
       }
 
+      // Log the stored procedure response for debugging
+      if (!success) {
+        logger.warn("Stored procedure returned error", {
+          action: params.action,
+          errorCode: output.error_code,
+          errorMessage: output.error_message,
+        });
+      }
+
       return {
         success,
         customerId: output.customer_id,
@@ -74,8 +83,16 @@ class CustomerRepository {
       logger.error("CustomerRepository.manageCustomer error", {
         action: params.action,
         error: error.message,
+        stack: error.stack,
       });
-      throw error;
+      // Return error in consistent format instead of throwing
+      return {
+        success: false,
+        customerId: null,
+        data: null,
+        errorCode: "ERR_DATABASE_ERROR",
+        message: error.message || "Unexpected database error occurred.",
+      };
     } finally {
       if (connection) connection.release();
     }

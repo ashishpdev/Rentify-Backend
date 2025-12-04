@@ -118,6 +118,31 @@ proc_body: BEGIN
     ================================================================ */
     IF p_action = 2 THEN
 
+        -- Check if segment exists
+        SELECT COUNT(*) INTO v_exist FROM product_segment
+        WHERE product_segment_id = p_product_segment_id
+          AND is_deleted = 0;
+
+        IF v_exist = 0 THEN
+            SET p_error_code='ERR_NOT_FOUND';
+            SET p_error_message='Product segment not found or deleted.';
+            LEAVE proc_body;
+        END IF;
+
+        -- Check for duplicate code (excluding current record)
+        SELECT COUNT(*) INTO v_exist FROM product_segment
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND code = p_code
+          AND product_segment_id != p_product_segment_id
+          AND is_deleted = 0;
+
+        IF v_exist > 0 THEN
+            SET p_error_code='ERR_DUPLICATE';
+            SET p_error_message='Product segment code already exists.';
+            LEAVE proc_body;
+        END IF;
+
         START TRANSACTION;
 
         UPDATE product_segment
