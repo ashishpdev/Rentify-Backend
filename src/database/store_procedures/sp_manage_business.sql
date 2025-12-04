@@ -196,7 +196,7 @@ proc_body: BEGIN
             contact_number = p_contact_number,
             status_id = v_business_status_id,
             updated_by = p_created_by,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE business_id = p_business_id AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
@@ -227,9 +227,9 @@ proc_body: BEGIN
         UPDATE master_business
         SET 
             is_deleted = 1,
-            deleted_at = CURRENT_TIMESTAMP(6),
+            deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_created_by,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE business_id = p_business_id AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN

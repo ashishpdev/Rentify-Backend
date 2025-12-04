@@ -148,7 +148,7 @@ proc_body:BEGIN
             borrowed_from_branch_name = p_borrowed_branch,
             purchase_bill_url = p_purchase_bill_url,
             updated_by = p_user_id,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE asset_id = p_asset_id AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
@@ -179,7 +179,7 @@ proc_body:BEGIN
         UPDATE asset SET
             is_deleted = 1,
             is_active = 0,
-            deleted_at = CURRENT_TIMESTAMP(6),
+            deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_user_id
         WHERE asset_id = p_asset_id AND is_deleted = 0;
 

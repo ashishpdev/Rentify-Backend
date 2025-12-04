@@ -149,7 +149,7 @@ proc_body: BEGIN
         'HQ-001',
         p_contact_number, 
         p_created_by,
-        CURRENT_TIMESTAMP(6)
+        UTC_TIMESTAMP(6)
     );
 
     SET v_new_branch_id = LAST_INSERT_ID();

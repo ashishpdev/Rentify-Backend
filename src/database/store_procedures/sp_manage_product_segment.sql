@@ -126,7 +126,7 @@ proc_body: BEGIN
             name = p_name,
             description = p_description,
             updated_by = p_user_id,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE product_segment_id = p_product_segment_id
           AND is_deleted = 0;
 
@@ -159,7 +159,7 @@ proc_body: BEGIN
         SET
             is_deleted = 1,
             is_active = 0,
-            deleted_at = CURRENT_TIMESTAMP(6),
+            deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_user_id
         WHERE product_segment_id = p_product_segment_id
           AND is_deleted = 0;
