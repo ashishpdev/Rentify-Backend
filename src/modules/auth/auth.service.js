@@ -85,7 +85,7 @@ class AuthService {
       const hash = OTPUtil.hashOTP(otpCode);
       const result = await authRepository.verifyOTP(email, hash, otp_type_id);
 
-      if (!result || !result.verified) {
+      if (!result || !result.success) {
         throw new Error("Invalid or expired OTP");
       }
       return true;
@@ -164,31 +164,6 @@ class AuthService {
       // Re-throw the original error message without wrapping
       throw err;
     }
-  }
-
-  // ============================ TOKEN METHODS ===========================
-  // ======================== EXTRACT ACCESS TOKEN ========================
-  extractAccessToken(headers) {
-    return headers[TOKEN_HEADERS.ACCESS] || null;
-  }
-
-  // ======================== EXTRACT SESSION TOKEN ========================
-  extractSessionToken(headers) {
-    return headers[TOKEN_HEADERS.SESSION] || null;
-  }
-
-  // ============================ VALIDATE TOKEN ===========================
-  validateAccessToken(token) {
-    if (!TokenUtil.isValidTokenStructure(token)) {
-      throw new Error("Invalid access token format");
-    }
-
-    const userData = TokenUtil.decryptAccessToken(token);
-    if (!userData || !userData.user_id) {
-      throw new Error("Invalid access token");
-    }
-
-    return userData;
   }
 
   // =========================== SESSION METHODS ===========================
