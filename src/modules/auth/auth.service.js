@@ -2,6 +2,7 @@
 const authRepository = require("./auth.repository");
 const EmailService = require("../../services/email.service");
 const TokenUtil = require("../../utils/access_token.util");
+const SessionTokenUtil = require("../../utils/session_token.util");
 const OTPUtil = require("../../utils/otp.util");
 const dbConnection = require("../../database/connection");
 const logger = require("../../config/logger.config");
@@ -137,16 +138,37 @@ class AuthService {
       // Hash the OTP code
       const hash = OTPUtil.hashOTP(otpCode);
 
-      // Login with OTP - verification happens inside the stored procedure
-      const user = await authRepository.loginWithOTP(
-        email,
-        hash,
-        ipAddress,
-        userAgent
-      );
+      // Login with OTP - get user info (OTP verification happens in SP)
+      const user = await authRepository.loginWithOTP(email, hash, ipAddress);
 
       if (!user || !user.user_id) {
         throw new Error("Failed to retrieve user information");
+      }
+
+      // Generate encrypted session token with user data
+      const sessionTokenData = {
+        user_id: user.user_id,
+        business_id: user.business_id,
+        branch_id: user.branch_id,
+        ip_address: ipAddress,
+        device_id: `device_${user.user_id}_${Date.now()}`,
+      };
+
+      const tokenResult =
+        SessionTokenUtil.generateSessionToken(sessionTokenData);
+
+      // Create session in database with encrypted token
+      const sessionResult = await authRepository.createSession(
+        user.user_id,
+        tokenResult.sessionToken,
+        tokenResult.expiresAt,
+        ipAddress
+      );
+
+      if (!sessionResult.isSuccess) {
+        throw new Error(
+          sessionResult.errorMessage || "Failed to create session"
+        );
       }
 
       return {
@@ -158,7 +180,7 @@ class AuthService {
         user_name: user.user_name,
         contact_number: user.contact_number,
         business_name: user.business_name,
-        session_token: user.session_token,
+        session_token: sessionResult.sessionToken,
       };
     } catch (err) {
       // Re-throw the original error message without wrapping
@@ -167,22 +189,36 @@ class AuthService {
   }
 
   // ======================== EXTEND SESSION ========================
-  async extendSession(userId, sessionToken) {
+  async extendSession(userId, currentSessionToken) {
     let connection;
     try {
-      if (!userId || !sessionToken) {
+      if (!userId || !currentSessionToken) {
         throw new AuthenticationError("User ID and session token are required");
       }
 
+      // Decrypt current session token to get session data
+      const currentSessionData =
+        SessionTokenUtil.decryptSessionToken(currentSessionToken);
+
+      // Generate new extended session token
+      const extendedToken =
+        SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
+
       connection = await dbConnection.getMasterPool().getConnection();
 
+      // Update session in database with new encrypted token
       await connection.query(
-        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
-        [SESSION_OPERATIONS.UPDATE, userId, sessionToken]
+        `CALL sp_manage_session(?, ?, ?, NULL, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        [
+          SESSION_OPERATIONS.UPDATE,
+          userId,
+          extendedToken.sessionToken,
+          extendedToken.expiresAt,
+        ]
       );
 
       const [outputRows] = await connection.query(
-        "SELECT @p_is_success as is_success, @p_expiry_at as expiry_at, @p_error_message as error_message"
+        "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
       );
 
       if (!outputRows || outputRows.length === 0) {
@@ -193,6 +229,7 @@ class AuthService {
 
       return {
         isSuccess: output.is_success === 1 || output.is_success === true,
+        sessionToken: output.session_token,
         expiryAt: output.expiry_at,
         errorMessage: output.error_message,
       };
@@ -232,8 +269,8 @@ class AuthService {
       connection = await dbConnection.getMasterPool().getConnection();
 
       await connection.query(
-        `CALL sp_manage_session(?, ?, ?, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
-        [SESSION_OPERATIONS.DELETE, userId, null]
+        `CALL sp_manage_session(?, ?, NULL, NULL, NULL, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+        [SESSION_OPERATIONS.DELETE, userId]
       );
 
       const [outputRows] = await connection.query(

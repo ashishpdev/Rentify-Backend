@@ -497,6 +497,7 @@ class AuthController {
         res,
         {
           extended: true,
+          session_token: result.sessionToken,
           session_expires_at: result.expiryAt,
         },
         RESPONSE_MESSAGES.SESSION_EXTENDED
