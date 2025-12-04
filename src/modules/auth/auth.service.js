@@ -240,32 +240,16 @@ class AuthService {
 
   // ======================== LOGOUT ========================
   async logout(userId) {
-    let connection;
     try {
       if (!userId) {
         throw new AuthenticationError("User ID is required");
       }
 
-      connection = await dbConnection.getMasterPool().getConnection();
-
-      await connection.query(
-        `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
-        [SESSION_OPERATIONS.DELETE, userId, null, null, null, null]
-      );
-
-      const [outputRows] = await connection.query(
-        "SELECT @p_is_success as is_success, @p_error_message as error_message"
-      );
-
-      if (!outputRows || outputRows.length === 0) {
-        throw new DatabaseError("Failed to retrieve logout output");
-      }
-
-      const output = outputRows[0];
+      const result = await authRepository.logout(userId);
 
       return {
-        isSuccess: output.is_success === 1 || output.is_success === true,
-        errorMessage: output.error_message,
+        isSuccess: result.success,
+        errorMessage: result.error_message,
       };
     } catch (error) {
       if (error.statusCode) {
@@ -276,16 +260,6 @@ class AuthService {
         error: error.message,
       });
       throw new DatabaseError(`Failed to logout: ${error.message}`, error);
-    } finally {
-      if (connection) {
-        try {
-          connection.release();
-        } catch (releaseError) {
-          logger.warn("Error releasing database connection", {
-            error: releaseError.message,
-          });
-        }
-      }
     }
   }
 }

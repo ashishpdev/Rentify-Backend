@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS sp_manage_otp;
 
-CREATE PROCEDURE `sp_manage_otp`(
+CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_otp`(
     IN  p_action INT,                    -- 1=Create, 2=Get, 3=Delete
     IN  p_target_identifier VARCHAR(255),
     IN  p_otp_code_hash VARCHAR(255),

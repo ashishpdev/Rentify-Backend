@@ -260,12 +260,12 @@ class AuthRepository {
 
       try {
         await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
           [1, userId, sessionToken, ipAddress, sessionExpiryAt, null]
         );
 
         const [outputRows] = await connection.query(
-          "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
+          "SELECT @p_success as success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_code as error_code, @p_error_message as error_message"
         );
 
         if (!outputRows || outputRows.length === 0) {
@@ -275,9 +275,10 @@ class AuthRepository {
         const output = outputRows[0];
 
         return {
-          isSuccess: output.is_success === 1 || output.is_success === true,
+          isSuccess: output.success === 1 || output.success === true,
           sessionToken: output.session_token,
           expiryAt: output.expiry_at,
+          errorCode: output.error_code,
           errorMessage: output.error_message,
         };
       } finally {
@@ -331,12 +332,12 @@ class AuthRepository {
 
         // Call SP with action=2 (Update), passing both old and new tokens
         await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
           [2, userId, newSessionToken, null, newExpiryAt, oldSessionToken]
         );
 
         const [outputRows] = await connection.query(
-          "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
+          "SELECT @p_success as success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_code as error_code, @p_error_message as error_message"
         );
 
         if (!outputRows || outputRows.length === 0) {
@@ -351,20 +352,22 @@ class AuthRepository {
         //
 
         const success =
-          output.is_success === 1 ||
-          output.is_success === "1" ||
-          output.is_success === true ||
-          output.is_success === "true";
+          output.success === 1 ||
+          output.success === "1" ||
+          output.success === true ||
+          output.success === "true";
 
         if (!success) {
+          const code = output.error_code || "ERR_UNKNOWN";
           const message = output.error_message || "Failed to extend session";
-          throw new Error(message);
+          throw new Error(`${code}: ${message}`);
         }
 
         return {
           isSuccess: success,
           sessionToken: output.session_token,
           expiryAt: output.expiry_at,
+          errorCode: output.error_code,
           errorMessage: output.error_message,
         };
       } finally {
@@ -372,6 +375,55 @@ class AuthRepository {
       }
     } catch (error) {
       throw new Error(`Failed to extend session: ${error.message}`);
+    }
+  }
+
+  // ======================== LOGOUT ========================
+  async logout(userId) {
+    try {
+      const pool = dbConnection.getMasterPool();
+      const connection = await pool.getConnection();
+
+      try {
+        // Call sp_manage_session with action=3 (Delete)
+        await connection.query(
+          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
+          [3, userId, null, null, null, null]
+        );
+
+        // Get output variables
+        const [outputRows] = await connection.query(
+          `SELECT 
+            @p_success as success, 
+            @p_error_code as error_code, 
+            @p_error_message as error_message`
+        );
+
+        const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
+
+        const success =
+          outPutData.success === 1 ||
+          outPutData.success === "1" ||
+          outPutData.success === true ||
+          outPutData.success === "true";
+
+        if (!success) {
+          const code = outPutData.error_code || "ERR_UNKNOWN";
+          const message =
+            outPutData.error_message || "Unknown error from stored procedure";
+          throw new Error(`${code}: ${message}`);
+        }
+
+        return {
+          success: true,
+          error_code: outPutData.error_code,
+          error_message: outPutData.error_message,
+        };
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      throw new Error(`Failed to logout: ${error.message}`);
     }
   }
 }
