@@ -1,58 +1,90 @@
 DROP PROCEDURE IF EXISTS sp_manage_customer;
-CREATE PROCEDURE `sp_manage_customer`(
-    IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Get List, 5=Get List Based On Role
-    IN p_customer_id INT,
-    IN p_business_id INT,
-    IN p_branch_id INT,
-    IN p_first_name VARCHAR(200),
-    IN p_last_name VARCHAR(200),
-    IN p_email VARCHAR(255),
-    IN p_contact_number VARCHAR(80),
-    IN p_address_line VARCHAR(255),
-    IN p_city VARCHAR(100),
-    IN p_state VARCHAR(100),
-    IN p_country VARCHAR(100),
-    IN p_pincode VARCHAR(20),
-    IN p_user VARCHAR(255),
-    IN p_role_user VARCHAR(255)
+CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_customer`(
+    IN  p_action INT,                      -- 1=Create, 2=Update, 3=Delete, 4=Get List, 5=Get List By Role
+    IN  p_customer_id INT,
+    IN  p_business_id INT,
+    IN  p_branch_id INT,
+    IN  p_first_name VARCHAR(200),
+    IN  p_last_name VARCHAR(200),
+    IN  p_email VARCHAR(255),
+    IN  p_contact_number VARCHAR(80),
+    IN  p_address_line VARCHAR(255),
+    IN  p_city VARCHAR(100),
+    IN  p_state VARCHAR(100),
+    IN  p_country VARCHAR(100),
+    IN  p_pincode VARCHAR(20),
+    IN  p_user VARCHAR(255),
+    IN  p_role_user VARCHAR(255),
+
+    OUT p_success BOOLEAN,
+    OUT p_id INT,
+    OUT p_data JSON,
+    OUT p_error_code VARCHAR(50),
+    OUT p_error_message VARCHAR(500)
 )
-BEGIN
+proc_body: BEGIN
+
+    /* ================================================================
+       DECLARATIONS
+       ================================================================ */
     DECLARE v_role_id INT DEFAULT NULL;
-    DECLARE v_last_id INT DEFAULT NULL;
     DECLARE v_active_count INT DEFAULT 0;
     DECLARE v_deleted_count INT DEFAULT 0;
 
+    /* ================================================================
+       ERROR HANDLER
+       ================================================================ */
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         ROLLBACK;
-        SELECT 'Error: Unable to process request.' AS message, FALSE AS success;
+        IF p_error_code IS NULL THEN
+            SET p_success = FALSE;
+            SET p_error_code = 'ERR_SQL_EXCEPTION';
+            SET p_error_message = 'Database error during customer operation';
+        END IF;
     END;
 
-main_block: BEGIN
+    /* ================================================================
+       RESET OUTPUT PARAMETERS
+       ================================================================ */
+    SET p_success = FALSE;
+    SET p_id = NULL;
+    SET p_data = NULL;
+    SET p_error_code = NULL;
+    SET p_error_message = NULL;
 
-    /* ====== GET ROLE ====== */
+
+
+    /* ================================================================
+       GET ROLE VALIDATION
+       ================================================================ */
     SELECT role_id INTO v_role_id
     FROM master_user
     WHERE master_user_id = p_role_user
     LIMIT 1;
 
     IF v_role_id IS NULL THEN
-        SELECT 'Unauthorized: Role not found.' AS message, FALSE AS success;
-        LEAVE main_block;
+        SET p_error_code = 'ERR_UNAUTHORIZED';
+        SET p_error_message = 'Role not found';
+        LEAVE proc_body;
     END IF;
 
-    /* ====== RESTRICT MODIFY ACTIONS ====== */
+    /* Restrict Create/Update/Delete to specific roles */
     IF p_action IN (1,2,3) AND v_role_id NOT IN (1,2,3) THEN
-        SELECT 'Unauthorized: No permission.' AS message, FALSE AS success;
-        LEAVE main_block;
+        SET p_error_code = 'ERR_PERMISSION_DENIED';
+        SET p_error_message = 'User does not have permission to modify customers';
+        LEAVE proc_body;
     END IF;
 
-    /* ============================================================ */
-    /*                           CREATE                              */
-    /* ============================================================ */
 
+
+    /* ================================================================
+       ACTION 1: CREATE CUSTOMER
+       ================================================================ */
     IF p_action = 1 THEN
+        START TRANSACTION;
 
+        /* Check duplicate active customer */
         SELECT COUNT(*) INTO v_active_count
         FROM customer
         WHERE email = p_email
@@ -61,10 +93,13 @@ main_block: BEGIN
           AND is_deleted = 0;
 
         IF v_active_count > 0 THEN
-            SELECT 'Email already exists for active customer.' AS message, FALSE AS success;
-            LEAVE main_block;
+            SET p_error_code = 'ERR_EMAIL_EXISTS';
+            SET p_error_message = 'Email already exists for an active customer';
+            ROLLBACK;
+            LEAVE proc_body;
         END IF;
 
+        /* Check for deleted customer → Reactivate */
         SELECT COUNT(*) INTO v_deleted_count
         FROM customer
         WHERE email = p_email
@@ -90,10 +125,15 @@ main_block: BEGIN
             WHERE email = p_email
               AND business_id = p_business_id;
 
-            SELECT 'Customer reactivated successfully.' AS message, TRUE AS success;
-            LEAVE main_block;
+            COMMIT;
+
+            SET p_success = TRUE;
+            SET p_error_code = 'SUCCESS';
+            SET p_error_message = 'Customer reactivated successfully';
+            LEAVE proc_body;
         END IF;
 
+        /* Insert new customer */
         INSERT INTO customer(
             business_id, branch_id, first_name, last_name, email,
             contact_number, address_line, city, state, country,
@@ -105,16 +145,24 @@ main_block: BEGIN
             p_pincode, p_user
         );
 
-        SET v_last_id = LAST_INSERT_ID();
+        SET p_id = LAST_INSERT_ID();
 
-        SELECT CONCAT('Customer created successfully. ID=', v_last_id) AS message, TRUE AS success;
-        LEAVE main_block;
+        COMMIT;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Customer created successfully';
+        LEAVE proc_body;
     END IF;
 
-    /* ============================================================ */
-    /*                           UPDATE                              */
-    /* ============================================================ */
+
+
+    /* ================================================================
+       ACTION 2: UPDATE CUSTOMER
+       ================================================================ */
     IF p_action = 2 THEN
+        START TRANSACTION;
+
         UPDATE customer
         SET 
             business_id = p_business_id,
@@ -133,14 +181,24 @@ main_block: BEGIN
         WHERE customer_id = p_customer_id
           AND is_deleted = 0;
 
-        SELECT 'Customer updated successfully.' AS message, TRUE AS success;
-        LEAVE main_block;
+        SET p_id = p_customer_id;
+
+        COMMIT;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Customer updated successfully';
+        LEAVE proc_body;
     END IF;
 
-    /* ============================================================ */
-    /*                           DELETE                              */
-    /* ============================================================ */
+
+
+    /* ================================================================
+       ACTION 3: DELETE CUSTOMER (SOFT DELETE)
+       ================================================================ */
     IF p_action = 3 THEN
+        START TRANSACTION;
+
         UPDATE customer
         SET 
             is_deleted = 1,
@@ -151,37 +209,88 @@ main_block: BEGIN
         WHERE customer_id = p_customer_id
           AND is_deleted = 0;
 
-        SELECT 'Customer deleted successfully.' AS message, TRUE AS success;
-        LEAVE main_block;
+        SET p_id = p_customer_id;
+
+        COMMIT;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Customer deleted successfully';
+        LEAVE proc_body;
     END IF;
 
-    /* ============================================================ */
-    /*                           GET LIST                            */
-    /* ============================================================ */
+
+
+    /* ================================================================
+       ACTION 4: GET CUSTOMER LIST
+       ================================================================ */
     IF p_action = 4 THEN
-        SELECT *
+
+        SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'customer_id', customer_id,
+                'first_name', first_name,
+                'last_name', last_name,
+                'email', email,
+                'contact_number', contact_number,
+                'address_line', address_line,
+                'city', city,
+                'state', state,
+                'country', country,
+                'pincode', pincode,
+                'created_at', created_at
+            )
+        )
+        INTO p_data
         FROM customer
         WHERE business_id = p_business_id
           AND branch_id = p_branch_id
           AND is_deleted = 0
         ORDER BY customer_id DESC;
 
-        LEAVE main_block;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Customer list fetched successfully';
+        LEAVE proc_body;
     END IF;
 
-    /* ============================================================ */
-    /*                         GET LIST BY ROLE                      */
-    /* ============================================================ */
+
+
+    /* ================================================================
+       ACTION 5: GET LIST BASED ON ROLE
+       ================================================================ */
     IF p_action = 5 THEN
-        
+
         IF v_role_id = 1 THEN
-            SELECT *
+            -- Admin → All customers
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'customer_id', customer_id,
+                    'first_name', first_name,
+                    'last_name', last_name,
+                    'email', email,
+                    'contact_number', contact_number,
+                    'branch_id', branch_id
+                )
+            )
+            INTO p_data
             FROM customer
             WHERE business_id = p_business_id
               AND is_deleted = 0
             ORDER BY customer_id DESC;
+
         ELSE
-            SELECT *
+            -- Branch level → Only branch customers
+            SELECT JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'customer_id', customer_id,
+                    'first_name', first_name,
+                    'last_name', last_name,
+                    'email', email,
+                    'contact_number', contact_number
+                )
+            )
+            INTO p_data
             FROM customer
             WHERE business_id = p_business_id
               AND branch_id = p_branch_id
@@ -189,11 +298,19 @@ main_block: BEGIN
             ORDER BY customer_id DESC;
         END IF;
 
-        LEAVE main_block;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Customer list fetched based on role';
+        LEAVE proc_body;
     END IF;
 
-    SELECT 'Invalid action.' AS message, FALSE AS success;
 
-END main_block;
-END
-DELIMITER ;
+
+
+    /* ================================================================
+       INVALID ACTION
+       ================================================================ */
+    SET p_error_code = 'ERR_INVALID_ACTION';
+    SET p_error_message = 'Invalid action specified';
+
+END;
