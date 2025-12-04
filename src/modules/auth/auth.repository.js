@@ -94,29 +94,29 @@ class AuthRepository {
       const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
 
       const success =
-        outPutData.p_success === 1 ||
-        outPutData.p_success === "1" ||
-        outPutData.p_success === true ||
-        outPutData.p_success === "true";
+        outPutData.success === 1 ||
+        outPutData.success === "1" ||
+        outPutData.success === true ||
+        outPutData.success === "true";
 
       if (!success) {
-        const code = outPutData.p_error_code || "ERR_UNKNOWN";
+        const code = outPutData.error_code || "ERR_UNKNOWN";
         const message =
-          outPutData.p_error_message || "Unknown error from stored procedure";
+          outPutData.error_message || "Unknown error from stored procedure";
         throw new Error(`${code}: ${message}`);
       }
 
-      if (!outPutData.p_id) {
+      if (!outPutData.otp_id) {
         throw new Error(
-          "Stored procedure succeeded but did not return an OTP id (p_id)"
+          "Stored procedure succeeded but did not return an OTP id (otp_id)"
         );
       }
 
       return {
         success: true,
-        otpId: outPutData.p_otp_id,
-        p_error_code: outPutData.p_error_code,
-        p_error_message: outPutData.p_error_message,
+        otpId: outPutData.otp_id,
+        error_code: outPutData.error_code,
+        error_message: outPutData.error_message,
       };
     } catch (error) {
       throw new Error(`Failed to verify OTP: ${error.message}`);
