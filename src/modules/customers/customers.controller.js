@@ -110,7 +110,11 @@ class CustomerController {
       }
 
       const userData = req.user;
-      const result = await customersService.listCustomers(userData);
+      const paginationParams = {
+        page: value.page,
+        limit: value.limit,
+      };
+      const result = await customersService.listCustomers(userData, paginationParams);
 
       if (!result.success) {
         return ResponseUtil.badRequest(res, result.message);

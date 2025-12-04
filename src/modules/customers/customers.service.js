@@ -123,7 +123,7 @@ class CustomerService {
   }
 
   // ======================== LIST CUSTOMERS ========================
-  async listCustomers(userData) {
+  async listCustomers(userData, paginationParams = {}) {
     try {
       const result = await customersRepository.manageCustomer({
         action: 5, // Get List Based On Role
@@ -142,12 +142,29 @@ class CustomerService {
         userId: userData.user_id,
       });
 
+      // Apply pagination on the result
+      const allCustomers = result.data || [];
+      const total = allCustomers.length;
+      const page = paginationParams.page || 1;
+      const limit = paginationParams.limit || 50;
+      const totalPages = Math.ceil(total / limit);
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      const paginatedCustomers = allCustomers.slice(startIndex, endIndex);
+
       return {
         success: result.success,
         message: result.message,
         data: {
-          customers: result.data || [],
-          total: result.data ? result.data.length : 0,
+          customers: paginatedCustomers,
+          pagination: {
+            page: page,
+            limit: limit,
+            total: total,
+            total_pages: totalPages,
+            has_next: page < totalPages,
+            has_prev: page > 1,
+          },
         },
       };
     } catch (error) {
