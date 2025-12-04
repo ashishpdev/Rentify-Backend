@@ -163,6 +163,21 @@ proc_body: BEGIN
     IF p_action = 2 THEN
         START TRANSACTION;
 
+        /* Check duplicate active customer */
+        SELECT COUNT(*) INTO v_active_count
+        FROM customer
+        WHERE email = p_email
+          AND business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND is_deleted = 0;
+
+        IF v_active_count > 0 THEN
+            SET p_error_code = 'ERR_EMAIL_EXISTS';
+            SET p_error_message = 'Email already exists for an active customer';
+            ROLLBACK;
+            LEAVE proc_body;
+        END IF;
+
         UPDATE customer
         SET 
             business_id = p_business_id,

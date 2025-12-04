@@ -4,11 +4,11 @@ const { requireBothTokens } = require("../../middlewares/token-validation.middle
 
 const router = express.Router();
 
-// Customer Routes
+// Customer Routes - All data from request body
 router.post("/create", requireBothTokens, CustomerController.createCustomer);
-router.post("/update/:customerId", requireBothTokens, CustomerController.updateCustomer);
-router.post("/get/:customerId", requireBothTokens, CustomerController.getCustomer);
-router.post("/list", requireBothTokens, CustomerController.getAllCustomers);
-router.post("/delete/:customerId", requireBothTokens, CustomerController.deleteCustomer);
+router.post("/update", requireBothTokens, CustomerController.updateCustomer);
+router.post("/get", requireBothTokens, CustomerController.getCustomer);
+router.post("/list", requireBothTokens, CustomerController.listCustomers);
+router.post("/delete", requireBothTokens, CustomerController.deleteCustomer);
 
 module.exports = router;
