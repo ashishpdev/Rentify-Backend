@@ -2,13 +2,13 @@
 const Joi = require("joi");
 
 const createCustomerSchema = Joi.object({
-    firstName: Joi.string().min(2).max(200).required().messages({
+    first_name: Joi.string().min(2).max(200).required().messages({
         'string.base': 'First name must be text',
         'string.min': 'First name must be at least 2 characters',
         'string.max': 'First name must be at most 200 characters',
         'any.required': 'First name is required'
     }),
-    lastName: Joi.string().max(200).allow(null, '').optional().messages({
+    last_name: Joi.string().max(200).allow(null, '').optional().messages({
         'string.base': 'Last name must be text',
         'string.max': 'Last name must be at most 200 characters'
     }),
@@ -17,11 +17,11 @@ const createCustomerSchema = Joi.object({
         'string.max': 'Email must be at most 255 characters',
         'any.required': 'Email is required'
     }),
-    contactNumber: Joi.string().pattern(/^[0-9+\-()\s]{7,13}$/).required().messages({
-        'string.pattern.base': 'Contact number must be 7-13 characters and contain only digits, spaces, +, - or ()',
+    contact_number: Joi.string().pattern(/^[0-9+\-()\s]{7,80}$/).required().messages({
+        'string.pattern.base': 'Contact number must contain only digits, spaces, +, - or ()',
         'any.required': 'Contact number is required'
     }),
-    addressLine: Joi.string().max(255).allow(null, '').optional(),
+    address_line: Joi.string().max(255).allow(null, '').optional(),
     city: Joi.string().max(100).allow(null, '').optional(),
     state: Joi.string().max(100).allow(null, '').optional(),
     country: Joi.string().max(100).allow(null, '').optional(),
@@ -29,20 +29,25 @@ const createCustomerSchema = Joi.object({
 });
 
 const updateCustomerSchema = Joi.object({
-    firstName: Joi.string().min(2).max(200).optional().messages({
+    customer_id: Joi.number().integer().positive().required().messages({
+        'number.base': 'Customer ID must be a number',
+        'number.positive': 'Customer ID must be positive',
+        'any.required': 'Customer ID is required'
+    }),
+    first_name: Joi.string().min(2).max(200).optional().messages({
         'string.base': 'First name must be text',
         'string.min': 'First name must be at least 2 characters',
         'string.max': 'First name must be at most 200 characters'
     }),
-    lastName: Joi.string().max(200).allow(null, '').optional(),
+    last_name: Joi.string().max(200).allow(null, '').optional(),
     email: Joi.string().email().max(255).optional().messages({
         'string.email': 'Provide a valid email address',
         'string.max': 'Email must be at most 255 characters'
     }),
-    contactNumber: Joi.string().pattern(/^[0-9+\-()\s]{7,13}$/).optional().messages({
-        'string.pattern.base': 'Contact number must be 7-13 characters and contain only digits, spaces, +, - or ()'
+    contact_number: Joi.string().pattern(/^[0-9+\-()\s]{7,80}$/).optional().messages({
+        'string.pattern.base': 'Contact number must contain only digits, spaces, +, - or ()'
     }),
-    addressLine: Joi.string().max(255).allow(null, '').optional(),
+    address_line: Joi.string().max(255).allow(null, '').optional(),
     city: Joi.string().max(100).allow(null, '').optional(),
     state: Joi.string().max(100).allow(null, '').optional(),
     country: Joi.string().max(100).allow(null, '').optional(),
@@ -50,7 +55,7 @@ const updateCustomerSchema = Joi.object({
 });
 
 const getCustomerSchema = Joi.object({
-    customerId: Joi.number().integer().positive().required().messages({
+    customer_id: Joi.number().integer().positive().required().messages({
         'number.base': 'Customer ID must be a number',
         'number.positive': 'Customer ID must be positive',
         'any.required': 'Customer ID is required'
@@ -58,11 +63,17 @@ const getCustomerSchema = Joi.object({
 });
 
 const deleteCustomerSchema = Joi.object({
-    customerId: Joi.number().integer().positive().required().messages({
+    customer_id: Joi.number().integer().positive().required().messages({
         'number.base': 'Customer ID must be a number',
         'number.positive': 'Customer ID must be positive',
         'any.required': 'Customer ID is required'
     })
+});
+
+const listCustomersSchema = Joi.object({
+    // Optional filters for listing
+    page: Joi.number().integer().positive().optional().default(1),
+    limit: Joi.number().integer().positive().max(100).optional().default(50)
 });
 
 class CustomerValidator {
@@ -81,6 +92,10 @@ class CustomerValidator {
     static validateDeleteCustomer(data) {
         return deleteCustomerSchema.validate(data);
     }
+
+    static validateListCustomers(data) {
+        return listCustomersSchema.validate(data);
+    }
 }
 
 module.exports = {
@@ -89,6 +104,7 @@ module.exports = {
         createCustomerSchema,
         updateCustomerSchema,
         getCustomerSchema,
-        deleteCustomerSchema
+        deleteCustomerSchema,
+        listCustomersSchema
     }
 };

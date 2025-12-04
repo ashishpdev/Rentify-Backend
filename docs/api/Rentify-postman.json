@@ -277,7 +277,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contactNumber\": \"pattern123\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contact_number\": \"pattern123\",\n  \"address_line\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -289,7 +289,7 @@
           "response": []
         },
         {
-          "name": "POST /api/customer/update/:customerId",
+          "name": "POST /api/customer/update",
           "request": {
             "method": "POST",
             "header": [
@@ -312,20 +312,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/customer/update/:customerId",
+              "raw": "{{baseUrl}}/api/customer/update",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "customer",
-                "update",
-                ":customerId"
+                "update"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"string\",\n  \"lastName\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contactNumber\": \"pattern123\",\n  \"addressLine\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "raw": "{\n  \"customer_id\": 123,\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contact_number\": \"pattern123\",\n  \"address_line\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -337,7 +336,7 @@
           "response": []
         },
         {
-          "name": "POST /api/customer/get/:customerId",
+          "name": "POST /api/customer/get",
           "request": {
             "method": "POST",
             "header": [
@@ -360,20 +359,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/customer/get/:customerId",
+              "raw": "{{baseUrl}}/api/customer/get",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "customer",
-                "get",
-                ":customerId"
+                "get"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerId\": 123\n}",
+              "raw": "{\n  \"customer_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -400,6 +398,11 @@
                 "value": "{{access_token}}",
                 "type": "text",
                 "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
               }
             ],
             "url": {
@@ -413,12 +416,21 @@
                 "list"
               ]
             },
-            "description": "Handler: CustomerController.getAllCustomers\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CustomerController.listCustomers\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
           },
           "response": []
         },
         {
-          "name": "POST /api/customer/delete/:customerId",
+          "name": "POST /api/customer/delete",
           "request": {
             "method": "POST",
             "header": [
@@ -441,20 +453,19 @@
               }
             ],
             "url": {
-              "raw": "{{baseUrl}}/api/customer/delete/:customerId",
+              "raw": "{{baseUrl}}/api/customer/delete",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "customer",
-                "delete",
-                ":customerId"
+                "delete"
               ]
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customerId\": 123\n}",
+              "raw": "{\n  \"customer_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"

@@ -1,137 +1,195 @@
 // src/modules/customers/customers.service.js
-
 const customersRepository = require("./customers.repository");
+const logger = require("../../config/logger.config");
 
 class CustomerService {
+  // ======================== CREATE CUSTOMER ========================
+  async createCustomer(customerData, userData) {
+    try {
+      const result = await customersRepository.manageCustomer({
+        action: 1, // Create
+        customerId: null,
+        businessId: userData.business_id,
+        branchId: userData.branch_id,
+        firstName: customerData.first_name,
+        lastName: customerData.last_name || null,
+        email: customerData.email,
+        contactNumber: customerData.contact_number,
+        addressLine: customerData.address_line || null,
+        city: customerData.city || null,
+        state: customerData.state || null,
+        country: customerData.country || null,
+        pincode: customerData.pincode || null,
+        userId: userData.user_id,
+      });
 
-    async createCustomer(customerData, userData) {
-        const result = await customersRepository.manageCustomer({
-            action: 1, // Create
-            customerId: null,
-            businessId: userData.business_id,
-            branchId: userData.branch_id,
-            firstName: customerData.firstName,
-            lastName: customerData.lastName,
-            email: customerData.email,
-            contactNumber: customerData.contactNumber,
-            addressLine: customerData.addressLine,
-            city: customerData.city,
-            state: customerData.state,
-            country: customerData.country,
-            pincode: customerData.pincode,
-            user: userData.user_id,
-            roleUser: userData.user_id
-        });
-
-        if (!result.success) {
-            throw new Error(result.message);
-        }
-
-        return { message: result.message };
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.success ? { customer_id: result.customerId } : null,
+      };
+    } catch (error) {
+      logger.error("CustomerService.createCustomer error", {
+        error: error.message,
+      });
+      throw error;
     }
+  }
 
-    async updateCustomer(customerId, customerData, userData) {
-        const result = await customersRepository.manageCustomer({
-            action: 2, // Update
-            customerId: parseInt(customerId),
-            businessId: userData.business_id,
-            branchId: userData.branch_id,
-            firstName: customerData.firstName,
-            lastName: customerData.lastName,
-            email: customerData.email,
-            contactNumber: customerData.contactNumber,
-            addressLine: customerData.addressLine,
-            city: customerData.city,
-            state: customerData.state,
-            country: customerData.country,
-            pincode: customerData.pincode,
-            user: userData.user_id,
-            roleUser: userData.user_id
-        });
+  // ======================== UPDATE CUSTOMER ========================
+  async updateCustomer(customerData, userData) {
+    try {
+      const result = await customersRepository.manageCustomer({
+        action: 2, // Update
+        customerId: customerData.customer_id,
+        businessId: userData.business_id,
+        branchId: userData.branch_id,
+        firstName: customerData.first_name || null,
+        lastName: customerData.last_name || null,
+        email: customerData.email || null,
+        contactNumber: customerData.contact_number || null,
+        addressLine: customerData.address_line || null,
+        city: customerData.city || null,
+        state: customerData.state || null,
+        country: customerData.country || null,
+        pincode: customerData.pincode || null,
+        userId: userData.user_id,
+      });
 
-        if (!result.success) {
-            throw new Error(result.message);
-        }
-
-        return { message: result.message };
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.success
+          ? { customer_id: customerData.customer_id }
+          : null,
+      };
+    } catch (error) {
+      logger.error("CustomerService.updateCustomer error", {
+        error: error.message,
+      });
+      throw error;
     }
+  }
 
-    async getCustomer(customerId, userData) {
-        const result = await customersRepository.manageCustomer({
-            action: 4, // Get List (filtered by customer_id in repo)
-            customerId: parseInt(customerId),
-            businessId: userData.business_id,
-            branchId: userData.branch_id,
-            firstName: null,
-            lastName: null,
-            email: null,
-            contactNumber: null,
-            addressLine: null,
-            city: null,
-            state: null,
-            country: null,
-            pincode: null,
-            user: userData.user_id,
-            roleUser: userData.user_id
-        });
+  // ======================== GET CUSTOMER ========================
+  async getCustomer(customerId, userData) {
+    try {
+      const result = await customersRepository.manageCustomer({
+        action: 4, // Get List (will filter by customer_id)
+        customerId: customerId,
+        businessId: userData.business_id,
+        branchId: userData.branch_id,
+        firstName: null,
+        lastName: null,
+        email: null,
+        contactNumber: null,
+        addressLine: null,
+        city: null,
+        state: null,
+        country: null,
+        pincode: null,
+        userId: userData.user_id,
+      });
 
-        if (result.data && result.data.length > 0) {
-            const customer = result.data.find(c => c.customer_id === parseInt(customerId));
-            if (customer) {
-                return { customer };
-            }
-        }
+      if (!result.success || !result.data || result.data.length === 0) {
+        return {
+          success: false,
+          message: "Customer not found",
+          data: null,
+        };
+      }
 
-        throw new Error('Customer not found');
+      // Find the specific customer
+      const customer = result.data.find((c) => c.customer_id === customerId);
+      if (!customer) {
+        return {
+          success: false,
+          message: "Customer not found",
+          data: null,
+        };
+      }
+
+      return {
+        success: true,
+        message: "Customer retrieved successfully",
+        data: { customer },
+      };
+    } catch (error) {
+      logger.error("CustomerService.getCustomer error", {
+        error: error.message,
+      });
+      throw error;
     }
+  }
 
-    async getAllCustomers(userData) {
-        const result = await customersRepository.manageCustomer({
-            action: 5, // Get List Based On Role
-            customerId: null,
-            businessId: userData.business_id,
-            branchId: userData.branch_id,
-            firstName: null,
-            lastName: null,
-            email: null,
-            contactNumber: null,
-            addressLine: null,
-            city: null,
-            state: null,
-            country: null,
-            pincode: null,
-            user: userData.user_id,
-            roleUser: userData.user_id
-        });
+  // ======================== LIST CUSTOMERS ========================
+  async listCustomers(userData) {
+    try {
+      const result = await customersRepository.manageCustomer({
+        action: 5, // Get List Based On Role
+        customerId: null,
+        businessId: userData.business_id,
+        branchId: userData.branch_id,
+        firstName: null,
+        lastName: null,
+        email: null,
+        contactNumber: null,
+        addressLine: null,
+        city: null,
+        state: null,
+        country: null,
+        pincode: null,
+        userId: userData.user_id,
+      });
 
-        return { customers: result.data || [] };
+      return {
+        success: result.success,
+        message: result.message,
+        data: {
+          customers: result.data || [],
+          total: result.data ? result.data.length : 0,
+        },
+      };
+    } catch (error) {
+      logger.error("CustomerService.listCustomers error", {
+        error: error.message,
+      });
+      throw error;
     }
+  }
 
-    async deleteCustomer(customerId, userData) {
-        const result = await customersRepository.manageCustomer({
-            action: 3, // Delete
-            customerId: parseInt(customerId),
-            businessId: userData.business_id,
-            branchId: userData.branch_id,
-            firstName: null,
-            lastName: null,
-            email: null,
-            contactNumber: null,
-            addressLine: null,
-            city: null,
-            state: null,
-            country: null,
-            pincode: null,
-            user: userData.user_id,
-            roleUser: userData.user_id
-        });
+  // ======================== DELETE CUSTOMER ========================
+  async deleteCustomer(customerId, userData) {
+    try {
+      const result = await customersRepository.manageCustomer({
+        action: 3, // Delete
+        customerId: customerId,
+        businessId: userData.business_id,
+        branchId: userData.branch_id,
+        firstName: null,
+        lastName: null,
+        email: null,
+        contactNumber: null,
+        addressLine: null,
+        city: null,
+        state: null,
+        country: null,
+        pincode: null,
+        userId: userData.user_id,
+      });
 
-        if (!result.success) {
-            throw new Error(result.message);
-        }
-
-        return { message: result.message };
+      return {
+        success: result.success,
+        message: result.message,
+        data: result.success ? { customer_id: customerId } : null,
+      };
+    } catch (error) {
+      logger.error("CustomerService.deleteCustomer error", {
+        error: error.message,
+      });
+      throw error;
     }
+  }
 }
 
 module.exports = new CustomerService();
