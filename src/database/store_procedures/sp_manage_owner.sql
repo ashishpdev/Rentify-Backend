@@ -138,7 +138,7 @@ proc_body: BEGIN
             email = p_owner_email,
             contact_number = p_owner_contact_number,
             updated_by = p_created_by,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE user_id = p_owner_id
           AND is_owner = TRUE
           AND is_deleted = 0;
@@ -172,9 +172,9 @@ proc_body: BEGIN
         SET 
             is_deleted = 1,
             is_active = 0,
-            deleted_at = CURRENT_TIMESTAMP(6),
+            deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_created_by,
-            updated_at = CURRENT_TIMESTAMP(6)
+            updated_at = UTC_TIMESTAMP(6)
         WHERE user_id = p_owner_id
           AND is_owner = TRUE
           AND is_deleted = 0;

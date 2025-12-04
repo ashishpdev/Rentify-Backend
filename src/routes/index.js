@@ -2,6 +2,9 @@
 const express = require("express");
 const authRoutes = require("../modules/auth/auth.routes");
 const customersRoutes = require("../modules/customers/customers.routes");
+const segmentRoutes = require("../modules/products/segment/segment.routes");
+const categoryRoutes = require("../modules/products/category/category.routes");
+const modelRoutes = require("../modules/products/model/model.routes");
 
 const router = express.Router();
 
@@ -31,6 +34,9 @@ router.get("/", (req, res) => {
 // Module routes
 router.use("/auth", authRoutes);
 router.use("/customer", customersRoutes);
+router.use("/segment", segmentRoutes);
+router.use("/category", categoryRoutes);
+router.use("/model", modelRoutes);
 
 // 404 handler - changed from "*" to catch-all middleware
 router.use((req, res) => {

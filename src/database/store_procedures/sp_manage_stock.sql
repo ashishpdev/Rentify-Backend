@@ -80,7 +80,7 @@ BEGIN
                     p_quantity,
                     0,
                     0,
-                    CURRENT_TIMESTAMP(6)
+                    UTC_TIMESTAMP(6)
                 );
 
                 SELECT 'Stock added successfully.' AS message, 1 AS success;
@@ -92,7 +92,7 @@ BEGIN
             SET 
                 total_quantity = total_quantity + p_quantity,
                 available_quantity = available_quantity + p_quantity,
-                last_updated = CURRENT_TIMESTAMP(6)
+                last_updated = UTC_TIMESTAMP(6)
             WHERE business_id = p_business_id
               AND branch_id = p_branch_id
               AND product_model_id = p_product_model_id;
@@ -113,7 +113,7 @@ BEGIN
             SET 
                 total_quantity = p_quantity,
                 available_quantity = p_quantity - reserved_quantity - borrowed_quantity,
-                last_updated = CURRENT_TIMESTAMP(6)
+                last_updated = UTC_TIMESTAMP(6)
             WHERE business_id = p_business_id
               AND branch_id = p_branch_id
               AND product_model_id = p_product_model_id;
@@ -143,7 +143,7 @@ BEGIN
             SET 
                 total_quantity = total_quantity - p_quantity,
                 available_quantity = available_quantity - p_quantity,
-                last_updated = CURRENT_TIMESTAMP(6)
+                last_updated = UTC_TIMESTAMP(6)
             WHERE business_id = p_business_id
               AND branch_id = p_branch_id
               AND product_model_id = p_product_model_id;

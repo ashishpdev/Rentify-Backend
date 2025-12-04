@@ -615,8 +615,6 @@ CREATE TABLE product_segment (
   code VARCHAR(128) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  CONSTRAINT uq_product_segment_business_branch_code UNIQUE (business_id, branch_id, code),
-  INDEX idx_product_segment_business (business_id),
 
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -625,6 +623,9 @@ CREATE TABLE product_segment (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT uq_product_segment_business_branch_code UNIQUE (business_id, branch_id, code),
+  INDEX idx_product_segment_business (business_id),
 
   CONSTRAINT fk_product_segment_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -645,8 +646,6 @@ CREATE TABLE product_category (
   code VARCHAR(128) NOT NULL,
   name VARCHAR(255) NOT NULL,
   description TEXT,
-  CONSTRAINT uq_product_category_business_branch_code UNIQUE (business_id, branch_id, code),
-  INDEX idx_product_category_business (business_id),
 
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -655,6 +654,9 @@ CREATE TABLE product_category (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT uq_product_category_business_branch_segment_code UNIQUE (business_id, branch_id, product_segment_id, code),
+  INDEX idx_product_category_business (business_id),
 
   CONSTRAINT fk_product_category_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -699,6 +701,7 @@ CREATE TABLE product_model (
   INDEX idx_product_model_business_name (business_id, model_name),
   INDEX idx_product_model_business_branch (business_id, branch_id),
 
+  CONSTRAINT uq_product_model_business_branch_segment_category_name UNIQUE (business_id, branch_id, product_segment_id, product_category_id, model_name),
   CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
 
   CONSTRAINT fk_product_model_business  FOREIGN KEY (business_id)
@@ -845,12 +848,13 @@ CREATE TABLE rental_item (
   item_images JSON NULL, -- array of image URLs at time of rental
   rent_price DECIMAL(14,2) NOT NULL,
   notes TEXT,
-  INDEX idx_rental_item_model (product_model_id),
-  INDEX idx_rental_item_unit (asset_id),
   created_by VARCHAR(255),
   created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+
+  INDEX idx_rental_item_model (product_model_id),
+  INDEX idx_rental_item_unit (asset_id),
 
   CONSTRAINT chk_item_images_json_valid CHECK (JSON_VALID(item_images)),
 

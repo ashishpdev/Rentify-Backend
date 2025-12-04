@@ -477,6 +477,726 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Segment",
+      "item": [
+        {
+          "name": "POST /api/segment/create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/segment/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "segment",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: SegmentController.createSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/segment/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/segment/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "segment",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: SegmentController.updateSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/segment/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/segment/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "segment",
+                "get"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: SegmentController.getSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/segment/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/segment/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "segment",
+                "list"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: SegmentController.listSegments\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/segment/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/segment/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "segment",
+                "delete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: SegmentController.deleteSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Category",
+      "item": [
+        {
+          "name": "POST /api/category/create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/category/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "category",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CategoryController.createCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/category/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/category/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "category",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_category_id\": 123,\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CategoryController.updateCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/category/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/category/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "category",
+                "get"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_category_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CategoryController.getCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/category/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/category/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "category",
+                "list"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CategoryController.listCategories\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/category/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/category/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "category",
+                "delete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_category_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: CategoryController.deleteCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Model",
+      "item": [
+        {
+          "name": "POST /api/model/create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "model",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/model/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "model",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/model/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "model",
+                "get"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_model_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: ModelController.getModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/model/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "model",
+                "list"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: ModelController.listModels\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/model/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/model/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "model",
+                "delete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_model_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: ModelController.deleteModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
