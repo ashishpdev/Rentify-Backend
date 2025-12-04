@@ -4,12 +4,13 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_model`(
     IN  p_product_model_id INT,
     IN  p_business_id INT,
     IN  p_branch_id INT,
+    IN  p_product_segment_id INT,
     IN  p_product_category_id INT,
     IN  p_model_name VARCHAR(255),
     IN  p_description TEXT,
     IN  p_product_images JSON,
-    IN  p_default_rent DECIMAL(10,2),
-    IN  p_default_deposit DECIMAL(10,2),
+    IN  p_default_rent DECIMAL(12,2),
+    IN  p_default_deposit DECIMAL(12,2),
     IN  p_default_warranty_days INT,
     IN  p_total_quantity INT,
     IN  p_available_quantity INT,
@@ -28,6 +29,7 @@ proc_body: BEGIN
        DECLARATIONS
        ================================================================ */
     DECLARE v_role_id INT DEFAULT NULL;
+    DECLARE v_exist INT DEFAULT 0;
 
 
 
@@ -86,10 +88,25 @@ proc_body: BEGIN
        ================================================================ */
     IF p_action = 1 THEN
 
+        -- Check for duplicate model name
+        SELECT COUNT(*) INTO v_exist FROM product_model
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND product_segment_id = p_product_segment_id
+          AND product_category_id = p_product_category_id
+          AND model_name = p_model_name
+          AND is_deleted = 0;
+
+        IF v_exist > 0 THEN
+            SET p_error_code = 'ERR_DUPLICATE';
+            SET p_error_message = 'Product model name already exists.';
+            LEAVE proc_body;
+        END IF;
+
         START TRANSACTION;
 
         INSERT INTO product_model (
-            business_id, branch_id, product_category_id,
+            business_id, branch_id, product_segment_id, product_category_id,
             model_name, description, product_images,
             default_rent, default_deposit, default_warranty_days,
             total_quantity, available_quantity,
@@ -97,11 +114,11 @@ proc_body: BEGIN
             is_active, is_deleted
         )
         VALUES (
-            p_business_id, p_branch_id, p_product_category_id,
+            p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
             p_model_name, p_description, p_product_images,
             p_default_rent, p_default_deposit, p_default_warranty_days,
             p_total_quantity, p_available_quantity,
-            p_user_id, NOW(),
+            p_user_id, UTC_TIMESTAMP(6),
             1, 0
         );
 
@@ -111,7 +128,7 @@ proc_body: BEGIN
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product created successfully.';
+        SET p_error_message = 'Product model created successfully.';
         LEAVE proc_body;
     END IF;
 
@@ -122,10 +139,38 @@ proc_body: BEGIN
        ================================================================ */
     IF p_action = 2 THEN
 
+        -- Check if model exists
+        SELECT COUNT(*) INTO v_exist FROM product_model
+        WHERE product_model_id = p_product_model_id
+          AND is_deleted = 0;
+
+        IF v_exist = 0 THEN
+            SET p_error_code = 'ERR_NOT_FOUND';
+            SET p_error_message = 'Product model not found or deleted.';
+            LEAVE proc_body;
+        END IF;
+
+        -- Check for duplicate model name (excluding current record)
+        SELECT COUNT(*) INTO v_exist FROM product_model
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND product_segment_id = p_product_segment_id
+          AND product_category_id = p_product_category_id
+          AND model_name = p_model_name
+          AND product_model_id != p_product_model_id
+          AND is_deleted = 0;
+
+        IF v_exist > 0 THEN
+            SET p_error_code = 'ERR_DUPLICATE';
+            SET p_error_message = 'Product model name already exists.';
+            LEAVE proc_body;
+        END IF;
+
         START TRANSACTION;
 
         UPDATE product_model
         SET 
+            product_segment_id = p_product_segment_id,
             product_category_id = p_product_category_id,
             model_name = p_model_name,
             description = p_description,
@@ -136,14 +181,14 @@ proc_body: BEGIN
             total_quantity = p_total_quantity,
             available_quantity = p_available_quantity,
             updated_by = p_user_id,
-            updated_at = NOW()
+            updated_at = UTC_TIMESTAMP(6)
         WHERE product_model_id = p_product_model_id
           AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Product not found or already deleted.';
+            SET p_error_message = 'Product model not found or deleted.';
             LEAVE proc_body;
         END IF;
 
@@ -152,7 +197,7 @@ proc_body: BEGIN
         SET p_id = p_product_model_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product updated successfully.';
+        SET p_error_message = 'Product model updated successfully.';
         LEAVE proc_body;
     END IF;
 
@@ -169,16 +214,16 @@ proc_body: BEGIN
         SET 
             is_deleted = 1,
             is_active = 0,
-            deleted_at = NOW(),
+            deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_user_id,
-            updated_at = NOW()
+            updated_at = UTC_TIMESTAMP(6)
         WHERE product_model_id = p_product_model_id
           AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Product not found or already deleted.';
+            SET p_error_message = 'Product model not found or already deleted.';
             LEAVE proc_body;
         END IF;
 
@@ -187,7 +232,7 @@ proc_body: BEGIN
         SET p_id = p_product_model_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product deleted successfully.';
+        SET p_error_message = 'Product model deleted successfully.';
         LEAVE proc_body;
     END IF;
 
@@ -202,6 +247,7 @@ proc_body: BEGIN
             'product_model_id', product_model_id,
             'business_id', business_id,
             'branch_id', branch_id,
+            'product_segment_id', product_segment_id,
             'product_category_id', product_category_id,
             'model_name', model_name,
             'description', description,
@@ -215,8 +261,7 @@ proc_body: BEGIN
             'created_at', created_at,
             'updated_by', updated_by,
             'updated_at', updated_at,
-            'is_active', is_active,
-            'is_deleted', is_deleted
+            'is_active', is_active
         )
         INTO p_data
         FROM product_model
@@ -226,14 +271,14 @@ proc_body: BEGIN
 
         IF p_data IS NULL THEN
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Product not found.';
+            SET p_error_message = 'Product model not found.';
             LEAVE proc_body;
         END IF;
 
         SET p_id = p_product_model_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product fetched successfully.';
+        SET p_error_message = 'Product model fetched successfully.';
         LEAVE proc_body;
     END IF;
 
@@ -247,6 +292,7 @@ proc_body: BEGIN
         SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
                 'product_model_id', product_model_id,
+                'product_segment_id', product_segment_id,
                 'product_category_id', product_category_id,
                 'model_name', model_name,
                 'description', description,
@@ -267,7 +313,7 @@ proc_body: BEGIN
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product list fetched successfully.';
+        SET p_error_message = 'Product model list fetched successfully.';
         LEAVE proc_body;
     END IF;
 
