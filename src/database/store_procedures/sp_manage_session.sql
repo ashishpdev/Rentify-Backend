@@ -2,9 +2,11 @@ DROP PROCEDURE IF EXISTS sp_manage_session;
 CREATE PROCEDURE `sp_manage_session`(
     IN p_action INT,                    -- 1=Create, 2=Update, 3=Delete, 4=Get
     IN p_user_id INT,
-    IN p_session_token TEXT,            -- Encrypted session token (can be long)
+    IN p_session_token TEXT,            -- New encrypted session token (can be long)
     IN p_ip_address VARCHAR(255),
     IN p_expiry_at_in DATETIME(6),      -- Expiry time from encrypted token (UTC)
+    IN p_old_session_token TEXT,        -- Old session token for validation (only for Update)
+    
     OUT p_is_success BOOLEAN,
     OUT p_session_token_out TEXT,
     OUT p_expiry_at DATETIME(6),
@@ -94,9 +96,15 @@ BEGIN
 
         -- Operation 2: Update session (store new encrypted token)
         IF p_action = 2 THEN
-            -- Check if session token is provided
+            -- Check if new session token is provided
             IF p_session_token IS NULL OR p_session_token = '' THEN
-                SET p_error_message = 'Session token is required for update operation';
+                SET p_error_message = 'New session token is required for update operation';
+                LEAVE main_block;
+            END IF;
+
+            -- Check if old session token is provided
+            IF p_old_session_token IS NULL OR p_old_session_token = '' THEN
+                SET p_error_message = 'Old session token is required for update operation';
                 LEAVE main_block;
             END IF;
 
@@ -107,14 +115,18 @@ BEGIN
             END IF;
 
             START TRANSACTION;
-            -- Update session with new encrypted token and expiry (UTC)
+            
+            -- First, verify that the old session token matches the one in database
+            -- Update session ONLY if old token matches using BINARY comparison for exact match
             UPDATE master_user_session
                SET session_token = p_session_token,
                    expiry_at = p_expiry_at_in,
                    last_active = UTC_TIMESTAMP(6),
                    updated_at = UTC_TIMESTAMP(6)
              WHERE user_id = p_user_id
-               AND is_active = TRUE;
+               AND BINARY session_token = BINARY p_old_session_token
+               AND is_active = TRUE
+               AND expiry_at > UTC_TIMESTAMP(6);
 
             IF ROW_COUNT() > 0 THEN
                 COMMIT;
@@ -124,7 +136,7 @@ BEGIN
                 SET p_error_message = 'Session updated successfully';
             ELSE
                 ROLLBACK;
-                SET p_error_message = 'Session not found or update failed';
+                SET p_error_message = 'Session token mismatch or session expired. Please login again.';
                 LEAVE main_block;
             END IF;
             LEAVE main_block;

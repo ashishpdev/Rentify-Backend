@@ -1,5 +1,5 @@
-DROP PROCEDURE IF EXISTS sp_product_manage;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_product_manage`(
+DROP PROCEDURE IF EXISTS sp_manage_product_model;
+CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_model`(
     IN  p_action INT,                          -- 1=Create, 2=Update, 3=Delete, 4=GetSingle, 5=GetAll
     IN  p_product_model_id INT,
     IN  p_business_id INT,

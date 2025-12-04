@@ -260,8 +260,8 @@ class AuthRepository {
 
       try {
         await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
-          [1, userId, sessionToken, ipAddress, sessionExpiryAt]
+          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+          [1, userId, sessionToken, ipAddress, sessionExpiryAt, null]
         );
 
         const [outputRows] = await connection.query(
@@ -285,6 +285,93 @@ class AuthRepository {
       }
     } catch (error) {
       throw new Error(`Failed to create session: ${error.message}`);
+    }
+  }
+
+  // ======================== EXTEND SESSION ========================
+  async extendSession(userId, oldSessionToken, newSessionToken, newExpiryAt) {
+    try {
+      const pool = dbConnection.getMasterPool();
+      const connection = await pool.getConnection();
+
+      try {
+        //
+        //
+        console.log("[DEBUG] ExtendSession - userId:", userId);
+        console.log(
+          "[DEBUG] ExtendSession - oldSessionToken length:",
+          oldSessionToken?.length
+        );
+        console.log(
+          "[DEBUG] ExtendSession - newSessionToken length:",
+          newSessionToken?.length
+        );
+
+        // First, verify what's in the database
+        const [dbRows] = await connection.query(
+          "SELECT session_token, LENGTH(session_token) as token_length, expiry_at FROM master_user_session WHERE user_id = ? AND is_active = TRUE",
+          [userId]
+        );
+
+        if (dbRows && dbRows.length > 0) {
+          console.log("[DEBUG] DB token length:", dbRows[0].token_length);
+          console.log("[DEBUG] DB expiry_at:", dbRows[0].expiry_at);
+          console.log(
+            "[DEBUG] Tokens match:",
+            dbRows[0].session_token === oldSessionToken
+          );
+        } else {
+          console.log(
+            "[DEBUG] No active session found in DB for user:",
+            userId
+          );
+        }
+        //
+        //
+
+        // Call SP with action=2 (Update), passing both old and new tokens
+        await connection.query(
+          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_is_success, @p_session_token_out, @p_expiry_at, @p_error_message)`,
+          [2, userId, newSessionToken, null, newExpiryAt, oldSessionToken]
+        );
+
+        const [outputRows] = await connection.query(
+          "SELECT @p_is_success as is_success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_message as error_message"
+        );
+
+        if (!outputRows || outputRows.length === 0) {
+          throw new Error("Failed to extend session: No output from procedure");
+        }
+
+        const output = outputRows[0];
+        //
+        //
+        console.log("[DEBUG] SP Output:", output);
+        //
+        //
+
+        const success =
+          output.is_success === 1 ||
+          output.is_success === "1" ||
+          output.is_success === true ||
+          output.is_success === "true";
+
+        if (!success) {
+          const message = output.error_message || "Failed to extend session";
+          throw new Error(message);
+        }
+
+        return {
+          isSuccess: success,
+          sessionToken: output.session_token,
+          expiryAt: output.expiry_at,
+          errorMessage: output.error_message,
+        };
+      } finally {
+        connection.release();
+      }
+    } catch (error) {
+      throw new Error(`Failed to extend session: ${error.message}`);
     }
   }
 }

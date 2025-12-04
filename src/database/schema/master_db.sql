@@ -247,7 +247,7 @@ DROP TABLE IF EXISTS master_user_session;
 CREATE TABLE master_user_session (
     id CHAR(36) PRIMARY KEY,
     user_id INT NOT NULL,
-    session_token VARCHAR(255) NOT NULL UNIQUE,
+    session_token TEXT NOT NULL COMMENT 'Encrypted session token (base64 encoded, can be 300-500+ chars)',
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
     ip_address VARCHAR(100),
@@ -260,6 +260,7 @@ CREATE TABLE master_user_session (
 
     INDEX idx_session_expiry (expiry_at),
     INDEX idx_session_user (user_id),
+    INDEX idx_session_active_user (user_id, is_active),
 
     CONSTRAINT fk_session_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)

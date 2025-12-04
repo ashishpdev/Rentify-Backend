@@ -18,6 +18,9 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_segment`(
 )
 proc_body: BEGIN
 
+    /* ================================================================
+       DECLARATIONS
+       ================================================================ */
     DECLARE v_role_id INT DEFAULT NULL;
     DECLARE v_exist INT DEFAULT 0;
 
@@ -36,7 +39,9 @@ proc_body: BEGIN
     END;
 
 
-    /* Reset OUT variables */
+    /* ================================================================
+        RESET OUTPUT PARAMETERS
+    ================================================================ */
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
@@ -76,7 +81,7 @@ proc_body: BEGIN
         SELECT COUNT(*) INTO v_exist FROM product_segment
         WHERE business_id = p_business_id
           AND branch_id = p_branch_id
-          AND code = p_code
+          AND (code = p_code OR name = p_name)
           AND is_deleted = 0;
 
         IF v_exist > 0 THEN
