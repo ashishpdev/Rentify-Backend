@@ -127,77 +127,79 @@ class AuthRepository {
 
   // ================ REGISTER BUSINESS WITH OWNER ==================
   async registerBusinessWithOwner(registrationData) {
-    let connection;
+    const pool = dbConnection.getMasterPool();
+    const connection = await pool.getConnection();
+
     try {
-      const pool = dbConnection.getMasterPool();
-      connection = await pool.getConnection();
+      // Call stored procedure with proper parameter mapping
+      await connection.query(
+        `CALL sp_action_register_business_branch_owner(
+          ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_business_id, @p_branch_id, @p_owner_id, @p_error_code, @p_error_message
+        )`,
+        [
+          registrationData.businessName,
+          registrationData.businessEmail,
+          registrationData.ownerName,
+          registrationData.ownerContactNumber,
+          registrationData.ownerName,
+          registrationData.ownerEmail,
+          registrationData.ownerContactNumber,
+          registrationData.ownerName, // p_created_by
+        ]
+      );
 
-      try {
-        // Call stored procedure with proper parameter mapping
-        await connection.query(
-          `CALL sp_action_register_business_branch_owner(
-            ?, ?, ?, ?, ?, ?, ?, ?, @p_business_id, @p_branch_id, @p_owner_id, @p_error_message
-          )`,
-          [
-            registrationData.businessName,
-            registrationData.businessEmail,
-            registrationData.ownerName,
-            registrationData.ownerContactNumber,
-            registrationData.ownerName,
-            registrationData.ownerEmail,
-            registrationData.ownerContactNumber,
-            registrationData.ownerName, // p_created_by
-          ]
-        );
+      // Get output variables from the stored procedure
+      const [outputRows] = await connection.query(
+        `SELECT 
+          @p_success as success,
+          @p_business_id as business_id, 
+          @p_branch_id as branch_id, 
+          @p_owner_id as owner_id, 
+          @p_error_code as error_code,
+          @p_error_message as error_message`
+      );
 
-        // Get output variables from the stored procedure
-        const [outputRows] = await connection.query(
-          "SELECT @p_business_id as business_id, @p_branch_id as branch_id, @p_owner_id as owner_id, @p_error_message as error_message"
-        );
+      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
+      console.log("[SP Output]", outPutData);
 
-        if (!outputRows || outputRows.length === 0) {
-          throw new Error("Failed to retrieve stored procedure output");
-        }
+      const success =
+        outPutData.success === 1 ||
+        outPutData.success === "1" ||
+        outPutData.success === true ||
+        outPutData.success === "true";
 
-        const output = outputRows[0];
-        console.log("[SP Output]", output);
-
-        // Validate error message from SP
-        if (!output.error_message) {
-          throw new Error("No error message returned from stored procedure");
-        }
-
-        if (output.error_message !== "Success") {
-          throw new Error(output.error_message);
-        }
-
-        // Validate that all IDs were returned and are valid
-        const businessId = output.business_id;
-        const branchId = output.branch_id;
-        const ownerId = output.owner_id;
-
-        if (!businessId || businessId <= 0) {
-          throw new Error("Invalid business ID returned from procedure");
-        }
-
-        if (!branchId || branchId <= 0) {
-          throw new Error("Invalid branch ID returned from procedure");
-        }
-
-        if (!ownerId || ownerId <= 0) {
-          throw new Error("Invalid owner ID returned from procedure");
-        }
-
-        return {
-          businessId: businessId,
-          branchId: branchId,
-          ownerId: ownerId,
-        };
-      } finally {
-        connection.release();
+      if (!success) {
+        const code = outPutData.error_code || "ERR_UNKNOWN";
+        const message =
+          outPutData.error_message || "Unknown error from stored procedure";
+        throw new Error(`${code}: ${message}`);
       }
+
+      // Validate that all IDs were returned and are valid
+      if (!outPutData.business_id || outPutData.business_id <= 0) {
+        throw new Error("Invalid business ID returned from procedure");
+      }
+
+      if (!outPutData.branch_id || outPutData.branch_id <= 0) {
+        throw new Error("Invalid branch ID returned from procedure");
+      }
+
+      if (!outPutData.owner_id || outPutData.owner_id <= 0) {
+        throw new Error("Invalid owner ID returned from procedure");
+      }
+
+      return {
+        success: true,
+        businessId: outPutData.business_id,
+        branchId: outPutData.branch_id,
+        ownerId: outPutData.owner_id,
+        error_code: outPutData.error_code,
+        error_message: outPutData.error_message,
+      };
     } catch (error) {
       throw new Error(`Failed to register business: ${error.message}`);
+    } finally {
+      connection.release();
     }
   }
 

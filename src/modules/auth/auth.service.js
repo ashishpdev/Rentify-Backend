@@ -166,7 +166,6 @@ class AuthService {
     }
   }
 
-  // =========================== SESSION METHODS ===========================
   // ======================== EXTEND SESSION ========================
   async extendSession(userId, sessionToken) {
     let connection;
