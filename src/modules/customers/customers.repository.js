@@ -1,16 +1,13 @@
-// src/modules/customers/customers.repository.js
-const dbConnection = require("../../database/connection");
+const db = require("../../database/connection");
 const logger = require("../../config/logger.config");
 
 class CustomerRepository {
   async manageCustomer(params) {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
-
     try {
-      // Call stored procedure with OUT parameters
-      await connection.query(
-        `CALL sp_manage_customer(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_data, @p_error_code, @p_error_message)`,
+      // Stored Procedure call
+      await db.executeSP(
+        `CALL sp_manage_customer(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+          @p_success, @p_id, @p_data, @p_error_code, @p_error_message)`,
         [
           params.action,
           params.customerId,
@@ -26,12 +23,12 @@ class CustomerRepository {
           params.country,
           params.pincode,
           params.userId,
-          params.userId, // p_role_user same as p_user
+          params.userId
         ]
       );
 
-      // Get output variables
-      const [outputRows] = await connection.query(
+      // Fetch OUT parameters
+      const output = await db.executeSelect(
         `SELECT 
           @p_success AS success,
           @p_id AS customer_id,
@@ -40,35 +37,24 @@ class CustomerRepository {
           @p_error_message AS error_message`
       );
 
-      const output = outputRows && outputRows[0] ? outputRows[0] : {};
+      const success = (output.success == 1);
 
-      const success =
-        output.success === 1 ||
-        output.success === "1" ||
-        output.success === true;
-
-      // Parse JSON data if present (for GET actions)
+      // Parse JSON response if provided
       let parsedData = null;
       if (output.data) {
         try {
-          parsedData =
-            typeof output.data === "string"
-              ? JSON.parse(output.data)
-              : output.data;
-        } catch (parseError) {
-          logger.warn("Failed to parse customer data JSON", {
-            error: parseError.message,
-          });
+          parsedData = typeof output.data === "string" ? JSON.parse(output.data) : output.data;
+        } catch (err) {
+          logger.warn("Failed to parse customer data JSON", { error: err.message });
           parsedData = [];
         }
       }
 
-      // Log the stored procedure response for debugging
       if (!success) {
         logger.warn("Stored procedure returned error", {
           action: params.action,
           errorCode: output.error_code,
-          errorMessage: output.error_message,
+          errorMessage: output.error_message
         });
       }
 
@@ -77,24 +63,22 @@ class CustomerRepository {
         customerId: output.customer_id,
         data: parsedData,
         errorCode: output.error_code,
-        message: output.error_message || "Operation completed",
+        message: output.error_message || "Operation completed"
       };
-    } catch (error) {
+
+    } catch (err) {
       logger.error("CustomerRepository.manageCustomer error", {
         action: params.action,
-        error: error.message,
-        stack: error.stack,
+        error: err.message
       });
-      // Return error in consistent format instead of throwing
+
       return {
         success: false,
         customerId: null,
         data: null,
         errorCode: "ERR_DATABASE_ERROR",
-        message: error.message || "Unexpected database error occurred.",
+        message: err.message || "Unexpected database error occurred."
       };
-    } finally {
-      if (connection) connection.release();
     }
   }
 }
