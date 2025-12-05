@@ -6,6 +6,7 @@ const segmentRoutes = require("../modules/products/segment/segment.routes");
 const categoryRoutes = require("../modules/products/category/category.routes");
 const modelRoutes = require("../modules/products/model/model.routes");
 const assetRoutes = require("../modules/products/asset/asset.routes");
+const whatsappRoutes = require("../modules/whatsapp/whatsapp.routes");
 
 const router = express.Router();
 
@@ -39,6 +40,7 @@ router.use("/segment", segmentRoutes);
 router.use("/category", categoryRoutes);
 router.use("/model", modelRoutes);
 router.use("/asset", assetRoutes);
+router.use("/whatsapp", whatsappRoutes);
 
 // 404 handler - changed from "*" to catch-all middleware
 router.use((req, res) => {
