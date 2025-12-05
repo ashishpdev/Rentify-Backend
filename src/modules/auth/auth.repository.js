@@ -1,430 +1,163 @@
-// Repository layer - Database operations
-const dbConnection = require("../../database/connection");
+// src/repository/auth.repository.js
+const db = require("../../database/connection");
 
 class AuthRepository {
-  // ========================= SAVE OTP OPERATIONS ==================
-  async saveOTP(otpData) {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
 
+  // ========================= SAVE OTP =========================
+  async saveOTP(otpData) {
     try {
-      // Call sp_manage_otp with action=1 (Create OTP)
-      await connection.query(
+      await db.executeSP(
         `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_expires_at, @p_otp_code_hash_out, @p_error_code, @p_error_message)`,
         [
-          1, // p_action = 1 (Create)
-          otpData.targetIdentifier, // p_target_identifier
-          otpData.otpCodeHash, // p_otp_code_hash
-          otpData.otp_type_id, // p_otp_type_id
-          otpData.expiryMinutes || null, // p_expiry_minutes
-          otpData.ipAddress || null, // p_ip_address
-          otpData.createdBy || "system", // p_created_by
+          1,
+          otpData.targetIdentifier,
+          otpData.otpCodeHash,
+          otpData.otp_type_id,
+          otpData.expiryMinutes || null,
+          otpData.ipAddress || null,
+          otpData.createdBy || "system",
         ]
       );
 
-      // Get output variables
-      const [outputRows] = await connection.query(
-        `SELECT
-           @p_success            AS p_success,
-           @p_id                 AS p_id,
-           @p_expires_at         AS p_expires_at,
-           @p_otp_code_hash_out  AS p_otp_code_hash_out,
-           @p_error_code         AS p_error_code,
-           @p_error_message      AS p_error_message`
-      );
+      const out = await db.executeSelect(`
+        SELECT @p_success p_success, @p_id p_id, @p_expires_at p_expires_at,
+               @p_error_code p_error_code, @p_error_message p_error_message
+      `);
 
-      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
+      if (!(out.p_success == 1)) throw new Error(`${out.p_error_code}: ${out.p_error_message}`);
 
-      const success =
-        outPutData.p_success === 1 ||
-        outPutData.p_success === "1" ||
-        outPutData.p_success === true ||
-        outPutData.p_success === "true";
-
-      if (!success) {
-        const code = outPutData.p_error_code || "ERR_UNKNOWN";
-        const message =
-          outPutData.p_error_message || "Unknown error from stored procedure";
-        throw new Error(`${code}: ${message}`);
-      }
-
-      if (!outPutData.p_id) {
-        throw new Error(
-          "Stored procedure succeeded but did not return an OTP id (p_id)"
-        );
-      }
       return {
         success: true,
-        id: outPutData.p_id,
-        targetIdentifier: otpData.targetIdentifier,
-        // Note: This expiresAt is for API response display only
-        // The authoritative expiry time is stored in database in UTC by the stored procedure
-        expiresAt: outPutData.p_expires_at,
-        p_error_code: outPutData.p_error_code,
-        p_error_message: outPutData.p_error_message,
+        id: out.p_id,
+        expiresAt: out.p_expires_at
       };
-    } catch (err) {
-      throw new Error(`Failed to save OTP: ${err.message}`);
-    } finally {
-      connection.release();
-    }
+    } catch (err) { throw new Error(`Failed to save OTP: ${err.message}`); }
   }
 
-  // ======================== VERIFY OTP OPERATION ===================
+  // ======================== VERIFY OTP ========================
   async verifyOTP(email, otpCodeHash, otp_type_id) {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
-
     try {
-      // Call stored procedure SP
-      await connection.query(
+      await db.executeSP(
         `CALL sp_action_verify_otp(?, ?, ?, @p_success, @p_otp_id, @p_error_code, @p_error_message)`,
         [email, otpCodeHash, otp_type_id]
       );
 
-      // Get output variables
-      const [outputRows] = await connection.query(
-        `SELECT 
-            @p_success as success, 
-            @p_otp_id as otp_id, 
-            @p_error_code as error_code, 
-            @p_error_message as error_message`
-      );
+      const out = await db.executeSelect(`
+        SELECT @p_success success, @p_otp_id otp_id, @p_error_code error_code, @p_error_message error_message
+      `);
 
-      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
+      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
 
-      const success =
-        outPutData.success === 1 ||
-        outPutData.success === "1" ||
-        outPutData.success === true ||
-        outPutData.success === "true";
-
-      if (!success) {
-        const code = outPutData.error_code || "ERR_UNKNOWN";
-        const message =
-          outPutData.error_message || "Unknown error from stored procedure";
-        throw new Error(`${code}: ${message}`);
-      }
-
-      if (!outPutData.otp_id) {
-        throw new Error(
-          "Stored procedure succeeded but did not return an OTP id (otp_id)"
-        );
-      }
-
-      return {
-        success: true,
-        otpId: outPutData.otp_id,
-        error_code: outPutData.error_code,
-        error_message: outPutData.error_message,
-      };
-    } catch (error) {
-      throw new Error(`Failed to verify OTP: ${error.message}`);
-    } finally {
-      connection.release();
-    }
+      return { success: true, otpId: out.otp_id };
+    } catch (e) { throw new Error(`Failed to verify OTP: ${e.message}`); }
   }
 
-  // ================ REGISTER BUSINESS WITH OWNER ==================
-  async registerBusinessWithOwner(registrationData) {
-    const pool = dbConnection.getMasterPool();
-    const connection = await pool.getConnection();
-
+  // ============ REGISTER BUSINESS + BRANCH + OWNER ============
+  async registerBusinessWithOwner(d) {
     try {
-      // Call stored procedure with proper parameter mapping
-      await connection.query(
+      await db.executeSP(
         `CALL sp_action_register_business_branch_owner(
           ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_business_id, @p_branch_id, @p_owner_id, @p_error_code, @p_error_message
         )`,
         [
-          registrationData.businessName,
-          registrationData.businessEmail,
-          registrationData.ownerName,
-          registrationData.ownerContactNumber,
-          registrationData.ownerName,
-          registrationData.ownerEmail,
-          registrationData.ownerContactNumber,
-          registrationData.ownerName, // p_created_by
+          d.businessName, d.businessEmail, d.ownerName, d.ownerContactNumber,
+          d.ownerName, d.ownerEmail, d.ownerContactNumber, d.ownerName,
         ]
       );
 
-      // Get output variables from the stored procedure
-      const [outputRows] = await connection.query(
-        `SELECT 
-          @p_success as success,
-          @p_business_id as business_id, 
-          @p_branch_id as branch_id, 
-          @p_owner_id as owner_id, 
-          @p_error_code as error_code,
-          @p_error_message as error_message`
-      );
+      const out = await db.executeSelect(`
+        SELECT @p_success success, @p_business_id business_id, @p_branch_id branch_id,
+               @p_owner_id owner_id, @p_error_code error_code, @p_error_message error_message
+      `);
 
-      const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
-      console.log("[SP Output]", outPutData);
+      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
 
-      const success =
-        outPutData.success === 1 ||
-        outPutData.success === "1" ||
-        outPutData.success === true ||
-        outPutData.success === "true";
-
-      if (!success) {
-        const code = outPutData.error_code || "ERR_UNKNOWN";
-        const message =
-          outPutData.error_message || "Unknown error from stored procedure";
-        throw new Error(`${code}: ${message}`);
-      }
-
-      // Validate that all IDs were returned and are valid
-      if (!outPutData.business_id || outPutData.business_id <= 0) {
-        throw new Error("Invalid business ID returned from procedure");
-      }
-
-      if (!outPutData.branch_id || outPutData.branch_id <= 0) {
-        throw new Error("Invalid branch ID returned from procedure");
-      }
-
-      if (!outPutData.owner_id || outPutData.owner_id <= 0) {
-        throw new Error("Invalid owner ID returned from procedure");
-      }
-
-      return {
-        success: true,
-        businessId: outPutData.business_id,
-        branchId: outPutData.branch_id,
-        ownerId: outPutData.owner_id,
-        error_code: outPutData.error_code,
-        error_message: outPutData.error_message,
-      };
-    } catch (error) {
-      throw new Error(`Failed to register business: ${error.message}`);
-    } finally {
-      connection.release();
-    }
+      return { success: true, businessId: out.business_id, branchId: out.branch_id, ownerId: out.owner_id };
+    } catch (e) { throw new Error(`Failed to register business: ${e.message}`); }
   }
 
   // ======================== LOGIN WITH OTP ========================
-  async loginWithOTP(email, otpCodeHash, ipAddress = null) {
+  async loginWithOTP(email, otpHash, ip = null) {
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      await db.executeSP(
+        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_error_message)`,
+        [email, otpHash, ip]
+      );
 
-      try {
-        // Call stored procedure with OTP hash, IP - validates OTP and returns user info
-        await connection.query(
-          `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_error_message)`,
-          [email, otpCodeHash, ipAddress || null]
-        );
+      const out = await db.executeSelect(`
+        SELECT @p_user_id user_id, @p_business_id business_id,
+               @p_branch_id branch_id, @p_role_id role_id, @p_is_owner is_owner,
+               @p_user_name user_name, @p_contact_number contact_number,
+               @p_business_name business_name, @p_error_message error_message
+      `);
 
-        // Get output variables
-        const [outputRows] = await connection.query(
-          "SELECT @p_user_id as user_id, @p_business_id as business_id, @p_branch_id as branch_id, @p_role_id as role_id, @p_is_owner as is_owner, @p_user_name as user_name, @p_contact_number as contact_number, @p_business_name as business_name, @p_error_message as error_message"
-        );
+      if (!out.user_id) throw new Error(out.error_message || "Login failed");
 
-        if (outputRows.length > 0) {
-          const output = outputRows[0];
-
-          // Check for error
-          if (!output.user_id || output.error_message !== "Login successful") {
-            throw new Error(
-              output.error_message || "Failed to login: User not found"
-            );
-          }
-
-          return {
-            user_id: output.user_id,
-            business_id: output.business_id,
-            branch_id: output.branch_id,
-            role_id: output.role_id,
-            is_owner: output.is_owner === 1 || output.is_owner === true,
-            user_name: output.user_name,
-            contact_number: output.contact_number,
-            business_name: output.business_name,
-          };
-        }
-
-        throw new Error("Failed to retrieve login data from database");
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to login: ${error.message}`);
-    }
+      return {
+        user_id: out.user_id,
+        business_id: out.business_id,
+        branch_id: out.branch_id,
+        role_id: out.role_id,
+        is_owner: !!out.is_owner,
+        user_name: out.user_name,
+        contact_number: out.contact_number,
+        business_name: out.business_name
+      };
+    } catch (e) { throw new Error(`Failed to login: ${e.message}`); }
   }
 
   // ======================== CREATE SESSION ========================
-  async createSession(userId, sessionToken, sessionExpiryAt, ipAddress = null) {
+  async createSession(userId, token, expiry, ip = null) {
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      await db.executeSP(
+        `CALL sp_manage_session(1, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
+        [userId, token, ip, expiry, null]
+      );
 
-      try {
-        await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
-          [1, userId, sessionToken, ipAddress, sessionExpiryAt, null]
-        );
+      const out = await db.executeSelect(`
+        SELECT @p_success success, @p_session_token_out session_token,
+               @p_expiry_at expiry_at, @p_error_code error_code, @p_error_message error_message
+      `);
 
-        const [outputRows] = await connection.query(
-          "SELECT @p_success as success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_code as error_code, @p_error_message as error_message"
-        );
-
-        if (!outputRows || outputRows.length === 0) {
-          throw new Error("Failed to create session: No output from procedure");
-        }
-
-        const output = outputRows[0];
-
-        return {
-          isSuccess: output.success === 1 || output.success === true,
-          sessionToken: output.session_token,
-          expiryAt: output.expiry_at,
-          errorCode: output.error_code,
-          errorMessage: output.error_message,
-        };
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to create session: ${error.message}`);
-    }
+      return { isSuccess: out.success == 1, sessionToken: out.session_token, expiryAt: out.expiry_at };
+    } catch (e) { throw new Error(`Failed to create session: ${e.message}`); }
   }
 
   // ======================== EXTEND SESSION ========================
-  async extendSession(userId, oldSessionToken, newSessionToken, newExpiryAt) {
+  async extendSession(userId, oldToken, newToken, newExpiry) {
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      await db.executeSP(
+        `CALL sp_manage_session(2, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
+        [userId, newToken, null, newExpiry, oldToken]
+      );
 
-      try {
-        //
-        //
-        console.log("[DEBUG] ExtendSession - userId:", userId);
-        console.log(
-          "[DEBUG] ExtendSession - oldSessionToken length:",
-          oldSessionToken?.length
-        );
-        console.log(
-          "[DEBUG] ExtendSession - newSessionToken length:",
-          newSessionToken?.length
-        );
+      const out = await db.executeSelect(`
+        SELECT @p_success success, @p_session_token_out session_token,
+               @p_expiry_at expiry_at, @p_error_code error_code, @p_error_message error_message
+      `);
 
-        // First, verify what's in the database
-        const [dbRows] = await connection.query(
-          "SELECT session_token, LENGTH(session_token) as token_length, expiry_at FROM master_user_session WHERE user_id = ? AND is_active = TRUE",
-          [userId]
-        );
+      if (!(out.success == 1)) throw new Error(out.error_message);
 
-        if (dbRows && dbRows.length > 0) {
-          console.log("[DEBUG] DB token length:", dbRows[0].token_length);
-          console.log("[DEBUG] DB expiry_at:", dbRows[0].expiry_at);
-          console.log(
-            "[DEBUG] Tokens match:",
-            dbRows[0].session_token === oldSessionToken
-          );
-        } else {
-          console.log(
-            "[DEBUG] No active session found in DB for user:",
-            userId
-          );
-        }
-        //
-        //
-
-        // Call SP with action=2 (Update), passing both old and new tokens
-        await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
-          [2, userId, newSessionToken, null, newExpiryAt, oldSessionToken]
-        );
-
-        const [outputRows] = await connection.query(
-          "SELECT @p_success as success, @p_session_token_out as session_token, @p_expiry_at as expiry_at, @p_error_code as error_code, @p_error_message as error_message"
-        );
-
-        if (!outputRows || outputRows.length === 0) {
-          throw new Error("Failed to extend session: No output from procedure");
-        }
-
-        const output = outputRows[0];
-        //
-        //
-        console.log("[DEBUG] SP Output:", output);
-        //
-        //
-
-        const success =
-          output.success === 1 ||
-          output.success === "1" ||
-          output.success === true ||
-          output.success === "true";
-
-        if (!success) {
-          const code = output.error_code || "ERR_UNKNOWN";
-          const message = output.error_message || "Failed to extend session";
-          throw new Error(`${code}: ${message}`);
-        }
-
-        return {
-          isSuccess: success,
-          sessionToken: output.session_token,
-          expiryAt: output.expiry_at,
-          errorCode: output.error_code,
-          errorMessage: output.error_message,
-        };
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to extend session: ${error.message}`);
-    }
+      return { isSuccess: true, sessionToken: out.session_token, expiryAt: out.expiry_at };
+    } catch (e) { throw new Error(`Failed to extend session: ${e.message}`); }
   }
 
   // ======================== LOGOUT ========================
   async logout(userId) {
     try {
-      const pool = dbConnection.getMasterPool();
-      const connection = await pool.getConnection();
+      await db.executeSP(
+        `CALL sp_manage_session(3, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
+        [userId, null, null, null, null]
+      );
 
-      try {
-        // Call sp_manage_session with action=3 (Delete)
-        await connection.query(
-          `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
-          [3, userId, null, null, null, null]
-        );
+      const out = await db.executeSelect(`
+        SELECT @p_success success, @p_error_code error_code, @p_error_message error_message
+      `);
 
-        // Get output variables
-        const [outputRows] = await connection.query(
-          `SELECT 
-            @p_success as success, 
-            @p_error_code as error_code, 
-            @p_error_message as error_message`
-        );
+      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
 
-        const outPutData = outputRows && outputRows[0] ? outputRows[0] : {};
-
-        const success =
-          outPutData.success === 1 ||
-          outPutData.success === "1" ||
-          outPutData.success === true ||
-          outPutData.success === "true";
-
-        if (!success) {
-          const code = outPutData.error_code || "ERR_UNKNOWN";
-          const message =
-            outPutData.error_message || "Unknown error from stored procedure";
-          throw new Error(`${code}: ${message}`);
-        }
-
-        return {
-          success: true,
-          error_code: outPutData.error_code,
-          error_message: outPutData.error_message,
-        };
-      } finally {
-        connection.release();
-      }
-    } catch (error) {
-      throw new Error(`Failed to logout: ${error.message}`);
-    }
+      return { success: true };
+    } catch (e) { throw new Error(`Failed to logout: ${e.message}`); }
   }
 }
 
