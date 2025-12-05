@@ -189,54 +189,109 @@ class AuthService {
   }
 
   // ======================== EXTEND SESSION ========================
-  async extendSession(userId, currentSessionToken) {
-    try {
-      if (!userId || !currentSessionToken) {
-        throw new AuthenticationError("User ID and session token are required");
-      }
+  // async extendSession(userId, currentSessionToken) {
+  //   try {
+  //     if (!userId || !currentSessionToken) {
+  //       throw new AuthenticationError("User ID and session token are required");
+  //     }
 
-      // Decrypt current session token to get session data
-      const currentSessionData =
-        SessionTokenUtil.decryptSessionToken(currentSessionToken);
+  //     // Decrypt current session token to get session data
+  //     const currentSessionData =
+  //       SessionTokenUtil.decryptSessionToken(currentSessionToken);
 
-      // Generate new extended session token
-      const extendedToken =
-        SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
+  //     // Generate new extended session token
+  //     const extendedToken =
+  //       SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
 
-      // Call repository to extend session (passing both old and new tokens)
-      const result = await authRepository.extendSession(
-        userId,
-        currentSessionToken,
-        extendedToken.sessionToken,
-        extendedToken.expiresAt
-      );
+  //     // Call repository to extend session (passing both old and new tokens)
+  //     const result = await authRepository.extendSession(
+  //       userId,
+  //       currentSessionToken,
+  //       extendedToken.sessionToken,
+  //       extendedToken.expiresAt
+  //     );
 
-      if (!result.isSuccess) {
-        throw new AuthenticationError(
-          result.errorMessage || "Failed to extend session"
-        );
-      }
+  //     if (!result.isSuccess) {
+  //       throw new AuthenticationError(
+  //         result.errorMessage || "Failed to extend session"
+  //       );
+  //     }
 
-      return {
-        isSuccess: result.isSuccess,
-        sessionToken: result.sessionToken,
-        expiryAt: result.expiryAt,
-        errorMessage: result.errorMessage,
-      };
-    } catch (error) {
-      if (error.statusCode) {
-        throw error;
-      }
-      logger.error("AuthService.extendSession error", {
-        userId,
-        error: error.message,
-      });
-      throw new DatabaseError(
-        `Failed to extend session: ${error.message}`,
-        error
-      );
+  //     return {
+  //       isSuccess: result.isSuccess,
+  //       sessionToken: result.sessionToken,
+  //       expiryAt: result.expiryAt,
+  //       errorMessage: result.errorMessage,
+  //     };
+  //   } catch (error) {
+  //     if (error.statusCode) {
+  //       throw error;
+  //     }
+  //     logger.error("AuthService.extendSession error", {
+  //       userId,
+  //       error: error.message,
+  //     });
+  //     throw new DatabaseError(
+  //       `Failed to extend session: ${error.message}`,
+  //       error
+  //     );
+  //   }
+  // }
+
+  // inside src/modules/auth/auth.service.js
+
+  // ======================== REFRESH TOKENS ========================
+async refreshTokens(currentSessionToken) {
+  try {
+    // Decrypt current session token locally
+    const currentSessionData = SessionTokenUtil.decryptSessionToken(currentSessionToken);
+
+    if (!currentSessionData || !currentSessionData.user_id) {
+      throw new AuthenticationError("Invalid session token");
     }
+
+    // Generate new access token payload
+    const tokenData = {
+      user_id: currentSessionData.user_id,
+      business_id: currentSessionData.business_id,
+      branch_id: currentSessionData.branch_id,
+      // You might want to fetch role_id or other info from DB only if required.
+      // To obey "do not verify with DB for each request", we rely on session token payload here.
+    };
+
+    const accessTokenResult = TokenUtil.generateAccessToken(tokenData);
+
+    // Generate rotated session token
+    const extendedSessionTokenObj = SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
+    const newSessionToken = extendedSessionTokenObj.sessionToken;
+    const newExpiryAt = extendedSessionTokenObj.expiresAt;
+
+    // Persist rotation in DB (extendSession stored procedure)
+    // NOTE: extendSession in repository expects: (userId, oldSessionToken, newSessionToken, newExpiryAt)
+    const repoResult = await authRepository.extendSession(
+      currentSessionData.user_id,
+      currentSessionToken,
+      newSessionToken,
+      newExpiryAt
+    );
+
+    if (!repoResult.isSuccess) {
+      throw new Error(repoResult.errorMessage || "Failed to rotate session token");
+    }
+
+    return {
+      isSuccess: true,
+      accessToken: accessTokenResult.accessToken,
+      accessExpiresAt: accessTokenResult.expiresAt,
+      sessionToken: newSessionToken,
+      sessionExpiresAt: newExpiryAt,
+      sessionMaxAgeMs: (parseInt(process.env.SESSION_COOKIE_MAXAGE_MS || String(60 * 60 * 1000), 10)),
+    };
+  } catch (err) {
+    logger.error("AuthService.refreshTokens error", { error: err.message });
+    throw err;
   }
+}
 
   // ======================== LOGOUT ========================
   async logout(userId) {
