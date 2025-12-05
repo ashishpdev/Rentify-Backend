@@ -536,7 +536,7 @@ function requiresOnlyAccessToken(path) {
 
 // Determine if endpoint requires both access token and session token
 function requiresBothTokens(path) {
-  const bothTokensPaths = ["/extend-session"];
+  const bothTokensPaths = ["/extend-session", "/refresh-token"];
 
   return bothTokensPaths.some((tokenPath) => path.includes(tokenPath));
 }
@@ -546,7 +546,8 @@ function generatePostmanCollection(endpoints) {
   const collection = {
     info: {
       name: "Rentify API",
-      description: "Auto-generated API collection for Rentify Backend",
+      description:
+        "Auto-generated API collection for Rentify Backend. Authentication uses HTTP-only cookies (access_token and session_token) set by the server on login.",
       schema:
         "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
       version: "1.0.0",
@@ -557,18 +558,6 @@ function generatePostmanCollection(endpoints) {
         key: "baseUrl",
         value: BASE_URL,
         type: "string",
-      },
-      {
-        key: "session_token",
-        value: "",
-        type: "string",
-        description: "Session token from login response",
-      },
-      {
-        key: "access_token",
-        value: "",
-        type: "string",
-        description: "Access token from login response",
       },
     ],
   };
@@ -610,54 +599,8 @@ function generatePostmanCollection(endpoints) {
         const onlyAccessToken = requiresOnlyAccessToken(endpoint.path);
         const bothTokens = requiresBothTokens(endpoint.path);
 
-        // Add authentication headers for protected endpoints
-        if (!isPublic) {
-          if (bothTokens) {
-            // Both tokens required (e.g., extend-session)
-            request.request.header.push(
-              {
-                key: "x-session-token",
-                value: "{{session_token}}",
-                type: "text",
-                description:
-                  "Session token from login response (required for authenticated requests)",
-              },
-              {
-                key: "x-access-token",
-                value: "{{access_token}}",
-                type: "text",
-                description:
-                  "Access token from login response (required for authenticated requests)",
-              }
-            );
-          } else if (onlyAccessToken) {
-            // Only access token required (e.g., decrypt-token, logout)
-            request.request.header.push({
-              key: "x-access-token",
-              value: "{{access_token}}",
-              type: "text",
-              description: "Access token from login response (required)",
-            });
-          } else {
-            // Both session and access token required
-            request.request.header.push(
-              {
-                key: "x-session-token",
-                value: "{{session_token}}",
-                type: "text",
-                description:
-                  "Session token from login response (required for authenticated requests)",
-              },
-              {
-                key: "x-access-token",
-                value: "{{access_token}}",
-                type: "text",
-                description:
-                  "Access token from login response (required for authenticated requests)",
-              }
-            );
-          }
-        }
+        // Note: Authentication tokens are now handled via HTTP-only cookies
+        // No manual headers needed - cookies are automatically sent by Postman
 
         // Add Content-Type header for requests with body
         if (endpoint.body && Object.keys(endpoint.body).length > 0) {
@@ -687,12 +630,12 @@ function generatePostmanCollection(endpoints) {
           description += "🔓 Public endpoint - No authentication required";
         } else if (bothTokens) {
           description +=
-            "🔒 Requires both x-session-token and x-access-token headers";
+            "🔒 Requires both session_token and access_token cookies (set automatically on login)";
         } else if (onlyAccessToken) {
-          description += "🔒 Requires x-access-token header only";
+          description += "🔒 Requires access_token cookie only";
         } else {
           description +=
-            "🔒 Protected endpoint - Requires x-session-token and x-access-token headers";
+            "🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)";
         }
         request.request.description = description;
 

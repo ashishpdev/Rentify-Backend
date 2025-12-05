@@ -296,40 +296,6 @@ class AuthRepository {
       const connection = await pool.getConnection();
 
       try {
-        //
-        //
-        console.log("[DEBUG] ExtendSession - userId:", userId);
-        console.log(
-          "[DEBUG] ExtendSession - oldSessionToken length:",
-          oldSessionToken?.length
-        );
-        console.log(
-          "[DEBUG] ExtendSession - newSessionToken length:",
-          newSessionToken?.length
-        );
-
-        // First, verify what's in the database
-        const [dbRows] = await connection.query(
-          "SELECT session_token, LENGTH(session_token) as token_length, expiry_at FROM master_user_session WHERE user_id = ? AND is_active = TRUE",
-          [userId]
-        );
-
-        if (dbRows && dbRows.length > 0) {
-          console.log("[DEBUG] DB token length:", dbRows[0].token_length);
-          console.log("[DEBUG] DB expiry_at:", dbRows[0].expiry_at);
-          console.log(
-            "[DEBUG] Tokens match:",
-            dbRows[0].session_token === oldSessionToken
-          );
-        } else {
-          console.log(
-            "[DEBUG] No active session found in DB for user:",
-            userId
-          );
-        }
-        //
-        //
-
         // Call SP with action=2 (Update), passing both old and new tokens
         await connection.query(
           `CALL sp_manage_session(?, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
@@ -345,12 +311,7 @@ class AuthRepository {
         }
 
         const output = outputRows[0];
-        //
-        //
-        console.log("[DEBUG] SP Output:", output);
-        //
-        //
-
+       
         const success =
           output.success === 1 ||
           output.success === "1" ||

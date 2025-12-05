@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Rentify API",
-    "description": "Auto-generated API collection for Rentify Backend",
+    "description": "Auto-generated API collection for Rentify Backend. Authentication uses HTTP-only cookies (access_token and session_token) set by the server on login.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "version": "1.0.0"
   },
@@ -153,14 +153,7 @@
           "name": "POST /api/auth/decrypt-token",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required)"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/decrypt-token",
               "host": [
@@ -172,7 +165,7 @@
                 "decrypt-token"
               ]
             },
-            "description": "Handler: authController.decryptUserData\n🔒 Requires x-access-token header only"
+            "description": "Handler: authController.decryptUserData\n🔒 Requires access_token cookie only"
           },
           "response": []
         },
@@ -180,20 +173,7 @@
           "name": "POST /api/auth/extend-session",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/extend-session",
               "host": [
@@ -205,7 +185,7 @@
                 "extend-session"
               ]
             },
-            "description": "Handler: authController.extendSession\n🔒 Requires both x-session-token and x-access-token headers"
+            "description": "Handler: authController.refreshTokens\n🔒 Requires both session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -213,14 +193,7 @@
           "name": "POST /api/auth/logout",
           "request": {
             "method": "POST",
-            "header": [
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required)"
-              }
-            ],
+            "header": [],
             "url": {
               "raw": "{{baseUrl}}/api/auth/logout",
               "host": [
@@ -232,7 +205,7 @@
                 "logout"
               ]
             },
-            "description": "Handler: authController.logout\n🔒 Requires x-access-token header only"
+            "description": "Handler: authController.logout\n🔒 Requires access_token cookie only"
           },
           "response": []
         }
@@ -246,18 +219,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -284,7 +245,7 @@
                 }
               }
             },
-            "description": "Handler: CustomerController.createCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CustomerController.createCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -293,18 +254,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -331,7 +280,7 @@
                 }
               }
             },
-            "description": "Handler: CustomerController.updateCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CustomerController.updateCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -340,18 +289,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -378,7 +315,7 @@
                 }
               }
             },
-            "description": "Handler: CustomerController.getCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CustomerController.getCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -387,18 +324,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -425,7 +350,7 @@
                 }
               }
             },
-            "description": "Handler: CustomerController.listCustomers\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CustomerController.listCustomers\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -434,18 +359,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -472,7 +385,7 @@
                 }
               }
             },
-            "description": "Handler: CustomerController.deleteCustomer\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CustomerController.deleteCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -486,18 +399,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -524,7 +425,7 @@
                 }
               }
             },
-            "description": "Handler: SegmentController.createSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: SegmentController.createSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -533,18 +434,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -571,7 +460,7 @@
                 }
               }
             },
-            "description": "Handler: SegmentController.updateSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: SegmentController.updateSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -580,18 +469,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -618,7 +495,7 @@
                 }
               }
             },
-            "description": "Handler: SegmentController.getSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: SegmentController.getSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -627,18 +504,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -665,7 +530,7 @@
                 }
               }
             },
-            "description": "Handler: SegmentController.listSegments\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: SegmentController.listSegments\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -674,18 +539,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -712,7 +565,7 @@
                 }
               }
             },
-            "description": "Handler: SegmentController.deleteSegment\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: SegmentController.deleteSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -726,18 +579,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -764,7 +605,7 @@
                 }
               }
             },
-            "description": "Handler: CategoryController.createCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CategoryController.createCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -773,18 +614,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -811,7 +640,7 @@
                 }
               }
             },
-            "description": "Handler: CategoryController.updateCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CategoryController.updateCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -820,18 +649,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -858,7 +675,7 @@
                 }
               }
             },
-            "description": "Handler: CategoryController.getCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CategoryController.getCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -867,18 +684,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -905,7 +710,7 @@
                 }
               }
             },
-            "description": "Handler: CategoryController.listCategories\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CategoryController.listCategories\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -914,18 +719,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -952,7 +745,7 @@
                 }
               }
             },
-            "description": "Handler: CategoryController.deleteCategory\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: CategoryController.deleteCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -966,18 +759,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1004,7 +785,7 @@
                 }
               }
             },
-            "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1013,18 +794,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1051,7 +820,7 @@
                 }
               }
             },
-            "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1060,18 +829,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1098,7 +855,7 @@
                 }
               }
             },
-            "description": "Handler: ModelController.getModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: ModelController.getModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1107,18 +864,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1145,7 +890,7 @@
                 }
               }
             },
-            "description": "Handler: ModelController.listModels\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: ModelController.listModels\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1154,18 +899,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1192,7 +925,7 @@
                 }
               }
             },
-            "description": "Handler: ModelController.deleteModel\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: ModelController.deleteModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -1206,18 +939,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1244,7 +965,7 @@
                 }
               }
             },
-            "description": "Handler: AssetController.createAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: AssetController.createAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1253,18 +974,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1291,7 +1000,7 @@
                 }
               }
             },
-            "description": "Handler: AssetController.updateAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: AssetController.updateAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1300,18 +1009,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1338,7 +1035,7 @@
                 }
               }
             },
-            "description": "Handler: AssetController.getAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: AssetController.getAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1347,18 +1044,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1385,7 +1070,7 @@
                 }
               }
             },
-            "description": "Handler: AssetController.listAssets\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: AssetController.listAssets\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         },
@@ -1394,18 +1079,6 @@
           "request": {
             "method": "POST",
             "header": [
-              {
-                "key": "x-session-token",
-                "value": "{{session_token}}",
-                "type": "text",
-                "description": "Session token from login response (required for authenticated requests)"
-              },
-              {
-                "key": "x-access-token",
-                "value": "{{access_token}}",
-                "type": "text",
-                "description": "Access token from login response (required for authenticated requests)"
-              },
               {
                 "key": "Content-Type",
                 "value": "application/json",
@@ -1432,7 +1105,7 @@
                 }
               }
             },
-            "description": "Handler: AssetController.deleteAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+            "description": "Handler: AssetController.deleteAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -1444,18 +1117,6 @@
       "key": "baseUrl",
       "value": "http://localhost:3000",
       "type": "string"
-    },
-    {
-      "key": "session_token",
-      "value": "",
-      "type": "string",
-      "description": "Session token from login response"
-    },
-    {
-      "key": "access_token",
-      "value": "",
-      "type": "string",
-      "description": "Access token from login response"
     }
   ]
 }
