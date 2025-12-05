@@ -5,6 +5,8 @@ const { AuthValidator } = require("./auth.validator");
 const logger = require("../../config/logger.config");
 const AccessTokenUtil = require("../../utils/access_token.util");
 const { RESPONSE_MESSAGES } = require("../../constants/operations");
+const COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE === "true"; // set true in prod
+const COOKIE_SAMESITE = process.env.SESSION_COOKIE_SAMESITE || "Lax"; // or "Strict"
 
 class AuthController {
   // ======================== SEND OTP CONTROLLER ========================
@@ -242,17 +244,9 @@ class AuthController {
     const startTime = Date.now();
 
     try {
-      logger.info("Login with OTP request received", {
-        email: req.body.email,
-        ip: req.ip,
-      });
-
+      // validation and service call remains same (AuthValidator etc.)
       const { error, value } = AuthValidator.validateLoginOTP(req.body);
       if (error) {
-        logger.warn("Login validation failed", {
-          email: req.body.email,
-          error: error.details[0].message,
-        });
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
@@ -271,101 +265,73 @@ class AuthController {
         userAgent
       );
 
-      if (
-        !user ||
-        !user.user_id ||
-        !user.business_id ||
-        user.role_id === undefined
-      ) {
-        logger.warn("Login failed - invalid user data", {
-          email: value.email,
-          ip: req.ip,
-          user,
-        });
+      if (!user || !user.user_id) {
         return ResponseUtil.unauthorized(res, "Invalid login credentials");
       }
 
-      const duration = Date.now() - startTime;
-      logger.logPerformance("loginWithOTP", duration, {
-        email: value.email,
-        userId: user.user_id,
-        success: true,
-      });
-
-      // Session token is already created by the stored procedure
+      // session token created by authService.loginWithOTP
       const sessionToken = user.session_token;
 
-      // Generate encrypted access token from user data
-      let accessToken;
-      let accessTokenExpiry;
-      try {
-        const tokenData = {
-          user_id: user.user_id,
-          business_id: user.business_id,
-          branch_id: user.branch_id,
-          role_id: user.role_id,
-          is_owner: user.is_owner,
-          user_name: user.user_name,
-          contact_number: user.contact_number,
-          business_name: user.business_name,
-          email: value.email,
-        };
+      // Generate signed access token
+      const tokenData = {
+        user_id: user.user_id,
+        business_id: user.business_id,
+        branch_id: user.branch_id,
+        role_id: user.role_id,
+        is_owner: user.is_owner,
+        user_name: user.user_name,
+        contact_number: user.contact_number,
+        business_name: user.business_name,
+        email: value.email,
+      };
+      const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
+      const accessToken = tokenResult.accessToken;
+      const accessTokenExpiry = tokenResult.expiresAt;
 
-        const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
-        accessToken = tokenResult.accessToken;
-        accessTokenExpiry = tokenResult.expiresAt;
-      } catch (tokenErr) {
-        logger.error("Failed to generate access token", {
-          error: tokenErr.message,
-          userId: user.user_id,
-        });
-        return ResponseUtil.serverError(
-          res,
-          "Failed to generate security tokens"
-        );
-      }
+      // set cookies (HttpOnly)
+      // session token usually longer-lived (but still moderately short)
+      // Set cookie expiration from session token metadata if needed; using tokenResult for access token
+      const sessionCookieOpts = {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+        // expiry: session token expiry computed by session util, we can set a reasonable maxAge
+        maxAge: 60 * 60 * 1000, // 1 hour as per SESSION_CONFIG.DEFAULT_EXPIRY_HOURS
+      };
+      const accessCookieOpts = {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+        maxAge: (parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10)) * 60 * 1000,
+      };
+
+      res.cookie("session_token", sessionToken, sessionCookieOpts);
+      res.cookie("access_token", accessToken, accessCookieOpts);
 
       logger.logAuth("LOGIN_SUCCESS", {
         email: value.email,
         userId: user.user_id,
-        businessId: user.business_id,
-        isOwner: user.is_owner,
-        sessionToken: sessionToken
-          ? sessionToken.substring(0, 20) + "..."
-          : "failed",
-        ip: req.ip,
+        sessionToken: sessionToken ? sessionToken.substring(0, 20) + "..." : "failed",
       });
 
       return ResponseUtil.success(
         res,
         {
-          // Return only tokens - client must call decrypt endpoint for user data
-          session_token: sessionToken || null,
-          access_token: accessToken,
-          session_expires_at: accessTokenExpiry,
+          session_expires_at: accessTokenExpiry, // still provide expiry info
         },
         "Login successful"
       );
     } catch (err) {
+      // existing error handling
       const errorMessage = (err && err.message) || "Failed to login";
-
       if (errorMessage === "Invalid or expired OTP") {
-        logger.warn("OTP verification failed during login", {
-          email: req.body.email,
-          reason: errorMessage,
-          ip: req.ip,
-        });
         return ResponseUtil.unauthorized(res, errorMessage);
       }
-
-      // Log full error for debugging
       logger.logError(err, req, {
         operation: "loginWithOTP",
         email: req.body.email,
         ip: req.ip,
       });
-
-      // Return the error message directly
       return ResponseUtil.serverError(res, errorMessage);
     }
   }
@@ -377,16 +343,16 @@ class AuthController {
         ip: req.ip,
       });
 
-      // Extract access token from header ONLY (mandatory)
-      const accessToken = req.headers["x-access-token"];
+      // Extract access token from cookie (mandatory)
+      const accessToken = req.cookies?.access_token;
 
       if (!accessToken) {
-        logger.warn("Missing access token header in decrypt request", {
+        logger.warn("Missing access token cookie in decrypt request", {
           ip: req.ip,
         });
         return ResponseUtil.badRequest(
           res,
-          "X-Access-Token header is required"
+          "access_token cookie is required"
         );
       }
 
@@ -470,45 +436,44 @@ class AuthController {
     }
   }
 
-  // ========================= EXTEND SESSION CONTROLLER =========================
-  async extendSession(req, res, next) {
+// ========================= REFRESH TOKENS CONTROLLER =========================
+  // Called by clients when access token expired; session cookie present
+  async refreshTokens(req, res, next) {
     try {
-      const userId = req.user.user_id;
-      const sessionToken = req.sessionToken;
-
-      const result = await authService.extendSession(userId, sessionToken);
-
-      if (!result.isSuccess) {
-        logger.warn("Extend session failed", {
-          userId,
-          errorMessage: result.errorMessage,
-        });
-        return ResponseUtil.unauthorized(
-          res,
-          result.errorMessage || RESPONSE_MESSAGES.EXTEND_SESSION_FAILED
-        );
+      const sessionToken = req.cookies?.session_token;
+      if (!sessionToken) {
+        return ResponseUtil.badRequest(res, "session_token cookie is required");
       }
 
-      logger.logAuth("SESSION_EXTENDED", {
-        userId,
+      const refreshResult = await authService.refreshTokens(sessionToken);
+
+      if (!refreshResult || !refreshResult.isSuccess) {
+        return ResponseUtil.unauthorized(res, refreshResult?.errorMessage || "Failed to refresh tokens");
+      }
+
+      // set rotated session cookie + new access token cookie
+      const COOKIE_SECURE = process.env.SESSION_COOKIE_SECURE === "true";
+      const COOKIE_SAMESITE = process.env.SESSION_COOKIE_SAMESITE || "Lax";
+      res.cookie("session_token", refreshResult.sessionToken, {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+        maxAge: (refreshResult.sessionMaxAgeMs || 60 * 60 * 1000),
+      });
+      res.cookie("access_token", refreshResult.accessToken, {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+        maxAge: (parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10)) * 60 * 1000,
       });
 
-      return ResponseUtil.success(
-        res,
-        {
-          extended: true,
-          session_token: result.sessionToken,
-          session_expires_at: result.expiryAt,
-        },
-        RESPONSE_MESSAGES.SESSION_EXTENDED
-      );
-    } catch (error) {
-      logger.logError(error, req, {
-        operation: "extendSession",
-      });
-      return ResponseUtil.serverError(res, "Failed to extend session");
+      return ResponseUtil.success(res, { refreshed: true }, "Tokens refreshed");
+    } catch (err) {
+      logger.logError(err, req, { operation: "refreshTokens" });
+      return ResponseUtil.serverError(res, "Failed to refresh tokens");
     }
   }
+
 
   // ========================= LOGOUT CONTROLLER =========================
   async logout(req, res, next) {
@@ -531,6 +496,18 @@ class AuthController {
           result.errorMessage || RESPONSE_MESSAGES.LOGOUT_FAILED
         );
       }
+
+      // Clear authentication cookies
+      res.clearCookie("access_token", {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+      });
+      res.clearCookie("session_token", {
+        httpOnly: true,
+        secure: COOKIE_SECURE,
+        sameSite: COOKIE_SAMESITE,
+      });
 
       logger.logAuth("LOGOUT_SUCCESS", {
         userId,

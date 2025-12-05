@@ -124,22 +124,42 @@ class AuthRepository {
   }
 
   // ======================== EXTEND SESSION ========================
-  async extendSession(userId, oldToken, newToken, newExpiry) {
+  async extendSession(userId, oldSessionToken, newSessionToken, newExpiryAt) {
     try {
+      // Execute Stored Procedure
       await db.executeSP(
-        `CALL sp_manage_session(2, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
-        [userId, newToken, null, newExpiry, oldToken]
+        `CALL sp_manage_session(2, ?, ?, ?, ?, ?, 
+        @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
+        [userId, newSessionToken, null, newExpiryAt, oldSessionToken]
       );
 
-      const out = await db.executeSelect(`
-        SELECT @p_success success, @p_session_token_out session_token,
-               @p_expiry_at expiry_at, @p_error_code error_code, @p_error_message error_message
-      `);
+      // Fetch output variables
+      const output = await db.executeSelect(
+        `SELECT 
+        @p_success AS success,
+        @p_session_token_out AS session_token,
+        @p_expiry_at AS expiry_at,
+        @p_error_code AS error_code,
+        @p_error_message AS error_message`
+      );
 
-      if (!(out.success == 1)) throw new Error(out.error_message);
+      const success = (output.success == 1);
 
-      return { isSuccess: true, sessionToken: out.session_token, expiryAt: out.expiry_at };
-    } catch (e) { throw new Error(`Failed to extend session: ${e.message}`); }
+      if (!success) {
+        throw new Error(`${output.error_code || "ERR_UNKNOWN"}: ${output.error_message || "Failed to extend session"}`);
+      }
+
+      return {
+        isSuccess: true,
+        sessionToken: output.session_token,
+        expiryAt: output.expiry_at,
+        errorCode: output.error_code,
+        errorMessage: output.error_message
+      };
+
+    } catch (error) {
+      throw new Error(`Failed to extend session: ${error.message}`);
+    }
   }
 
   // ======================== LOGOUT ========================

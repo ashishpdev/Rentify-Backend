@@ -17,7 +17,7 @@ router.post(
   requireAccessToken,
   authController.decryptUserData
 );
-router.post("/extend-session", requireBothTokens, authController.extendSession);
+router.post("/refresh-tokens", requireBothTokens, authController.refreshTokens);
 router.post("/logout", requireAccessToken, authController.logout);
 
 module.exports = router;

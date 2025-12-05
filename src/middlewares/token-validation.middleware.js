@@ -1,3 +1,4 @@
+// src/middlewares/token-validation.middleware.js
 const logger = require("../config/logger.config");
 const ResponseUtil = require("../utils/response.util");
 const AccessTokenUtil = require("../utils/access_token.util");
@@ -6,28 +7,26 @@ const SessionTokenUtil = require("../utils/session_token.util");
 function createTokenValidationMiddleware(
   requireAccess = true,
   requireSession = false
-) { 
+) {
   return async (req, res, next) => {
     try {
+      // read tokens from cookies now (HttpOnly cookies set by server)
+      const cookieAccessToken = req.cookies?.access_token;
+      const cookieSessionToken = req.cookies?.session_token;
+
       // =================== VALIDATE BOTH TOKENS ===================
       if (requireAccess && requireSession) {
-        const sessionToken = req.headers["x-session-token"]?.trim();
-        const accessToken = req.headers["x-access-token"]?.trim();
+        const sessionToken = cookieSessionToken?.trim();
+        const accessToken = cookieAccessToken?.trim();
 
         if (!sessionToken) {
-          return ResponseUtil.badRequest(
-            res,
-            "x-session-token header is required"
-          );
+          return ResponseUtil.badRequest(res, "session_token cookie is required");
         }
         if (!accessToken) {
-          return ResponseUtil.badRequest(
-            res,
-            "x-access-token header is required"
-          );
+          return ResponseUtil.badRequest(res, "access_token cookie is required");
         }
 
-        // Validate access token structure and decrypt
+        // Validate access token JWT structure and decrypt
         if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
           return ResponseUtil.unauthorized(res, "Invalid access token format");
         }
@@ -37,7 +36,7 @@ function createTokenValidationMiddleware(
           return ResponseUtil.unauthorized(res, "Invalid access token");
         }
 
-        // Validate session token structure and decrypt (no DB call needed)
+        // Validate session token structure and decrypt (local decrypt, no DB call)
         if (!SessionTokenUtil.isValidTokenStructure(sessionToken)) {
           return ResponseUtil.unauthorized(res, "Invalid session token format");
         }
@@ -45,7 +44,6 @@ function createTokenValidationMiddleware(
         const sessionValidation =
           SessionTokenUtil.validateSessionToken(sessionToken);
         if (!sessionValidation.isValid) {
-          // Check specific error type
           if (sessionValidation.error.includes("expired")) {
             return ResponseUtil.unauthorized(res, "Session token expired");
           }
@@ -60,7 +58,6 @@ function createTokenValidationMiddleware(
 
         const sessionData = sessionValidation.sessionData;
 
-        // Verify user_id in session matches access token user_id
         if (sessionData.user_id !== userData.user_id) {
           return ResponseUtil.unauthorized(res, "Token user mismatch");
         }
@@ -80,13 +77,10 @@ function createTokenValidationMiddleware(
       }
       // =================== VALIDATE ACCESS TOKEN ===================
       else if (requireAccess) {
-        const accessToken = req.headers["x-access-token"]?.trim();
+        const accessToken = cookieAccessToken?.trim();
 
         if (!accessToken) {
-          return ResponseUtil.badRequest(
-            res,
-            "x-access-token header is required"
-          );
+          return ResponseUtil.badRequest(res, "access_token cookie is required");
         }
 
         if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
@@ -103,16 +97,12 @@ function createTokenValidationMiddleware(
       }
       // =================== VALIDATE SESSION TOKEN ===================
       else if (requireSession) {
-        const sessionToken = req.headers["x-session-token"]?.trim();
+        const sessionToken = cookieSessionToken?.trim();
 
         if (!sessionToken) {
-          return ResponseUtil.badRequest(
-            res,
-            "x-session-token header is required"
-          );
+          return ResponseUtil.badRequest(res, "session_token cookie is required");
         }
 
-        // Validate session token structure and decrypt (no DB call needed)
         if (!SessionTokenUtil.isValidTokenStructure(sessionToken)) {
           return ResponseUtil.unauthorized(res, "Invalid session token format");
         }
