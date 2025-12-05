@@ -1,41 +1,12 @@
-// Token utility for managing encrypted access tokens
-const crypto = require("crypto");
+// src/utils/access_token.util.js
+const jwt = require("jsonwebtoken");
 
-const ENCRYPTION_ALGORITHM = "aes-256-gcm";
-const ENCODING = "utf8";
+const DEFAULT_EXPIRES_MIN = parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10);
+const SIGNING_KEY = process.env.TOKEN_SIGNING_KEY || "dev-insecure-token-signing-key-do-not-use-in-prod";
 
-class TokenUtil {
-  // Get encryption key from environment variable
-  static getEncryptionKey() {
-    const keyString = process.env.TOKEN_ENCRYPTION_KEY;
-
-    if (!keyString) {
-      // In production, fail fast if key is not set
-      if (process.env.NODE_ENV === "production") {
-        throw new Error(
-          "CRITICAL: TOKEN_ENCRYPTION_KEY environment variable is required in production. " +
-            "Set a strong, random key of at least 32 characters."
-        );
-      }
-      // In development, warn and use fallback (never in production!)
-      console.warn(
-        "⚠️  WARNING: TOKEN_ENCRYPTION_KEY not set. Using insecure default key. " +
-          "This is acceptable only for local development."
-      );
-    }
-
-    // Ensure key is exactly 32 bytes (256 bits) for AES-256
-    const hash = crypto
-      .createHash("sha256")
-      .update(keyString || "dev-only-insecure-key-do-not-use-in-prod")
-      .digest();
-    return hash;
-  }
-
-  // =================== GENERATE ACCESS TOKEN ===================
+class AccessTokenUtil {
   static generateAccessToken(userData) {
     try {
-      // Validate required fields
       const requiredFields = ["user_id", "business_id", "branch_id", "role_id"];
       for (const field of requiredFields) {
         if (userData[field] === undefined || userData[field] === null) {
@@ -43,132 +14,74 @@ class TokenUtil {
         }
       }
 
-      // Create a copy to avoid mutating original
-      const dataToEncrypt = { ...userData };
+      // Add token type marker to payload
+      const payload = {
+        ...userData,
+        type: "access_token",
+      };
 
-      // Add metadata to token
-      dataToEncrypt.iat = Math.floor(Date.now() / 1000); // issued at
-      dataToEncrypt.exp = Math.floor(Date.now() / 1000) + 24 * 60 * 60; // expires in 24 hours
-      dataToEncrypt.type = "access_token"; // token type identifier
+      const expiresIn = `${DEFAULT_EXPIRES_MIN}m`;
+      const token = jwt.sign(payload, SIGNING_KEY, {
+        expiresIn,
+      });
 
-      // Serialize data to JSON
-      const jsonData = JSON.stringify(dataToEncrypt);
-
-      // Generate random IV (initialization vector)
-      const iv = crypto.randomBytes(16);
-
-      // Encrypt the data
-      const cipher = crypto.createCipheriv(
-        ENCRYPTION_ALGORITHM,
-        this.getEncryptionKey(),
-        iv
-      );
-      let encrypted = cipher.update(jsonData, ENCODING, "hex");
-      encrypted += cipher.final("hex");
-
-      // Get the authentication tag (for integrity verification)
-      const authTag = cipher.getAuthTag();
-
-      // Combine IV + authTag + encrypted data and encode to base64
-      const token = Buffer.concat([
-        iv,
-        authTag,
-        Buffer.from(encrypted, "hex"),
-      ]).toString("base64");
+      const expiresAt = new Date(Date.now() + DEFAULT_EXPIRES_MIN * 60 * 1000);
 
       return {
         accessToken: token,
-        expiresAt: new Date(dataToEncrypt.exp * 1000),
-        expiresIn: dataToEncrypt.exp, // Unix timestamp
+        expiresAt,
+        expiresIn: Math.floor(expiresAt.getTime() / 1000),
       };
     } catch (err) {
       throw new Error(`Failed to generate access token: ${err.message}`);
     }
   }
 
-  // =================== DECRYPT ACCESS TOKEN ===================
   static decryptAccessToken(token) {
     try {
       if (!token || typeof token !== "string") {
         throw new Error("Invalid token format");
       }
 
-      // Decode from base64
-      const buffer = Buffer.from(token, "base64");
+      const payload = jwt.verify(token, SIGNING_KEY);
 
-      // Extract components
-      // IV is 16 bytes, authTag is 16 bytes, rest is encrypted data
-      const iv = buffer.slice(0, 16);
-      const authTag = buffer.slice(16, 32);
-      const encrypted = buffer.slice(32).toString("hex");
-
-      // Create decipher
-      const decipher = crypto.createDecipheriv(
-        ENCRYPTION_ALGORITHM,
-        this.getEncryptionKey(),
-        iv
-      );
-
-      // Set the auth tag for verification
-      decipher.setAuthTag(authTag);
-
-      // Decrypt
-      let decrypted = decipher.update(encrypted, "hex", ENCODING);
-      decrypted += decipher.final(ENCODING);
-
-      // Parse JSON
-      const userData = JSON.parse(decrypted);
-
-      // Validate token type
-      if (userData.type !== "access_token") {
+      if (payload.type !== "access_token") {
         throw new Error("Invalid token type");
       }
 
-      // Check expiration
-      const now = Math.floor(Date.now() / 1000);
-      if (userData.exp && userData.exp < now) {
-        throw new Error("Access token expired");
-      }
+      // Remove metadata we don't want as part of user object
+      const {
+        iat, exp, nbf, jti, type, ...userData
+      } = payload;
 
-      // Remove metadata before returning
-      delete userData.iat;
-      delete userData.exp;
-      delete userData.type;
+      // minimal sanity check
+      if (!userData.user_id) {
+        throw new Error("Invalid access token payload");
+      }
 
       return userData;
     } catch (err) {
-      // Any error in decryption means token is tampered or invalid
-      // Check for GCM authentication failure (tampered token)
-      if (
-        err.code === "ERR_OSSL_EVP_BAD_DECRYPT" ||
-        err.message.includes(
-          "Unsupported state or unable to authenticate data"
-        ) ||
-        err.message.includes("bad decrypt")
-      ) {
+      // Normalize error messages similar to previous behaviour
+      if (err.name === "TokenExpiredError") {
+        throw new Error("Access token expired");
+      }
+      if (err.name === "JsonWebTokenError") {
         throw new Error("Access token has been tampered with");
       }
-      if (err instanceof SyntaxError) {
-        throw new Error("Access token is corrupted");
-      }
-      throw err;
+      throw new Error(err.message || "Failed to verify access token");
     }
   }
 
-  // =================== VALIDATE TOKEN STRUCTURE ===================
   static isValidTokenStructure(token) {
     try {
-      if (!token || typeof token !== "string") {
-        return false;
-      }
-
-      const buffer = Buffer.from(token, "base64");
-      // Valid token must have at least IV (16) + authTag (16) + some data
-      return buffer.length >= 33;
+      if (!token || typeof token !== "string") return false;
+      // JWT should contain two dots
+      const parts = token.split(".");
+      return parts.length === 3 && parts[0].length > 0;
     } catch (err) {
       return false;
     }
   }
 }
 
-module.exports = TokenUtil;
+module.exports = AccessTokenUtil;

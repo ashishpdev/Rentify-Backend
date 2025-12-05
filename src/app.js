@@ -10,6 +10,7 @@ const {
   errorLogger,
   performanceLogger,
 } = require("./middlewares/logger.middleware");
+const cookieParser = require("cookie-parser");
 
 const app = express();
 
@@ -28,6 +29,8 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 // Parse URL-encoded bodies (form submissions)
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+app.use(cookieParser());
 
 // Morgan-based HTTP logger for access logs
 app.use(httpLogger);
