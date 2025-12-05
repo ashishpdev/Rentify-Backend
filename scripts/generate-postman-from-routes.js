@@ -534,9 +534,16 @@ function requiresOnlyAccessToken(path) {
   return accessTokenOnlyPaths.some((tokenPath) => path.includes(tokenPath));
 }
 
+// Determine if endpoint requires only session token (for token refresh)
+function requiresOnlySessionToken(path) {
+  const sessionTokenOnlyPaths = ["/refresh-tokens"];
+
+  return sessionTokenOnlyPaths.some((tokenPath) => path.includes(tokenPath));
+}
+
 // Determine if endpoint requires both access token and session token
 function requiresBothTokens(path) {
-  const bothTokensPaths = ["/extend-session", "/refresh-token"];
+  const bothTokensPaths = ["/extend-session"];
 
   return bothTokensPaths.some((tokenPath) => path.includes(tokenPath));
 }
@@ -597,6 +604,7 @@ function generatePostmanCollection(endpoints) {
         // Check if endpoint is public (no auth required)
         const isPublic = isPublicEndpoint(endpoint.path);
         const onlyAccessToken = requiresOnlyAccessToken(endpoint.path);
+        const onlySessionToken = requiresOnlySessionToken(endpoint.path);
         const bothTokens = requiresBothTokens(endpoint.path);
 
         // Note: Authentication tokens are now handled via HTTP-only cookies
@@ -633,6 +641,8 @@ function generatePostmanCollection(endpoints) {
             "🔒 Requires both session_token and access_token cookies (set automatically on login)";
         } else if (onlyAccessToken) {
           description += "🔒 Requires access_token cookie only";
+        } else if (onlySessionToken) {
+          description += "🔒 Requires session_token cookie only (used to refresh expired access_token)";
         } else {
           description +=
             "🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)";

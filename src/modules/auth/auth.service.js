@@ -12,7 +12,6 @@ const {
 } = require("../../utils/errors.util");
 const {
   SESSION_OPERATIONS,
-  TOKEN_HEADERS,
 } = require("../../constants/operations");
 const fs = require("fs");
 const path = require("path");
@@ -150,6 +149,11 @@ class AuthService {
         user_id: user.user_id,
         business_id: user.business_id,
         branch_id: user.branch_id,
+        role_id: user.role_id,
+        is_owner: user.is_owner,
+        user_name: user.user_name,
+        contact_number: user.contact_number,
+        business_name: user.business_name,
         ip_address: ipAddress,
         device_id: `device_${user.user_id}_${Date.now()}`,
       };
@@ -255,8 +259,11 @@ async refreshTokens(currentSessionToken) {
       user_id: currentSessionData.user_id,
       business_id: currentSessionData.business_id,
       branch_id: currentSessionData.branch_id,
-      // You might want to fetch role_id or other info from DB only if required.
-      // To obey "do not verify with DB for each request", we rely on session token payload here.
+      role_id: currentSessionData.role_id,
+      is_owner: currentSessionData.is_owner,
+      user_name: currentSessionData.user_name,
+      contact_number: currentSessionData.contact_number,
+      business_name: currentSessionData.business_name,
     };
 
     const accessTokenResult = TokenUtil.generateAccessToken(tokenData);

@@ -343,16 +343,16 @@ class AuthController {
         ip: req.ip,
       });
 
-      // Extract access token from header ONLY (mandatory)
-      const accessToken = req.headers["x-access-token"];
+      // Extract access token from cookie (mandatory)
+      const accessToken = req.cookies?.access_token;
 
       if (!accessToken) {
-        logger.warn("Missing access token header in decrypt request", {
+        logger.warn("Missing access token cookie in decrypt request", {
           ip: req.ip,
         });
         return ResponseUtil.badRequest(
           res,
-          "X-Access-Token header is required"
+          "access_token cookie is required"
         );
       }
 
