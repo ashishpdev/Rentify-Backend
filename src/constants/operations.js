@@ -20,11 +20,11 @@ const OTP_TYPES = {
 };
 
 /**
- * Token Headers
+ * Token Cookie Names
  */
-const TOKEN_HEADERS = {
-  SESSION: "x-session-token",
-  ACCESS: "x-access-token",
+const TOKEN_COOKIES = {
+  SESSION: "session_token",
+  ACCESS: "access_token",
 };
 
 /**
@@ -33,8 +33,8 @@ const TOKEN_HEADERS = {
 const RESPONSE_MESSAGES = {
   SESSION_EXTENDED: "Session extended successfully",
   LOGOUT_SUCCESS: "Logged out successfully",
-  SESSION_TOKEN_REQUIRED: "Session token is required. Please provide x-session-token header.",
-  ACCESS_TOKEN_REQUIRED: "Access token is required. Please provide x-access-token header.",
+  SESSION_TOKEN_REQUIRED: "Session token is required. Please ensure session_token cookie is set.",
+  ACCESS_TOKEN_REQUIRED: "Access token is required. Please ensure access_token cookie is set.",
   INVALID_TOKEN_FORMAT: "Invalid access token format",
   INVALID_TOKEN: "Invalid access token",
   TOKEN_COMPROMISED: "Access token has been compromised",
@@ -58,7 +58,7 @@ const ERROR_MESSAGES = {
 module.exports = {
   SESSION_OPERATIONS,
   OTP_TYPES,
-  TOKEN_HEADERS,
+  TOKEN_COOKIES,
   RESPONSE_MESSAGES,
   ERROR_MESSAGES,
 };
