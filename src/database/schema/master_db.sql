@@ -731,7 +731,7 @@ CREATE TABLE asset (
   product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
-  serial_number VARCHAR(200) UNIQUE NOT NULL,
+  serial_number VARCHAR(200) NOT NULL,
   product_images JSON NULL, -- array of asset_image_id
   product_status_id INT NOT NULL,
   product_condition_id INT NOT NULL,
@@ -747,11 +747,6 @@ CREATE TABLE asset (
   borrowed_from_branch_name VARCHAR(255) NULL,
   purchase_bill_url VARCHAR(1024),
 
-  INDEX idx_asset_business_object (business_id),
-  INDEX idx_asset_business_model (business_id, product_model_id),
-  INDEX idx_asset_serial (serial_number),
-  INDEX idx_asset_source (business_id, source_type_id),
-  INDEX idx_asset_model_branch (product_model_id, branch_id),
 
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -760,6 +755,14 @@ CREATE TABLE asset (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_asset_business_object (business_id),
+  INDEX idx_asset_business_model (business_id, product_model_id),
+  INDEX idx_asset_serial (serial_number),
+  INDEX idx_asset_source (business_id, source_type_id),
+  INDEX idx_asset_model_branch (product_model_id, branch_id),
+
+  CONSTRAINT uq_asset_business_branch_model_serial UNIQUE (business_id, branch_id, product_model_id, serial_number),
 
   CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
 

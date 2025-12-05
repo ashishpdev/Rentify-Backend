@@ -1197,6 +1197,246 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Asset",
+      "item": [
+        {
+          "name": "POST /api/asset/create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/asset/create",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "asset",
+                "create"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: AssetController.createAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/asset/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/asset/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "asset",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: AssetController.updateAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/asset/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/asset/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "asset",
+                "get"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: AssetController.getAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/asset/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/asset/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "asset",
+                "list"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: AssetController.listAssets\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/asset/delete",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-session-token",
+                "value": "{{session_token}}",
+                "type": "text",
+                "description": "Session token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "x-access-token",
+                "value": "{{access_token}}",
+                "type": "text",
+                "description": "Access token from login response (required for authenticated requests)"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/asset/delete",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "asset",
+                "delete"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: AssetController.deleteAsset\n🔒 Protected endpoint - Requires x-session-token and x-access-token headers"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
