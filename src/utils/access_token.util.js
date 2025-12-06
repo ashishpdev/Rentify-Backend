@@ -1,13 +1,30 @@
 // src/utils/access_token.util.js
 const jwt = require("jsonwebtoken");
 
-const DEFAULT_EXPIRES_MIN = parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10);
-const SIGNING_KEY = process.env.TOKEN_SIGNING_KEY || "dev-insecure-token-signing-key-do-not-use-in-prod";
+const DEFAULT_EXPIRES_MIN = parseInt(
+  process.env.ACCESS_TOKEN_EXPIRES_MIN || "15",
+  10
+);
+const SIGNING_KEY =
+  process.env.TOKEN_SIGNING_KEY ||
+  "dev-insecure-token-signing-key-do-not-use-in-prod";
 
 class AccessTokenUtil {
   static generateAccessToken(userData) {
     try {
-      const requiredFields = ["user_id", "business_id", "branch_id", "role_id"];
+      const requiredFields = [
+        "user_id",
+        "business_id",
+        "branch_id",
+        "role_id",
+        "email",
+        "contact_number",
+        "user_name",
+        "business_name",
+        "branch_name",
+        "role_name",
+        "is_owner",
+      ];
       for (const field of requiredFields) {
         if (userData[field] === undefined || userData[field] === null) {
           throw new Error(`Missing required field: ${field}`);
@@ -50,9 +67,7 @@ class AccessTokenUtil {
       }
 
       // Remove metadata we don't want as part of user object
-      const {
-        iat, exp, nbf, jti, type, ...userData
-      } = payload;
+      const { iat, exp, nbf, jti, type, ...userData } = payload;
 
       // minimal sanity check
       if (!userData.user_id) {

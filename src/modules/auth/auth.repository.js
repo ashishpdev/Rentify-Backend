@@ -2,7 +2,6 @@
 const db = require("../../database/connection");
 
 class AuthRepository {
-
   // ========================= SAVE OTP =========================
   async saveOTP(otpData) {
     try {
@@ -24,14 +23,17 @@ class AuthRepository {
                @p_error_code p_error_code, @p_error_message p_error_message
       `);
 
-      if (!(out.p_success == 1)) throw new Error(`${out.p_error_code}: ${out.p_error_message}`);
+      if (!(out.p_success == 1))
+        throw new Error(`${out.p_error_code}: ${out.p_error_message}`);
 
       return {
         success: true,
         id: out.p_id,
-        expiresAt: out.p_expires_at
+        expiresAt: out.p_expires_at,
       };
-    } catch (err) { throw new Error(`Failed to save OTP: ${err.message}`); }
+    } catch (err) {
+      throw new Error(`Failed to save OTP: ${err.message}`);
+    }
   }
 
   // ======================== VERIFY OTP ========================
@@ -46,10 +48,13 @@ class AuthRepository {
         SELECT @p_success success, @p_otp_id otp_id, @p_error_code error_code, @p_error_message error_message
       `);
 
-      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
+      if (!(out.success == 1))
+        throw new Error(`${out.error_code}: ${out.error_message}`);
 
       return { success: true, otpId: out.otp_id };
-    } catch (e) { throw new Error(`Failed to verify OTP: ${e.message}`); }
+    } catch (e) {
+      throw new Error(`Failed to verify OTP: ${e.message}`);
+    }
   }
 
   // ============ REGISTER BUSINESS + BRANCH + OWNER ============
@@ -60,8 +65,14 @@ class AuthRepository {
           ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_business_id, @p_branch_id, @p_owner_id, @p_error_code, @p_error_message
         )`,
         [
-          d.businessName, d.businessEmail, d.ownerName, d.ownerContactNumber,
-          d.ownerName, d.ownerEmail, d.ownerContactNumber, d.ownerName,
+          d.businessName,
+          d.businessEmail,
+          d.ownerName,
+          d.ownerContactNumber,
+          d.ownerName,
+          d.ownerEmail,
+          d.ownerContactNumber,
+          d.ownerName,
         ]
       );
 
@@ -70,25 +81,35 @@ class AuthRepository {
                @p_owner_id owner_id, @p_error_code error_code, @p_error_message error_message
       `);
 
-      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
+      if (!(out.success == 1))
+        throw new Error(`${out.error_code}: ${out.error_message}`);
 
-      return { success: true, businessId: out.business_id, branchId: out.branch_id, ownerId: out.owner_id };
-    } catch (e) { throw new Error(`Failed to register business: ${e.message}`); }
+      return {
+        success: true,
+        businessId: out.business_id,
+        branchId: out.branch_id,
+        ownerId: out.owner_id,
+      };
+    } catch (e) {
+      throw new Error(`Failed to register business: ${e.message}`);
+    }
   }
 
   // ======================== LOGIN WITH OTP ========================
   async loginWithOTP(email, otpHash, ip = null) {
     try {
       await db.executeSP(
-        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_is_owner, @p_user_name, @p_contact_number, @p_business_name, @p_error_message)`,
+        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, @p_error_message)`,
         [email, otpHash, ip]
       );
 
       const out = await db.executeSelect(`
         SELECT @p_user_id user_id, @p_business_id business_id,
-               @p_branch_id branch_id, @p_role_id role_id, @p_is_owner is_owner,
-               @p_user_name user_name, @p_contact_number contact_number,
-               @p_business_name business_name, @p_error_message error_message
+               @p_branch_id branch_id, @p_role_id role_id,
+               @p_contact_number contact_number, @p_user_name user_name,
+               @p_business_name business_name, @p_branch_name branch_name,
+               @p_role_name role_name, @p_is_owner is_owner,
+               @p_error_message error_message
       `);
 
       if (!out.user_id) throw new Error(out.error_message || "Login failed");
@@ -98,12 +119,17 @@ class AuthRepository {
         business_id: out.business_id,
         branch_id: out.branch_id,
         role_id: out.role_id,
-        is_owner: !!out.is_owner,
-        user_name: out.user_name,
+        email: email,
         contact_number: out.contact_number,
-        business_name: out.business_name
+        user_name: out.user_name,
+        business_name: out.business_name,
+        branch_name: out.branch_name,
+        role_name: out.role_name,
+        is_owner: !!out.is_owner,
       };
-    } catch (e) { throw new Error(`Failed to login: ${e.message}`); }
+    } catch (e) {
+      throw new Error(`Failed to login: ${e.message}`);
+    }
   }
 
   // ======================== CREATE SESSION ========================
@@ -119,8 +145,14 @@ class AuthRepository {
                @p_expiry_at expiry_at, @p_error_code error_code, @p_error_message error_message
       `);
 
-      return { isSuccess: out.success == 1, sessionToken: out.session_token, expiryAt: out.expiry_at };
-    } catch (e) { throw new Error(`Failed to create session: ${e.message}`); }
+      return {
+        isSuccess: out.success == 1,
+        sessionToken: out.session_token,
+        expiryAt: out.expiry_at,
+      };
+    } catch (e) {
+      throw new Error(`Failed to create session: ${e.message}`);
+    }
   }
 
   // ======================== EXTEND SESSION ========================
@@ -143,10 +175,14 @@ class AuthRepository {
         @p_error_message AS error_message`
       );
 
-      const success = (output.success == 1);
+      const success = output.success == 1;
 
       if (!success) {
-        throw new Error(`${output.error_code || "ERR_UNKNOWN"}: ${output.error_message || "Failed to extend session"}`);
+        throw new Error(
+          `${output.error_code || "ERR_UNKNOWN"}: ${
+            output.error_message || "Failed to extend session"
+          }`
+        );
       }
 
       return {
@@ -154,9 +190,8 @@ class AuthRepository {
         sessionToken: output.session_token,
         expiryAt: output.expiry_at,
         errorCode: output.error_code,
-        errorMessage: output.error_message
+        errorMessage: output.error_message,
       };
-
     } catch (error) {
       throw new Error(`Failed to extend session: ${error.message}`);
     }
@@ -174,10 +209,13 @@ class AuthRepository {
         SELECT @p_success success, @p_error_code error_code, @p_error_message error_message
       `);
 
-      if (!(out.success == 1)) throw new Error(`${out.error_code}: ${out.error_message}`);
+      if (!(out.success == 1))
+        throw new Error(`${out.error_code}: ${out.error_message}`);
 
       return { success: true };
-    } catch (e) { throw new Error(`Failed to logout: ${e.message}`); }
+    } catch (e) {
+      throw new Error(`Failed to logout: ${e.message}`);
+    }
   }
 }
 

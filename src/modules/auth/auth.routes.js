@@ -2,8 +2,8 @@
 const express = require("express");
 const authController = require("./auth.controller");
 const {
-  requireBothTokens,
   requireAccessToken,
+  requireSessionToken,
 } = require("../../middlewares/token-validation.middleware");
 
 const router = express.Router();
@@ -17,7 +17,11 @@ router.post(
   requireAccessToken,
   authController.decryptUserData
 );
-router.post("/refresh-tokens", requireBothTokens, authController.refreshTokens);
+router.post(
+  "/refresh-tokens",
+  requireSessionToken,
+  authController.refreshTokens
+);
 router.post("/logout", requireAccessToken, authController.logout);
 
 module.exports = router;

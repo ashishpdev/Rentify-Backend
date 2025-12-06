@@ -4,15 +4,11 @@ const EmailService = require("../../services/email.service");
 const TokenUtil = require("../../utils/access_token.util");
 const SessionTokenUtil = require("../../utils/session_token.util");
 const OTPUtil = require("../../utils/otp.util");
-const dbConnection = require("../../database/connection");
 const logger = require("../../config/logger.config");
 const {
   DatabaseError,
   AuthenticationError,
 } = require("../../utils/errors.util");
-const {
-  SESSION_OPERATIONS,
-} = require("../../constants/operations");
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
@@ -126,13 +122,7 @@ class AuthService {
   }
 
   // ======================== LOGIN WITH OTP ========================
-  async loginWithOTP(
-    email,
-    otpCode,
-    otp_type_id,
-    ipAddress = null,
-    userAgent = null
-  ) {
+  async loginWithOTP(email, otpCode, ipAddress = null) {
     try {
       // Hash the OTP code
       const hash = OTPUtil.hashOTP(otpCode);
@@ -150,10 +140,13 @@ class AuthService {
         business_id: user.business_id,
         branch_id: user.branch_id,
         role_id: user.role_id,
-        is_owner: user.is_owner,
-        user_name: user.user_name,
+        email: user.email,
         contact_number: user.contact_number,
+        user_name: user.user_name,
         business_name: user.business_name,
+        branch_name: user.branch_name,
+        role_name: user.role_name,
+        is_owner: user.is_owner,
         ip_address: ipAddress,
         device_id: `device_${user.user_id}_${Date.now()}`,
       };
@@ -180,10 +173,13 @@ class AuthService {
         business_id: user.business_id,
         branch_id: user.branch_id,
         role_id: user.role_id,
-        is_owner: user.is_owner,
-        user_name: user.user_name,
+        email: user.email,
         contact_number: user.contact_number,
+        user_name: user.user_name,
         business_name: user.business_name,
+        branch_name: user.branch_name,
+        role_name: user.role_name,
+        is_owner: user.is_owner,
         session_token: sessionResult.sessionToken,
       };
     } catch (err) {
@@ -245,60 +241,70 @@ class AuthService {
   // inside src/modules/auth/auth.service.js
 
   // ======================== REFRESH TOKENS ========================
-async refreshTokens(currentSessionToken) {
-  try {
-    // Decrypt current session token locally
-    const currentSessionData = SessionTokenUtil.decryptSessionToken(currentSessionToken);
+  async refreshTokens(currentSessionToken) {
+    try {
+      // Decrypt current session token locally
+      const currentSessionData =
+        SessionTokenUtil.decryptSessionToken(currentSessionToken);
 
-    if (!currentSessionData || !currentSessionData.user_id) {
-      throw new AuthenticationError("Invalid session token");
+      if (!currentSessionData || !currentSessionData.user_id) {
+        throw new AuthenticationError("Invalid session token");
+      }
+
+      // Generate new access token payload
+      const tokenData = {
+        user_id: currentSessionData.user_id,
+        business_id: currentSessionData.business_id,
+        branch_id: currentSessionData.branch_id,
+        role_id: currentSessionData.role_id,
+        email: currentSessionData.email,
+        contact_number: currentSessionData.contact_number,
+        user_name: currentSessionData.user_name,
+        business_name: currentSessionData.business_name,
+        branch_name: currentSessionData.branch_name,
+        role_name: currentSessionData.role_name,
+        is_owner: currentSessionData.is_owner,
+      };
+
+      const accessTokenResult = TokenUtil.generateAccessToken(tokenData);
+
+      // Generate rotated session token
+      const extendedSessionTokenObj =
+        SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
+      const newSessionToken = extendedSessionTokenObj.sessionToken;
+      const newExpiryAt = extendedSessionTokenObj.expiresAt;
+
+      // Persist rotation in DB (extendSession stored procedure)
+      // NOTE: extendSession in repository expects: (userId, oldSessionToken, newSessionToken, newExpiryAt)
+      const repoResult = await authRepository.extendSession(
+        currentSessionData.user_id,
+        currentSessionToken,
+        newSessionToken,
+        newExpiryAt
+      );
+
+      if (!repoResult.isSuccess) {
+        throw new Error(
+          repoResult.errorMessage || "Failed to rotate session token"
+        );
+      }
+
+      return {
+        isSuccess: true,
+        accessToken: accessTokenResult.accessToken,
+        accessExpiresAt: accessTokenResult.expiresAt,
+        sessionToken: newSessionToken,
+        sessionExpiresAt: newExpiryAt,
+        sessionMaxAgeMs: parseInt(
+          process.env.SESSION_COOKIE_MAXAGE_MS || String(60 * 60 * 1000),
+          10
+        ),
+      };
+    } catch (err) {
+      logger.error("AuthService.refreshTokens error", { error: err.message });
+      throw err;
     }
-
-    // Generate new access token payload
-    const tokenData = {
-      user_id: currentSessionData.user_id,
-      business_id: currentSessionData.business_id,
-      branch_id: currentSessionData.branch_id,
-      role_id: currentSessionData.role_id,
-      is_owner: currentSessionData.is_owner,
-      user_name: currentSessionData.user_name,
-      contact_number: currentSessionData.contact_number,
-      business_name: currentSessionData.business_name,
-    };
-
-    const accessTokenResult = TokenUtil.generateAccessToken(tokenData);
-
-    // Generate rotated session token
-    const extendedSessionTokenObj = SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
-    const newSessionToken = extendedSessionTokenObj.sessionToken;
-    const newExpiryAt = extendedSessionTokenObj.expiresAt;
-
-    // Persist rotation in DB (extendSession stored procedure)
-    // NOTE: extendSession in repository expects: (userId, oldSessionToken, newSessionToken, newExpiryAt)
-    const repoResult = await authRepository.extendSession(
-      currentSessionData.user_id,
-      currentSessionToken,
-      newSessionToken,
-      newExpiryAt
-    );
-
-    if (!repoResult.isSuccess) {
-      throw new Error(repoResult.errorMessage || "Failed to rotate session token");
-    }
-
-    return {
-      isSuccess: true,
-      accessToken: accessTokenResult.accessToken,
-      accessExpiresAt: accessTokenResult.expiresAt,
-      sessionToken: newSessionToken,
-      sessionExpiresAt: newExpiryAt,
-      sessionMaxAgeMs: (parseInt(process.env.SESSION_COOKIE_MAXAGE_MS || String(60 * 60 * 1000), 10)),
-    };
-  } catch (err) {
-    logger.error("AuthService.refreshTokens error", { error: err.message });
-    throw err;
   }
-}
 
   // ======================== LOGOUT ========================
   async logout(userId) {
