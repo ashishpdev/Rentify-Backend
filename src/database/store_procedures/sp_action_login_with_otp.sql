@@ -7,10 +7,12 @@ CREATE PROCEDURE sp_action_login_with_otp(
     OUT p_business_id INT,
     OUT p_branch_id INT,
     OUT p_role_id INT,
-    OUT p_is_owner BOOLEAN,
-    OUT p_user_name VARCHAR(255),
     OUT p_contact_number VARCHAR(50),
+    OUT p_user_name VARCHAR(255),
     OUT p_business_name VARCHAR(255),
+    OUT p_branch_name VARCHAR(255),
+    OUT p_role_name VARCHAR(255),
+    OUT p_is_owner BOOLEAN,
     OUT p_error_message VARCHAR(500)
 )
 BEGIN
@@ -30,10 +32,12 @@ BEGIN
     SET p_business_id = NULL;
     SET p_branch_id = NULL;
     SET p_role_id = NULL;
-    SET p_is_owner = FALSE;
-    SET p_user_name = NULL;
     SET p_contact_number = NULL;
+    SET p_user_name = NULL;
     SET p_business_name = NULL;
+    SET p_branch_name = NULL;
+    SET p_role_name = NULL;
+    SET p_is_owner = FALSE;
     SET p_error_message = NULL;
 
     /* Labeled block to control flow with LEAVE for early exits */
@@ -83,11 +87,15 @@ BEGIN
 
         -- Fetch user details from master_user
         SELECT u.master_user_id, u.business_id, u.branch_id, u.role_id, u.is_owner,
-               u.name, u.contact_number, b.business_name
+               u.name, u.contact_number, 
+               b.business_name, br.branch_name, r.name
           INTO p_user_id, p_business_id, p_branch_id, p_role_id, p_is_owner,
-               p_user_name, p_contact_number, p_business_name
+               p_user_name, p_contact_number, 
+               p_business_name, p_branch_name, p_role_name
           FROM master_user u
           JOIN master_business b ON u.business_id = b.business_id
+          LEFT JOIN master_branch br ON u.branch_id = br.branch_id
+          JOIN master_role_type r ON u.role_id = r.master_role_type_id
          WHERE u.email = p_email
            AND u.is_deleted = 0
            AND u.is_active = TRUE

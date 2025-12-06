@@ -170,22 +170,22 @@
           "response": []
         },
         {
-          "name": "POST /api/auth/extend-session",
+          "name": "POST /api/auth/refresh-tokens",
           "request": {
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{baseUrl}}/api/auth/extend-session",
+              "raw": "{{baseUrl}}/api/auth/refresh-tokens",
               "host": [
                 "{{baseUrl}}"
               ],
               "path": [
                 "api",
                 "auth",
-                "extend-session"
+                "refresh-tokens"
               ]
             },
-            "description": "Handler: authController.refreshTokens\n🔒 Requires both session_token and access_token cookies (set automatically on login)"
+            "description": "Handler: authController.refreshTokens\n🔒 Requires session_token cookie only (used to refresh expired access_token)"
           },
           "response": []
         },
