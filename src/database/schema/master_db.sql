@@ -681,7 +681,7 @@ CREATE TABLE product_model (
   product_category_id INT NOT NULL,
   model_name VARCHAR(255) NOT NULL,
   description TEXT,
-  product_images JSON NULL, -- array of image product_image_id
+  product_model_images JSON NULL, -- array of image product_image_id
   default_rent DECIMAL(12,2) NOT NULL,
   default_deposit DECIMAL(12,2) NOT NULL,
   default_warranty_days INT,
@@ -702,7 +702,7 @@ CREATE TABLE product_model (
   INDEX idx_product_model_business_branch (business_id, branch_id),
 
   CONSTRAINT uq_product_model_business_branch_segment_category_name UNIQUE (business_id, branch_id, product_segment_id, product_category_id, model_name),
-  CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
+  CONSTRAINT chk_product_model_images_json_valid CHECK (JSON_VALID(product_model_images)),
 
   CONSTRAINT fk_product_model_business  FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -732,7 +732,7 @@ CREATE TABLE asset (
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   serial_number VARCHAR(200) NOT NULL,
-  product_images JSON NULL, -- array of asset_image_id
+  product_model_images JSON NULL, -- array of asset_image_id
   product_status_id INT NOT NULL,
   product_condition_id INT NOT NULL,
   product_rental_status_id INT NOT NULL,
@@ -764,7 +764,7 @@ CREATE TABLE asset (
 
   CONSTRAINT uq_asset_business_branch_model_serial UNIQUE (business_id, branch_id, product_model_id, serial_number),
 
-  CONSTRAINT chk_product_images_json_valid CHECK (JSON_VALID(product_images)),
+  CONSTRAINT chk_product_model_images_json_valid CHECK (JSON_VALID(product_model_images)),
 
   CONSTRAINT fk_asset_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1185,13 +1185,12 @@ CREATE TABLE reservations (
 
 -- images for products like
 -- Ex: Canon EOS 5D Mark IV, iPhone 13 Pro
-DROP TABLE IF EXISTS product_images;
-CREATE TABLE product_images (
+DROP TABLE IF EXISTS product_model_images;
+CREATE TABLE product_model_images (
   product_image_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NULL,
-  asset_id INT NULL,
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
@@ -1214,10 +1213,6 @@ CREATE TABLE product_images (
 
   CONSTRAINT fk_product_image_product_model FOREIGN KEY (product_model_id)
     REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_product_image_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 

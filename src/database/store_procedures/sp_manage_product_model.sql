@@ -8,7 +8,7 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_model`(
     IN  p_product_category_id INT,
     IN  p_model_name VARCHAR(255),
     IN  p_description TEXT,
-    IN  p_product_images JSON,
+    IN  p_product_model_images JSON,
     IN  p_default_rent DECIMAL(12,2),
     IN  p_default_deposit DECIMAL(12,2),
     IN  p_default_warranty_days INT,
@@ -107,18 +107,14 @@ proc_body: BEGIN
 
         INSERT INTO product_model (
             business_id, branch_id, product_segment_id, product_category_id,
-            model_name, description, product_images,
-            default_rent, default_deposit, default_warranty_days,
-            total_quantity, available_quantity,
-            created_by, created_at,
+            model_name, description, product_model_images, default_rent, default_deposit,
+            default_warranty_days, total_quantity, available_quantity,
             is_active, is_deleted
         )
         VALUES (
             p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
-            p_model_name, p_description, p_product_images,
-            p_default_rent, p_default_deposit, p_default_warranty_days,
-            p_total_quantity, p_available_quantity,
-            p_user_id, UTC_TIMESTAMP(6),
+            p_model_name, p_description, p_product_model_images, p_default_rent, p_default_deposit,
+            p_default_warranty_days, p_total_quantity, p_available_quantity,
             1, 0
         );
 
@@ -174,7 +170,7 @@ proc_body: BEGIN
             product_category_id = p_product_category_id,
             model_name = p_model_name,
             description = p_description,
-            product_images = p_product_images,
+            product_model_images = p_product_model_images,
             default_rent = p_default_rent,
             default_deposit = p_default_deposit,
             default_warranty_days = p_default_warranty_days,
@@ -251,16 +247,12 @@ proc_body: BEGIN
             'product_category_id', product_category_id,
             'model_name', model_name,
             'description', description,
-            'product_images', product_images,
+            'product_model_images', product_model_images,
             'default_rent', default_rent,
             'default_deposit', default_deposit,
             'default_warranty_days', default_warranty_days,
             'total_quantity', total_quantity,
             'available_quantity', available_quantity,
-            'created_by', created_by,
-            'created_at', created_at,
-            'updated_by', updated_by,
-            'updated_at', updated_at,
             'is_active', is_active
         )
         INTO p_data
@@ -292,28 +284,21 @@ proc_body: BEGIN
         SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
                 'product_model_id', product_model_id,
-                'product_segment_id', product_segment_id,
-                'product_category_id', product_category_id,
                 'model_name', model_name,
-                'description', description,
+                'product_model_images', product_model_images,
                 'default_rent', default_rent,
-                'default_deposit', default_deposit,
-                'default_warranty_days', default_warranty_days,
-                'total_quantity', total_quantity,
-                'available_quantity', available_quantity,
-                'created_at', created_at
+                'available_quantity', available_quantity
             )
         )
         INTO p_data
         FROM product_model
         WHERE business_id = p_business_id
           AND branch_id = p_branch_id
-          AND is_deleted = 0
-        ORDER BY created_at DESC;
+          AND is_deleted = 0;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product model list fetched successfully.';
+        SET p_error_message = 'Product models fetched successfully.';
         LEAVE proc_body;
     END IF;
 

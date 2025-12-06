@@ -22,7 +22,7 @@ const createModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_images: Joi.any().allow(null).optional(),
+  product_model_images: Joi.any().allow(null).optional(),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",
@@ -86,7 +86,7 @@ const updateModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_images: Joi.any().allow(null).optional(),
+  product_model_images: Joi.any().allow(null).optional(),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",
