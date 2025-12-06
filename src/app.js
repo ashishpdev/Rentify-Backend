@@ -18,12 +18,24 @@ const app = express();
 app.use(helmet());
 
 // CORS - Cross-Origin Resource Sharing configuration
+const allowedOrigins = [
+  'https://rentzfy.com', // Production frontend
+  'https://test.rentzfy.com', // Test frontend
+  'http://localhost:4200', // Local development
+];
+
 app.use(
   cors({
-    origin:
-      config.nodeEnv === 'production'
-        ? process.env.API_URL || 'https://rentzfy.com'
-        : process.env.API_URL || 'http://localhost:3000',
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
+    },
     credentials: true, // Allow cookies to be sent
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
