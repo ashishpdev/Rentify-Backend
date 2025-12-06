@@ -1422,15 +1422,15 @@ CREATE TABLE notification_log (
   asset_id INT NULL,         
   rental_id INT NULL,        
 
-  contact_type VARCHAR(255) NOT NULL,
+  contact_type_id INT NOT NULL,
   contact_value VARCHAR(512) NOT NULL, -- mobile number or email
-  channel VARCHAR(255) NOT NULL,
+  channel_id INT NOT NULL,
 
   template_code VARCHAR(200) NULL, -- e.g. RENTAL_DUE_REMINDER, INVOICE_CREATED
   subject VARCHAR(512) NULL,
   message TEXT NULL,              -- full rendered message sent
 
-  notification_status VARCHAR(255) NOT NULL,
+  notification_status_id INT NOT NULL,
   provider_response TEXT NULL,
   attempt_count INT NOT NULL DEFAULT 0,
   scheduled_for TIMESTAMP(6) NULL, 
@@ -1453,7 +1453,7 @@ CREATE TABLE notification_log (
   INDEX idx_notification_customer (customer_id),
   INDEX idx_notification_asset (asset_id),
   INDEX idx_notification_rental (rental_id),
-  INDEX idx_notification_status_scheduled (notification_status, scheduled_for),
+  INDEX idx_notification_status_scheduled (notification_status_id, scheduled_for),
   INDEX idx_notification_contact_value (contact_value),
 
   CONSTRAINT fk_notification_log_business FOREIGN KEY (business_id)
@@ -1474,6 +1474,18 @@ CREATE TABLE notification_log (
 
   CONSTRAINT fk_notification_log_rental FOREIGN KEY (rental_id)
     REFERENCES rental(rental_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_notification_log_contact_type FOREIGN KEY (contact_type_id)
+    REFERENCES contact_type(contact_type_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_notification_log_channel FOREIGN KEY (channel_id)
+    REFERENCES notification_channel(notification_channel_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_notification_log_status FOREIGN KEY (notification_status_id)
+    REFERENCES notification_status(notification_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 
 ) ENGINE=InnoDB;
