@@ -278,11 +278,13 @@ class AuthController {
         business_id: user.business_id,
         branch_id: user.branch_id,
         role_id: user.role_id,
-        is_owner: user.is_owner,
-        user_name: user.user_name,
+        email: user.email,
         contact_number: user.contact_number,
+        user_name: user.user_name,
         business_name: user.business_name,
-        email: value.email,
+        branch_name: user.branch_name,
+        role_name: user.role_name,
+        is_owner: user.is_owner,
       };
       const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
       const accessToken = tokenResult.accessToken;
@@ -302,7 +304,10 @@ class AuthController {
         httpOnly: true,
         secure: COOKIE_SECURE,
         sameSite: COOKIE_SAMESITE,
-        maxAge: (parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10)) * 60 * 1000,
+        maxAge:
+          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10) *
+          60 *
+          1000,
       };
 
       res.cookie("session_token", sessionToken, sessionCookieOpts);
@@ -311,7 +316,9 @@ class AuthController {
       logger.logAuth("LOGIN_SUCCESS", {
         email: value.email,
         userId: user.user_id,
-        sessionToken: sessionToken ? sessionToken.substring(0, 20) + "..." : "failed",
+        sessionToken: sessionToken
+          ? sessionToken.substring(0, 20) + "..."
+          : "failed",
       });
 
       return ResponseUtil.success(
@@ -350,10 +357,7 @@ class AuthController {
         logger.warn("Missing access token cookie in decrypt request", {
           ip: req.ip,
         });
-        return ResponseUtil.badRequest(
-          res,
-          "access_token cookie is required"
-        );
+        return ResponseUtil.badRequest(res, "access_token cookie is required");
       }
 
       // Validate token structure
@@ -380,11 +384,13 @@ class AuthController {
         business_id: userData.business_id,
         branch_id: userData.branch_id,
         role_id: userData.role_id,
-        is_owner: userData.is_owner,
-        user_name: userData.user_name,
-        contact_number: userData.contact_number,
-        business_name: userData.business_name,
         email: userData.email,
+        contact_number: userData.contact_number,
+        user_name: userData.user_name,
+        business_name: userData.business_name,
+        branch_name: userData.branch_name,
+        role_name: userData.role_name,
+        is_owner: userData.is_owner,
       };
 
       logger.debug("User data decrypted successfully", {
@@ -436,7 +442,7 @@ class AuthController {
     }
   }
 
-// ========================= REFRESH TOKENS CONTROLLER =========================
+  // ========================= REFRESH TOKENS CONTROLLER =========================
   // Called by clients when access token expired; session cookie present
   async refreshTokens(req, res, next) {
     try {
@@ -448,7 +454,10 @@ class AuthController {
       const refreshResult = await authService.refreshTokens(sessionToken);
 
       if (!refreshResult || !refreshResult.isSuccess) {
-        return ResponseUtil.unauthorized(res, refreshResult?.errorMessage || "Failed to refresh tokens");
+        return ResponseUtil.unauthorized(
+          res,
+          refreshResult?.errorMessage || "Failed to refresh tokens"
+        );
       }
 
       // set rotated session cookie + new access token cookie
@@ -458,13 +467,16 @@ class AuthController {
         httpOnly: true,
         secure: COOKIE_SECURE,
         sameSite: COOKIE_SAMESITE,
-        maxAge: (refreshResult.sessionMaxAgeMs || 60 * 60 * 1000),
+        maxAge: refreshResult.sessionMaxAgeMs || 60 * 60 * 1000,
       });
       res.cookie("access_token", refreshResult.accessToken, {
         httpOnly: true,
         secure: COOKIE_SECURE,
         sameSite: COOKIE_SAMESITE,
-        maxAge: (parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10)) * 60 * 1000,
+        maxAge:
+          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10) *
+          60 *
+          1000,
       });
 
       return ResponseUtil.success(res, { refreshed: true }, "Tokens refreshed");
@@ -473,7 +485,6 @@ class AuthController {
       return ResponseUtil.serverError(res, "Failed to refresh tokens");
     }
   }
-
 
   // ========================= LOGOUT CONTROLLER =========================
   async logout(req, res, next) {

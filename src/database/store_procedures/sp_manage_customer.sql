@@ -104,6 +104,7 @@ proc_body: BEGIN
         FROM customer
         WHERE email = p_email
           AND business_id = p_business_id
+          AND branch_id = p_branch_id
           AND is_deleted = 1;
 
         IF v_deleted_count > 0 THEN
@@ -124,6 +125,15 @@ proc_body: BEGIN
                 updated_at = NOW()
             WHERE email = p_email
               AND business_id = p_business_id;
+
+            -- Get the reactivated customer_id
+            SELECT customer_id INTO p_id
+            FROM customer
+            WHERE email = p_email
+              AND business_id = p_business_id
+              AND branch_id = p_branch_id
+              AND is_deleted = 0
+            LIMIT 1;
 
             COMMIT;
 
