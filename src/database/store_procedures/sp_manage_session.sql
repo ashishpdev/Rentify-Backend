@@ -21,12 +21,33 @@ proc_body: BEGIN
        ================================================================ */
     DECLARE v_session_id CHAR(36);
     DECLARE v_device_id VARCHAR(255);
+    DECLARE v_cno INT DEFAULT 0;
+    DECLARE v_errno INT DEFAULT 0;
+    DECLARE v_sql_state CHAR(5) DEFAULT '00000';
+    DECLARE v_error_msg TEXT;
+
+    /* ================================================================
+       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
+       ================================================================ */
+    DECLARE EXIT HANDLER FOR 1452
+    BEGIN
+        ROLLBACK;
+        SET p_success = FALSE;
+        SET p_session_token_out = NULL;
+        SET p_error_code = 'ERR_INVALID_REFERENCE';
+        SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
+    END;
 
     /* ================================================================
        ERROR HANDLER
        ================================================================ */
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        GET DIAGNOSTICS v_cno = NUMBER;
+            GET DIAGNOSTICS CONDITION v_cno
+            v_errno = MYSQL_ERRNO,
+            v_sql_state = RETURNED_SQLSTATE,
+            v_error_msg = MESSAGE_TEXT;
         ROLLBACK;
         SET p_success = FALSE;
         SET p_session_token_out = NULL;
@@ -34,7 +55,7 @@ proc_body: BEGIN
         -- Fallback message if not set prior to exception
         IF p_error_message IS NULL THEN
             SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Database error during session operation.';
+            SET p_error_message = 'Unexpected database error occurred.';
         END IF;
     END;
 

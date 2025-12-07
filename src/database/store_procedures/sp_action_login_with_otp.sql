@@ -20,10 +20,28 @@ BEGIN
     DECLARE v_otp_status_id INT DEFAULT NULL;
     DECLARE v_expires_at DATETIME(6) DEFAULT NULL;
     DECLARE v_verified_status_id INT DEFAULT NULL;
+    DECLARE v_cno INT DEFAULT 0;
+    DECLARE v_errno INT DEFAULT 0;
+    DECLARE v_sql_state CHAR(5) DEFAULT '00000';
+    DECLARE v_error_msg TEXT;
+
+    /* ================================================================
+       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
+       ================================================================ */
+    DECLARE EXIT HANDLER FOR 1452
+    BEGIN
+        ROLLBACK;
+        SET p_error_message = 'Error: Invalid reference - Segment, Category or Model not found.';
+    END;
 
     -- Error handler for rollback
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        GET DIAGNOSTICS v_cno = NUMBER;
+            GET DIAGNOSTICS CONDITION v_cno
+            v_errno = MYSQL_ERRNO,
+            v_sql_state = RETURNED_SQLSTATE,
+            v_error_msg = MESSAGE_TEXT;
         ROLLBACK;
         SET p_error_message = 'An error occurred. Transaction rolled back.';
     END;
