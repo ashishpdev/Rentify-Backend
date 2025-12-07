@@ -8,7 +8,7 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_asset`(
     IN p_product_category_id INT,
     IN p_product_model_id INT,
     IN p_serial_number VARCHAR(200),
-    IN p_product_images JSON,
+    IN p_product_model_images JSON,
     IN p_product_status_id INT,
     IN p_product_condition_id INT,
     IN p_product_rental_status_id INT,
@@ -94,7 +94,7 @@ proc_body:BEGIN
 
         INSERT INTO asset (
             business_id, branch_id, product_segment_id, product_category_id,
-            product_model_id, serial_number, product_images, product_status_id,
+            product_model_id, serial_number, product_model_images, product_status_id,
             product_condition_id, product_rental_status_id, purchase_price, purchase_date,
             current_value, rent_price, deposit_amount, source_type_id,
             borrowed_from_business_name, borrowed_from_branch_name, purchase_bill_url,
@@ -102,7 +102,7 @@ proc_body:BEGIN
         )
         VALUES (
             p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
-            p_product_model_id, p_serial_number, p_product_images, p_product_status_id,
+            p_product_model_id, p_serial_number, p_product_model_images, p_product_status_id,
             p_product_condition_id, p_product_rental_status_id, p_purchase_price, p_purchase_date,
             p_current_value, p_rent_price, p_deposit_amount, p_source_type_id,
             p_borrowed_business, p_borrowed_branch, p_purchase_bill_url,
@@ -134,7 +134,7 @@ proc_body:BEGIN
             product_category_id = p_product_category_id,
             product_model_id = p_product_model_id,
             serial_number = p_serial_number,
-            product_images = p_product_images,
+            product_model_images = p_product_model_images,
             product_status_id = p_product_status_id,
             product_condition_id = p_product_condition_id,
             product_rental_status_id = p_product_rental_status_id,
@@ -214,7 +214,7 @@ proc_body:BEGIN
             'product_category_id',product_category_id,
             'product_model_id',product_model_id,
             'serial_number',serial_number,
-            'product_images',product_images,
+            'product_model_images',product_model_images,
             'product_status_id',product_status_id,
             'product_condition_id',product_condition_id,
             'product_rental_status_id',product_rental_status_id,
@@ -255,14 +255,11 @@ proc_body:BEGIN
 
         SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
-                'asset_id',asset_id,
-                'serial_number',serial_number,
-                'product_model_id',product_model_id,
-                'product_category_id',product_category_id,
-                'product_segment_id',product_segment_id,
-                'rent_price',rent_price,
-                'current_value',current_value,
-                'created_at',created_at
+                'asset_id', asset_id,
+                'serial_number', serial_number,
+                'product_model_images', product_model_images,
+                'product_status_id', product_status_id,
+                'rent_price', rent_price
             )
         ) INTO p_data
         FROM asset

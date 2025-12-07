@@ -7,7 +7,7 @@ class AssetService {
   async createAsset(assetData, userData) {
     try {
       const result = await assetRepository.manageAsset({
-        action: 1, // Create
+        action: 1,
         assetId: null,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -15,7 +15,7 @@ class AssetService {
         productCategoryId: assetData.product_category_id,
         productModelId: assetData.product_model_id,
         serialNumber: assetData.serial_number,
-        productImages: assetData.product_images || null,
+        productModelImages: assetData.asset_images || null, // Changed from productImages
         productStatusId: assetData.product_status_id,
         productConditionId: assetData.product_condition_id,
         productRentalStatusId: assetData.product_rental_status_id,
@@ -49,7 +49,7 @@ class AssetService {
   async updateAsset(assetData, userData) {
     try {
       const result = await assetRepository.manageAsset({
-        action: 2, // Update
+        action: 2,
         assetId: assetData.asset_id,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -57,7 +57,7 @@ class AssetService {
         productCategoryId: assetData.product_category_id,
         productModelId: assetData.product_model_id,
         serialNumber: assetData.serial_number,
-        productImages: assetData.product_images || null,
+        productModelImages: assetData.asset_images || null, // Changed from productImages
         productStatusId: assetData.product_status_id,
         productConditionId: assetData.product_condition_id,
         productRentalStatusId: assetData.product_rental_status_id,

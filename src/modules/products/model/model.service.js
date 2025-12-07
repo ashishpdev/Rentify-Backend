@@ -15,7 +15,7 @@ class ModelService {
         productCategoryId: modelData.product_category_id,
         modelName: modelData.model_name,
         description: modelData.description || null,
-        productImages: modelData.product_images || null,
+        productModelImages: modelData.product_model_images || null, // Changed from productImages
         defaultRent: modelData.default_rent,
         defaultDeposit: modelData.default_deposit,
         defaultWarrantyDays: modelData.default_warranty_days || null,
@@ -52,7 +52,7 @@ class ModelService {
         productCategoryId: modelData.product_category_id,
         modelName: modelData.model_name,
         description: modelData.description || null,
-        productImages: modelData.product_images || null,
+        productModelImages: modelData.product_model_images || null, // Changed from productImages
         defaultRent: modelData.default_rent,
         defaultDeposit: modelData.default_deposit,
         defaultWarrantyDays: modelData.default_warranty_days || null,

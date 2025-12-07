@@ -778,7 +778,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -813,7 +813,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -958,7 +958,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -993,7 +993,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
