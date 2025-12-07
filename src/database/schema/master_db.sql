@@ -1489,3 +1489,14 @@ CREATE TABLE notification_log (
     ON DELETE RESTRICT ON UPDATE CASCADE
 
 ) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS proc_error_log;
+CREATE TABLE IF NOT EXISTS proc_error_log (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    proc_name VARCHAR(128) NOT NULL,
+    proc_args TEXT,
+    mysql_errno INT NULL,
+    sql_state CHAR(5) NULL,
+    error_message TEXT,
+    server_time_utc DATETIME(6) NOT NULL DEFAULT (UTC_TIMESTAMP(6))
+);
