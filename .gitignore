@@ -3,3 +3,6 @@ logs/
 .env
 merge
 docs/logger
+sessions/
+.wwebjs_auth/
+.wwebjs_cache/
