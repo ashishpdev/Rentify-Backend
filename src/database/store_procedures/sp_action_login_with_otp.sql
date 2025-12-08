@@ -16,9 +16,8 @@ CREATE PROCEDURE sp_action_login_with_otp(
     OUT p_error_message   VARCHAR(500)
 )
 proc_label: BEGIN
-    -- =============================================
-    -- Variable Declarations
-    -- =============================================
+
+    -- Variable Declarations    
     DECLARE v_otp_record_id      CHAR(36) DEFAULT NULL;
     DECLARE v_otp_status_id      INT DEFAULT NULL;
     DECLARE v_expires_at         DATETIME(6) DEFAULT NULL;
@@ -37,10 +36,10 @@ proc_label: BEGIN
     DECLARE v_sql_state          CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg          TEXT;
 
-    -- =============================================
-    -- Exception Handling
-    -- =============================================
-    
+    -- ==================================================================================
+    /* Exception Handling */
+    -- ==================================================================================
+
     -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
@@ -96,9 +95,7 @@ proc_label: BEGIN
         );
     END;
 
-    -- =============================================
     -- Initialization
-    -- =============================================
     SET p_user_id        = NULL;
     SET p_business_id    = NULL;
     SET p_branch_id      = NULL;
@@ -112,7 +109,7 @@ proc_label: BEGIN
     SET p_error_message  = NULL;
 
     -- =============================================
-    -- Main Logic
+    /* Main Logic */
     -- =============================================
     START TRANSACTION;
 
