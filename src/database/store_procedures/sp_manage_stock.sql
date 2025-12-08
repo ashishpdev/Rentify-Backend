@@ -10,10 +10,29 @@ CREATE PROCEDURE `sp_manage_stock`(
 BEGIN
     DECLARE v_role_id INT DEFAULT NULL;
     DECLARE v_exists INT DEFAULT 0;
+    DECLARE v_cno INT DEFAULT 0;
+    DECLARE v_errno INT DEFAULT 0;
+    DECLARE v_sql_state CHAR(5) DEFAULT '00000';
+    DECLARE v_error_msg TEXT;
+
+    /* ================================================================
+       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
+       ================================================================ */
+    DECLARE EXIT HANDLER FOR 1452
+    BEGIN
+        ROLLBACK;
+        SELECT 'Error: Invalid reference - Segment, Category or Model not found.' AS message, 0 AS success;
+    END;
 
     -- ERROR HANDLER
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        GET DIAGNOSTICS v_cno = NUMBER;
+            GET DIAGNOSTICS CONDITION v_cno
+            v_errno = MYSQL_ERRNO,
+            v_sql_state = RETURNED_SQLSTATE,
+            v_error_msg = MESSAGE_TEXT;
+        ROLLBACK;
         SELECT 'Error: Something went wrong.' AS message, 0 AS success;
     END;
 
