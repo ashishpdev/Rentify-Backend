@@ -1,66 +1,141 @@
 // src/modules/whatsapp/whatsapp.controller.js
 
-const { initWhatsapp, getQr, getClient, getStatus } = require("./whatsapp.init");
-const fs = require("fs");
-const path = require("path");
+const WhatsappService = require("./whatsapp.service");
+const { WhatsappValidator } = require("./whatsapp.validator");
+const ResponseUtil = require("../../utils/response.util");
 
 class WhatsappController {
+  // ========== QR Generate API ==========
+  async generateQR(req, res) {
+    try {
+      const { businessId } = req.params;
 
-    // ========== QR Generate API ==========
-    async generateQR(req, res) {
-        const { businessId } = req.params;
+      // Validate business ID
+      const { error } = WhatsappValidator.validateBusinessId({ businessId });
+      if (error) {
+        return ResponseUtil.badRequest(res, "Validation failed", error.details);
+      }
 
-        await initWhatsapp(businessId);
+      const result = await WhatsappService.generateQRCode(businessId);
 
-        const status = getStatus(businessId);
-        const qr = getQr(businessId);
-
-        return res.json({
-            businessId,
-            status,
-            qr_base64: qr || null   // frontend will show if available
+      if (result.success) {
+        const statusCode = WhatsappService.getHttpStatusCode(result.data.status);
+        return res.status(statusCode).json({
+          success: true,
+          message: result.data.message,
+          data: {
+            businessId: result.data.businessId,
+            status: result.data.status,
+            qr_base64: result.data.qr_base64,
+          },
         });
-    }
+      }
 
-    // ========== Status API ==========
-    async getStatus(req, res) {
-        const { businessId } = req.params;
-        return res.json({
-            businessId,
-            status: getStatus(businessId)
+      return ResponseUtil.serverError(res, "Failed to generate QR code");
+    } catch (error) {
+      return ResponseUtil.serverError(res, error.message);
+    }
+  }
+
+  // ========== Status API ==========
+  async getStatus(req, res) {
+    try {
+      const { businessId } = req.params;
+
+      // Validate business ID
+      const { error } = WhatsappValidator.validateBusinessId({ businessId });
+      if (error) {
+        return ResponseUtil.badRequest(res, "Validation failed", error.details);
+      }
+
+      const result = WhatsappService.getConnectionStatus(businessId);
+
+      if (result.success) {
+        const statusCode = WhatsappService.getHttpStatusCode(result.data.status);
+        return res.status(statusCode).json({
+          success: true,
+          message: result.data.message,
+          data: {
+            businessId: result.data.businessId,
+            status: result.data.status,
+            isConnected: result.data.isConnected,
+            requiresQR: result.data.requiresQR,
+          },
         });
+      }
+
+      return ResponseUtil.serverError(res, "Failed to get status");
+    } catch (error) {
+      return ResponseUtil.serverError(res, error.message);
     }
+  }
 
-    // ========== Send Message ==========
-    async sendMessage(req, res) {
-        const { businessId } = req.params;
-        const { number, message } = req.body;
+  // ========== Send Message ==========
+  async sendMessage(req, res) {
+    try {
+      const { businessId } = req.params;
+      const { number, message } = req.body;
 
-        const client = getClient(businessId);
+      // Validate input
+      const { error } = WhatsappValidator.validateSendMessage({
+        businessId,
+        number,
+        message,
+      });
+      if (error) {
+        return ResponseUtil.badRequest(res, "Validation failed", error.details);
+      }
 
-        if (!client || getStatus(businessId) !== "connected") {
-            return res.status(400).json({
-                error: "WhatsApp not connected. Scan QR first."
-            });
-        }
+      const result = await WhatsappService.sendMessage(
+        businessId,
+        number,
+        message
+      );
 
-        try {
-            await client.sendMessage(`${number.replace(/\D/g, '')}@c.us`, message);
-            res.json({ success: true, sent_by: businessId });
-        } catch (err) {
-            return res.status(500).json({ error: err.message });
-        }
+      if (result.success) {
+        return ResponseUtil.success(res, result.data, result.data.message);
+      }
+
+      // Handle not connected status
+      if (result.requiresQR) {
+        return res.status(503).json({
+          success: false,
+          message: result.message,
+          data: {
+            status: result.status,
+            requiresQR: true,
+          },
+        });
+      }
+
+      return ResponseUtil.serverError(res, result.error || "Failed to send message");
+    } catch (error) {
+      return ResponseUtil.serverError(res, error.message);
     }
+  }
 
-    // ========== Logout/Destroy Session ==========
-    async logout(req, res) {
-        const { businessId } = req.params;
+  // ========== Logout/Destroy Session ==========
+  async logout(req, res) {
+    try {
+      const { businessId } = req.params;
 
-        const folder = path.join("./sessions", `business_${businessId}`);
-        if (fs.existsSync(folder)) fs.rmSync(folder, { recursive: true, force: true });
+      // Validate business ID
+      const { error } = WhatsappValidator.validateBusinessId({ businessId });
+      if (error) {
+        return ResponseUtil.badRequest(res, "Validation failed", error.details);
+      }
 
-        return res.json({ success: true, message: "Session cleared, user must re-scan QR." });
+      const result = await WhatsappService.logout(businessId);
+
+      if (result.success) {
+        return ResponseUtil.success(res, result.data, result.data.message);
+      }
+
+      return ResponseUtil.serverError(res, "Failed to logout");
+    } catch (error) {
+      return ResponseUtil.serverError(res, error.message);
     }
+  }
 }
 
 module.exports = new WhatsappController();

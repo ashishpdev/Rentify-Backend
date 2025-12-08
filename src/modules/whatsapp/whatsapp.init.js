@@ -55,4 +55,17 @@ const getClient = (businessId) => sessions[businessId]?.client;
 const getQr = (businessId) => sessions[businessId]?.qr;
 const getStatus = (businessId) => sessions[businessId]?.status || "not_initialized";
 
-module.exports = { initWhatsapp, getClient, getQr, getStatus };
+const destroySession = async (businessId) => {
+    if (sessions[businessId]?.client) {
+        try {
+            await sessions[businessId].client.logout();
+            await sessions[businessId].client.destroy();
+        } catch (err) {
+            console.log(`⚠️ Error destroying client for business ${businessId}:`, err.message);
+        }
+    }
+    delete sessions[businessId];
+    console.log(`🗑️ Session destroyed for business ${businessId}`);
+};
+
+module.exports = { initWhatsapp, getClient, getQr, getStatus, destroySession };
