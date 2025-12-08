@@ -33,30 +33,22 @@ const createModelSchema = Joi.object({
     "number.min": "Default deposit must be at least 0",
     "any.required": "Default deposit is required",
   }),
-  default_warranty_days: Joi.number()
-    .integer()
-    .min(0)
-    .allow(null)
-    .optional()
-    .messages({
+  default_warranty_days: Joi.number().integer().min(0).allow(null).optional().messages({
       "number.base": "Default warranty days must be a number",
       "number.integer": "Default warranty days must be an integer",
       "number.min": "Default warranty days must be at least 0",
     }),
-  total_quantity: Joi.number().integer().min(0).optional().default(0).messages({
+  total_quantity: Joi.number().integer().min(0).required().messages({
     "number.base": "Total quantity must be a number",
     "number.integer": "Total quantity must be an integer",
     "number.min": "Total quantity must be at least 0",
+    "any.required": "Total quantity is required",
   }),
-  available_quantity: Joi.number()
-    .integer()
-    .min(0)
-    .optional()
-    .default(0)
-    .messages({
+  available_quantity: Joi.number().integer().min(0).required().messages({
       "number.base": "Available quantity must be a number",
       "number.integer": "Available quantity must be an integer",
       "number.min": "Available quantity must be at least 0",
+      "any.required": "Available quantity is required",
     }),
 });
 

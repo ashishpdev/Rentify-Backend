@@ -123,13 +123,13 @@ proc_body: BEGIN
 
         INSERT INTO product_model (
             business_id, branch_id, product_segment_id, product_category_id,
-            model_name, description, product_model_images, default_rent, default_deposit,
+            model_name, description, default_rent, default_deposit,
             default_warranty_days, total_quantity, available_quantity,
             is_active, is_deleted
         )
         VALUES (
             p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
-            p_model_name, p_description, p_product_model_images, p_default_rent, p_default_deposit,
+            p_model_name, p_description, p_default_rent, p_default_deposit,
             p_default_warranty_days, p_total_quantity, p_available_quantity,
             1, 0
         );
@@ -186,7 +186,6 @@ proc_body: BEGIN
             product_category_id = p_product_category_id,
             model_name = p_model_name,
             description = p_description,
-            product_model_images = p_product_model_images,
             default_rent = p_default_rent,
             default_deposit = p_default_deposit,
             default_warranty_days = p_default_warranty_days,
@@ -263,7 +262,6 @@ proc_body: BEGIN
             'product_category_id', product_category_id,
             'model_name', model_name,
             'description', description,
-            'product_model_images', product_model_images,
             'default_rent', default_rent,
             'default_deposit', default_deposit,
             'default_warranty_days', default_warranty_days,
@@ -301,7 +299,6 @@ proc_body: BEGIN
             JSON_OBJECT(
                 'product_model_id', product_model_id,
                 'model_name', model_name,
-                'product_model_images', product_model_images,
                 'default_rent', default_rent,
                 'available_quantity', available_quantity
             )
