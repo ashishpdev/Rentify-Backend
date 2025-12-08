@@ -15,12 +15,12 @@ class ModelService {
         productCategoryId: modelData.product_category_id,
         modelName: modelData.model_name,
         description: modelData.description || null,
-        productModelImages: modelData.product_model_images || null, // Changed from productImages
+        productModelImages: modelData.product_model_images || null,
         defaultRent: modelData.default_rent,
         defaultDeposit: modelData.default_deposit,
         defaultWarrantyDays: modelData.default_warranty_days || null,
-        totalQuantity: modelData.total_quantity || 0,
-        availableQuantity: modelData.available_quantity || 0,
+        totalQuantity: modelData.total_quantity,
+        availableQuantity: modelData.available_quantity,
         userId: userData.user_id,
         roleId: userData.role_id,
       });

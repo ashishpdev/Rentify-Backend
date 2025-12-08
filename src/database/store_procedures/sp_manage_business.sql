@@ -31,37 +31,64 @@ proc_body: BEGIN
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-       ================================================================ */
+    -- =============================================
+    -- Exception Handling
+    -- =============================================
+    
+    -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
-        SET p_success = FALSE;
-        SET p_error_code = 'ERR_INVALID_REFERENCE';
-        SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
+        SET p_error_message = 'Foreign key violation (likely missing reference).';
     END;
 
-    /* ================================================================
-       ERROR HANDLER
-       ================================================================ */
+    -- Specific Handler: Duplicate Key
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        ROLLBACK;
+        SET p_error_message = 'Duplicate key error (unique constraint).';
+    END;
+
+    -- Generic Handler: SQLEXCEPTION
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
-        ROLLBACK;
-        SET p_success = FALSE;
 
-        IF p_error_code IS NULL THEN
-            SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Unexpected database error occurred.';
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno     = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
+        ELSE
+            SET v_errno = NULL;
+            SET v_sql_state = NULL;
+            SET v_error_msg = 'No diagnostics available';
         END IF;
+
+        ROLLBACK;
+
+        -- Log error details
+        INSERT INTO proc_error_log(
+            proc_name, 
+            proc_args, 
+            mysql_errno, 
+            sql_state, 
+            error_message
+        )
+        VALUES (
+            'sp_action_login_with_otp',
+            CONCAT('p_email=', LEFT(p_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
+            v_errno,
+            v_sql_state,
+            LEFT(v_error_msg, 2000)
+        );
+
+        -- Safe return message
+        SET p_error_message = CONCAT(
+            'Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'),
+            ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.'
+        );
     END;
-
-
 
     /* ================================================================
        RESET OUTPUT PARAMETERS
@@ -213,8 +240,7 @@ proc_body: BEGIN
             contact_person = p_contact_person,
             contact_number = p_contact_number,
             status_id = v_business_status_id,
-            updated_by = p_created_by,
-            updated_at = UTC_TIMESTAMP(6)
+            updated_by = p_created_by
         WHERE business_id = p_business_id AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
@@ -246,8 +272,7 @@ proc_body: BEGIN
         SET 
             is_deleted = 1,
             deleted_at = UTC_TIMESTAMP(6),
-            updated_by = p_created_by,
-            updated_at = UTC_TIMESTAMP(6)
+            updated_by = p_created_by
         WHERE business_id = p_business_id AND is_deleted = 0;
 
         IF ROW_COUNT() = 0 THEN
