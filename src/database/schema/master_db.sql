@@ -1189,6 +1189,7 @@ CREATE TABLE product_model_images (
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
+  image_order INT NOT NULL DEFAULT 0,
   
   created_by VARCHAR(255),
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -1197,6 +1198,9 @@ CREATE TABLE product_model_images (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_product_model_order (product_model_id, business_id, branch_id, image_order),
+  INDEX idx_is_primary (is_primary),
 
   CONSTRAINT fk_product_image_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)

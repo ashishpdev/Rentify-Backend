@@ -1,6 +1,8 @@
 // src/modules/products/model/model.validator.js
 const Joi = require("joi");
 
+const base64DataRegex = /^(?:data:[\w-]+\/[\w+.-]+;base64,)?(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+
 const createModelSchema = Joi.object({
   product_segment_id: Joi.number().integer().positive().required().messages({
     "number.base": "Product segment ID must be a number",
@@ -22,7 +24,37 @@ const createModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_model_images: Joi.any().allow(null).optional(),
+  product_model_images: Joi.array()
+    .items(
+      Joi.object({
+        // allow either a standard URI or base64 data (raw or data URI)
+        url: Joi.alternatives()
+          .try(Joi.string().uri(), Joi.string().pattern(base64DataRegex))
+          .required()
+          .messages({
+            "string.base": "Image URL must be a string",
+            "alternatives.match": "Image must be a valid URI or base64 data (raw base64 or data URI)",
+            "string.pattern.base": "Image must be valid base64 data or data URI",
+            "any.required": "Image URL is required",
+          }),
+        alt_text: Joi.string().max(512).optional().messages({
+          "string.base": "Alt text must be a string",
+          "string.max": "Alt text must be at most 512 characters",
+        }),
+        is_primary: Joi.boolean().optional().messages({
+          "boolean.base": "Is primary must be a boolean",
+        }),
+        image_order: Joi.number().integer().positive().optional().messages({
+          "number.base": "Image order must be a number",
+          "number.integer": "Image order must be an integer",
+          "number.positive": "Image order must be positive",
+        }),
+      })
+    )
+    .optional()
+    .messages({
+      "array.base": "Product model images must be an array",
+    }),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",
@@ -78,7 +110,36 @@ const updateModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_model_images: Joi.any().allow(null).optional(),
+  product_model_images: Joi.array()
+    .items(
+      Joi.object({
+        url: Joi.alternatives()
+          .try(Joi.string().uri(), Joi.string().pattern(base64DataRegex))
+          .required()
+          .messages({
+            "string.base": "Image URL must be a string",
+            "alternatives.match": "Image must be a valid URI or base64 data (raw base64 or data URI)",
+            "string.pattern.base": "Image must be valid base64 data or data URI",
+            "any.required": "Image URL is required",
+          }),
+        alt_text: Joi.string().max(512).optional().messages({
+          "string.base": "Alt text must be a string",
+          "string.max": "Alt text must be at most 512 characters",
+        }),
+        is_primary: Joi.boolean().optional().messages({
+          "boolean.base": "Is primary must be a boolean",
+        }),
+        image_order: Joi.number().integer().positive().optional().messages({
+          "number.base": "Image order must be a number",
+          "number.integer": "Image order must be an integer",
+          "number.positive": "Image order must be positive",
+        }),
+      })
+    )
+    .optional()
+    .messages({
+      "array.base": "Product model images must be an array",
+    }),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",

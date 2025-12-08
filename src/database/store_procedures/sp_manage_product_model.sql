@@ -52,10 +52,16 @@ proc_body: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
+        ELSE
+            SET v_errno = NULL;
+            SET v_sql_state = NULL;
+            SET v_error_msg = 'No diagnostics available';
+        END IF;
         ROLLBACK;
         SET p_success = FALSE;
         IF p_error_code IS NULL THEN

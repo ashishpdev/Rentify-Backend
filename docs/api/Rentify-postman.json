@@ -778,7 +778,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": [],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 123,\n  \"available_quantity\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -813,7 +813,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": [],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
               "options": {
                 "raw": {
                   "language": "json"
