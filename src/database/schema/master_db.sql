@@ -684,6 +684,8 @@ CREATE TABLE product_model (
   default_rent DECIMAL(12,2) NOT NULL,
   default_deposit DECIMAL(12,2) NOT NULL,
   default_warranty_days INT,
+
+  -- Move this to stock table later
   total_quantity INT NOT NULL DEFAULT 0,
   available_quantity INT NOT NULL DEFAULT 0,
   
@@ -1227,6 +1229,7 @@ CREATE TABLE asset_images (
   url VARCHAR(1024) NOT NULL,
   alt_text VARCHAR(512),
   is_primary TINYINT(1) DEFAULT 0,
+  image_order INT NOT NULL DEFAULT 0,
   
   created_by VARCHAR(255),
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -1235,6 +1238,9 @@ CREATE TABLE asset_images (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_product_model_order (asset_image_id, business_id, branch_id, product_model_id, image_order),
+  INDEX idx_is_primary (is_primary),
 
   CONSTRAINT fk_asset_image_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1301,10 +1307,10 @@ CREATE TABLE stock (
   product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
-  total_quantity INT NOT NULL DEFAULT 0,
-  available_quantity INT NOT NULL DEFAULT 0,
-  reserved_quantity INT NOT NULL DEFAULT 0,
-  borrowed_quantity INT NOT NULL DEFAULT 0,
+  available_quantity INT NOT NULL DEFAULT 0, --At time of New stock add
+  borrowed_quantity INT NOT NULL DEFAULT 0, -- At time of New stock add
+  reserved_quantity INT NOT NULL DEFAULT 0, -- After added
+  total_quantity INT NOT NULL DEFAULT 0, -- Totoal of available + reserved + borrowed
   last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
   
   PRIMARY KEY (business_id, branch_id, product_model_id),
