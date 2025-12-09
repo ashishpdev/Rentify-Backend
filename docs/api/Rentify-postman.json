@@ -42,7 +42,8 @@
             },
             "description": "Handler: authController.sendOTP\n🔓 Public endpoint - No authentication required"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otp_type_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/auth/verify-otp",
@@ -68,7 +69,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -77,7 +78,8 @@
             },
             "description": "Handler: authController.verifyOTP\n🔓 Public endpoint - No authentication required"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/auth/login",
@@ -103,7 +105,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern123\",\n  \"otp_type_id\": 123\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -112,7 +114,8 @@
             },
             "description": "Handler: authController.loginWithOTP\n🔓 Public endpoint - No authentication required"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/auth/complete-registration",
@@ -138,7 +141,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern123\"\n}",
+              "raw": "{\n  \"businessName\": \"string\",\n  \"businessEmail\": \"user@example.com\",\n  \"ownerName\": \"string\",\n  \"ownerEmail\": \"user@example.com\",\n  \"ownerContactNumber\": \"pattern_example\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -147,7 +150,8 @@
             },
             "description": "Handler: authController.completeRegistration\n🔓 Public endpoint - No authentication required"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- businessName: string (required) — example: \"string\"\n- businessEmail: string (required) — example: \"user@example.com\"\n- ownerName: string (required) — example: \"string\"\n- ownerEmail: string (required) — example: \"user@example.com\"\n- ownerContactNumber: string (required) — example: \"pattern_example\""
         },
         {
           "name": "POST /api/auth/decrypt-token",
@@ -238,7 +242,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contact_number\": \"pattern123\",\n  \"address_line\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "raw": "{\n  \"first_name\": \"string\",\n  \"last_name\": null,\n  \"email\": \"user@example.com\",\n  \"contact_number\": \"pattern_example\",\n  \"address_line\": null,\n  \"city\": null,\n  \"state\": null,\n  \"country\": null,\n  \"pincode\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -247,7 +251,8 @@
             },
             "description": "Handler: CustomerController.createCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- first_name: string (required) — example: \"string\"\n- last_name: string (optional) — example: null\n- email: string (required) — example: \"user@example.com\"\n- contact_number: string (required) — example: \"pattern_example\"\n- address_line: string (optional) — example: null\n- city: string (optional) — example: null\n- state: string (optional) — example: null\n- country: string (optional) — example: null\n- pincode: string (optional) — example: null"
         },
         {
           "name": "POST /api/customer/update",
@@ -273,7 +278,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_id\": 123,\n  \"first_name\": \"string\",\n  \"last_name\": \"string\",\n  \"email\": \"user@example.com\",\n  \"contact_number\": \"pattern123\",\n  \"address_line\": \"string\",\n  \"city\": \"string\",\n  \"state\": \"string\",\n  \"country\": \"string\",\n  \"pincode\": \"string\"\n}",
+              "raw": "{\n  \"customer_id\": 123,\n  \"first_name\": null,\n  \"last_name\": null,\n  \"email\": null,\n  \"contact_number\": null,\n  \"address_line\": null,\n  \"city\": null,\n  \"state\": null,\n  \"country\": null,\n  \"pincode\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -282,7 +287,8 @@
             },
             "description": "Handler: CustomerController.updateCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123\n- first_name: string (optional) — example: null\n- last_name: string (optional) — example: null\n- email: string (optional) — example: null\n- contact_number: string (optional) — example: null\n- address_line: string (optional) — example: null\n- city: string (optional) — example: null\n- state: string (optional) — example: null\n- country: string (optional) — example: null\n- pincode: string (optional) — example: null"
         },
         {
           "name": "POST /api/customer/get",
@@ -317,7 +323,8 @@
             },
             "description": "Handler: CustomerController.getCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/customer/list",
@@ -343,7 +350,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "raw": "{\n  \"page\": null,\n  \"limit\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -352,7 +359,8 @@
             },
             "description": "Handler: CustomerController.listCustomers\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
         },
         {
           "name": "POST /api/customer/delete",
@@ -387,7 +395,8 @@
             },
             "description": "Handler: CustomerController.deleteCustomer\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123"
         }
       ]
     },
@@ -418,7 +427,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "raw": "{\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -427,7 +436,8 @@
             },
             "description": "Handler: SegmentController.createSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- code: string (required) — example: \"string\"\n- name: string (required) — example: \"string\"\n- description: string (optional) — example: null"
         },
         {
           "name": "POST /api/segment/update",
@@ -453,7 +463,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -462,7 +472,8 @@
             },
             "description": "Handler: SegmentController.updateSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- code: string (required) — example: \"string\"\n- name: string (required) — example: \"string\"\n- description: string (optional) — example: null"
         },
         {
           "name": "POST /api/segment/get",
@@ -497,7 +508,8 @@
             },
             "description": "Handler: SegmentController.getSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/segment/list",
@@ -523,7 +535,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "raw": "{\n  \"page\": null,\n  \"limit\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -532,7 +544,8 @@
             },
             "description": "Handler: SegmentController.listSegments\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
         },
         {
           "name": "POST /api/segment/delete",
@@ -567,7 +580,8 @@
             },
             "description": "Handler: SegmentController.deleteSegment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123"
         }
       ]
     },
@@ -598,7 +612,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -607,7 +621,8 @@
             },
             "description": "Handler: CategoryController.createCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- code: string (required) — example: \"string\"\n- name: string (required) — example: \"string\"\n- description: string (optional) — example: null"
         },
         {
           "name": "POST /api/category/update",
@@ -633,7 +648,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_category_id\": 123,\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": \"string\"\n}",
+              "raw": "{\n  \"product_category_id\": 123,\n  \"product_segment_id\": 123,\n  \"code\": \"string\",\n  \"name\": \"string\",\n  \"description\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -642,7 +657,8 @@
             },
             "description": "Handler: CategoryController.updateCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_category_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- code: string (required) — example: \"string\"\n- name: string (required) — example: \"string\"\n- description: string (optional) — example: null"
         },
         {
           "name": "POST /api/category/get",
@@ -677,7 +693,8 @@
             },
             "description": "Handler: CategoryController.getCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_category_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/category/list",
@@ -703,7 +720,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "raw": "{\n  \"page\": null,\n  \"limit\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -712,7 +729,8 @@
             },
             "description": "Handler: CategoryController.listCategories\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
         },
         {
           "name": "POST /api/category/delete",
@@ -747,7 +765,8 @@
             },
             "description": "Handler: CategoryController.deleteCategory\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_category_id: number (required) — example: 123"
         }
       ]
     },
@@ -778,7 +797,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": [],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 123,\n  \"available_quantity\": 123\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null,\n  \"total_quantity\": 123,\n  \"available_quantity\": 123\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -787,7 +806,8 @@
             },
             "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null\n- total_quantity: number (required) — example: 123\n- available_quantity: number (required) — example: 123"
         },
         {
           "name": "POST /api/model/update",
@@ -813,7 +833,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": \"string\",\n  \"product_model_images\": [],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": 123,\n  \"total_quantity\": 0,\n  \"available_quantity\": 0\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null,\n  \"total_quantity\": null,\n  \"available_quantity\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -822,7 +842,8 @@
             },
             "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null\n- total_quantity: number (optional) — example: null\n- available_quantity: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/get",
@@ -857,7 +878,8 @@
             },
             "description": "Handler: ModelController.getModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/model/list",
@@ -883,7 +905,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "raw": "{\n  \"page\": null,\n  \"limit\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -892,7 +914,8 @@
             },
             "description": "Handler: ModelController.listModels\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/delete",
@@ -927,7 +950,8 @@
             },
             "description": "Handler: ModelController.deleteModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123"
         }
       ]
     },
@@ -958,7 +982,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -967,7 +991,8 @@
             },
             "description": "Handler: AssetController.createAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- asset_images: any (optional) — example: null\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- product_rental_status_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
         },
         {
           "name": "POST /api/asset/update",
@@ -993,7 +1018,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": 123,\n  \"purchase_date\": null,\n  \"current_value\": 123,\n  \"rent_price\": 123,\n  \"deposit_amount\": 123,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": \"string\",\n  \"borrowed_from_branch_name\": \"string\",\n  \"purchase_bill_url\": \"string\"\n}",
+              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1002,7 +1027,8 @@
             },
             "description": "Handler: AssetController.updateAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- asset_images: any (optional) — example: null\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- product_rental_status_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
         },
         {
           "name": "POST /api/asset/get",
@@ -1037,7 +1063,8 @@
             },
             "description": "Handler: AssetController.getAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123"
         },
         {
           "name": "POST /api/asset/list",
@@ -1063,7 +1090,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"page\": 1,\n  \"limit\": 50\n}",
+              "raw": "{\n  \"page\": null,\n  \"limit\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1072,7 +1099,8 @@
             },
             "description": "Handler: AssetController.listAssets\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
-          "response": []
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
         },
         {
           "name": "POST /api/asset/delete",
@@ -1106,6 +1134,112 @@
               }
             },
             "description": "Handler: AssetController.deleteAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123"
+        }
+      ]
+    },
+    {
+      "name": "Whatsapp",
+      "item": [
+        {
+          "name": "GET /api/whatsapp/qr/:businessId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/qr/:businessId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "whatsapp",
+                "qr",
+                ":businessId"
+              ]
+            },
+            "description": "Handler: WhatsappController.generateQR\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/whatsapp/status/:businessId",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/status/:businessId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "whatsapp",
+                "status",
+                ":businessId"
+              ]
+            },
+            "description": "Handler: WhatsappController.getStatus\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": []
+        },
+        {
+          "name": "POST /api/whatsapp/send/:businessId",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/send/:businessId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "whatsapp",
+                "send",
+                ":businessId"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"businessId\": \"string\",\n  \"number\": \"pattern_example\",\n  \"message\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: WhatsappController.sendMessage\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- businessId: string (required) — example: \"string\"\n- number: string (required) — example: \"pattern_example\"\n- message: string (required) — example: \"string\""
+        },
+        {
+          "name": "DELETE /api/whatsapp/logout/:businessId",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/whatsapp/logout/:businessId",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "whatsapp",
+                "logout",
+                ":businessId"
+              ]
+            },
+            "description": "Handler: WhatsappController.logout\n🔒 Requires access_token cookie only"
           },
           "response": []
         }
