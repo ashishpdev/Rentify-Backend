@@ -1,4 +1,4 @@
-DROP PROCEDURE IF EXISTS sp_manage_product_model;
+DROP PROCEDURE sp_manage_product_model;
 CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_model`(
     IN  p_action INT,                          -- 1=Create, 2=Update, 3=Delete, 4=GetSingle, 5=GetAll
     IN  p_product_model_id INT,
@@ -301,26 +301,40 @@ proc_body: BEGIN
        ================================================================ */
     IF p_action = 5 THEN
 
-        SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'product_model_id', product_model_id,
-                'model_name', model_name,
-                'default_rent', default_rent,
-                'available_quantity', available_quantity
-            )
-        )
-        INTO p_data
-        FROM product_model
-        WHERE business_id = p_business_id
-          AND branch_id = p_branch_id
-          AND is_deleted = 0;
+        SELECT IFNULL(
+            JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'product_model_id', pm.product_model_id,
+                    'model_name', pm.model_name,
+                    'default_rent', pm.default_rent,
+                    'available_quantity', pm.available_quantity,
+                    'total_quantity', pm.total_quantity,
+
+                    'product_category_id', pm.product_category_id,
+                    'category_name', pc.name,
+
+                    'product_segment_id', pm.product_segment_id,
+                    'segment_name', ps.name,
+
+                    'created_at', pm.created_at,
+                    'status', CASE WHEN pm.is_active = 1 THEN 'Active' ELSE 'Inactive' END
+                )
+            ),
+            JSON_ARRAY()
+        ) INTO p_data
+        FROM product_model pm
+        STRAIGHT_JOIN product_category pc ON pm.product_category_id = pc.product_category_id
+        STRAIGHT_JOIN product_segment ps ON pm.product_segment_id = ps.product_segment_id
+        WHERE pm.business_id = p_business_id
+        AND pm.branch_id = p_branch_id
+        AND pm.is_deleted = 0;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
         SET p_error_message = 'Product models fetched successfully.';
         LEAVE proc_body;
-    END IF;
 
+    END IF;
 
 
     /* ================================================================
@@ -329,4 +343,4 @@ proc_body: BEGIN
     SET p_error_code = 'ERR_INVALID_ACTION';
     SET p_error_message = 'Invalid action provided.';
 
-END;
+END
