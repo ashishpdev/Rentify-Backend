@@ -517,7 +517,7 @@ proc_body: BEGIN
                     -- attach image array (or empty array)
                     SET v_models_json = JSON_SET(
                         v_models_json,
-                        CONCAT('$[', v_idx, '].images'),
+                        CONCAT('$[', v_idx, '].product_model_images'),
                         JSON_EXTRACT(IFNULL(v_images_json, '[]'), '$')
                     );
                 ELSE
