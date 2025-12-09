@@ -518,7 +518,7 @@ proc_body: BEGIN
                     SET v_models_json = JSON_SET(
                         v_models_json,
                         CONCAT('$[', v_idx, '].images'),
-                        IFNULL(v_images_json, JSON_ARRAY())
+                        JSON_EXTRACT(IFNULL(v_images_json, '[]'), '$')
                     );
                 ELSE
                     -- attach empty images array if product model id not present
