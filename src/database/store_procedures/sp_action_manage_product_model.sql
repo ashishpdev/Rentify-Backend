@@ -439,7 +439,7 @@ proc_body: BEGIN
             NULL,                    -- p_default_deposit
             NULL,                    -- p_default_warranty_days
             NULL,                    -- p_user_id
-            p_role_id,                    -- p_role_id
+            p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
@@ -451,23 +451,21 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        -- B. Get Images
+        -- B. Get Images (Action 5: Get all images for this model)
+        SET v_images_json = NULL;
         CALL sp_manage_product_model_images(
-            4, NULL, p_business_id, p_branch_id, v_product_model_id,
-            NULL, NULL, NULL, NULL, p_user_id,
+            5,  -- Action 5: Get all images
+            NULL, 
+            p_business_id, 
+            p_branch_id, 
+            v_product_model_id,
+            NULL, NULL, NULL, NULL, 
+            p_user_id,
             @s_success, @s_id, v_images_json, @s_code, @s_msg
         );
-        -- Attach Images
-        SELECT @p_success, @p_data INTO p_success, v_images_json;
-        IF NOT p_success THEN
-            ROLLBACK;
-            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-            LEAVE proc_body;
-        END IF;
-        IF p_data IS NULL THEN SET p_data = JSON_OBJECT(); END IF;
-        SET p_data = JSON_MERGE_PATCH(p_data, JSON_OBJECT('images', IFNULL(v_images_json, JSON_ARRAY())));
 
         -- C. Get Stock (Action 4: Single Stock)
+        SET v_stock_json = NULL;
         CALL sp_manage_stock(
             4, 
             p_business_id, 
@@ -481,14 +479,25 @@ proc_body: BEGIN
             p_role_id,
             @s_success, v_stock_json, @s_code, @s_msg
         );
-        
-        -- Attach Stock
-        IF @s_success AND v_stock_json IS NOT NULL THEN
-            SET p_data = JSON_MERGE_PATCH(p_data, JSON_OBJECT('stock', v_stock_json));
-        ELSE
-             -- If stock not found, attach null or empty object
-            SET p_data = JSON_MERGE_PATCH(p_data, JSON_OBJECT('stock', NULL));
+
+        -- D. Construct Final JSON Response using JSON_SET
+        -- This preserves JSON types instead of converting to strings
+        IF p_data IS NULL THEN
+            SET p_data = JSON_OBJECT();
         END IF;
+
+        -- Ensure images is always an array (even if empty)
+        SET p_data = JSON_MERGE_PATCH(
+            IFNULL(p_data, '{}'),
+            CONCAT(
+            '{"images":',
+                IF(v_images_json IS NOT NULL, v_images_json, JSON_ARRAY()),
+            ',"stock":',
+                IF(v_stock_json IS NOT NULL, v_stock_json, 'null'),
+            '}'
+            )
+        );
+
 
         COMMIT;
         SET p_success = TRUE;
@@ -542,15 +551,17 @@ proc_body: BEGIN
                 IF v_model_id IS NOT NULL THEN
                     
                     -- 1. Fetch Images for this Model
+                    SET v_images_json = NULL;
                     CALL sp_manage_product_model_images(
                         5, NULL, p_business_id, p_branch_id, v_model_id,
                         NULL, NULL, NULL, NULL, p_user_id,
                         @s_success, @s_id, v_images_json, @s_code, @s_msg
                     );
                     
-                    -- 2. Fetch Stock for this Model (Use Action 4 - Single)
+                    -- 2. Fetch Stock for this Model (Action 4 - Single)
+                    SET v_stock_json = NULL;
                     CALL sp_manage_stock(
-                        5, 
+                        4,  -- ✅ CORRECT: Get single stock record
                         p_business_id, 
                         p_branch_id, 
                         NULL, 
@@ -560,15 +571,29 @@ proc_body: BEGIN
                         NULL,
                         p_user_id, 
                         p_role_id,
-                        @s_success, @v_stock_json, @s_code, @s_msg
+                        @s_success, v_stock_json, @s_code, @s_msg
                     );
 
                     -- 3. Attach Data to current Array Item
+                    -- Ensure images is always an array (even if empty)
                     SET v_models_json = JSON_SET(
                         v_models_json,
-                        CONCAT('$[', v_idx, '].images'), JSON_EXTRACT(IFNULL(v_images_json, '[]'), '$'),
-                        CONCAT('$[', v_idx, '].stock'),  JSON_EXTRACT(IFNULL(v_stock_json, '{}'), '$')
+                        CONCAT('$[', v_idx, '].images'), 
+                        CASE 
+                            WHEN v_images_json IS NOT NULL THEN JSON_EXTRACT(v_images_json, '$')
+                            ELSE JSON_ARRAY()
+                        END
                     );
+                    
+                    SET v_models_json = JSON_SET(
+                        v_models_json,
+                        CONCAT('$[', v_idx, '].stock'),
+                        CASE
+                            WHEN v_stock_json IS NOT NULL THEN JSON_EXTRACT(v_stock_json, '$')
+                            ELSE NULL
+                        END
+                        );
+
                     
                 END IF;
 

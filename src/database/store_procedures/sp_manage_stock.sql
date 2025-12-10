@@ -179,14 +179,21 @@ proc_body: BEGIN
         ) INTO p_data
         FROM stock
         WHERE business_id = p_business_id
-          AND branch_id = p_branch_id
-          AND product_model_id = p_product_model_id
+        AND branch_id = p_branch_id
+        AND product_model_id = p_product_model_id
         LIMIT 1;
+
+        -- If no stock record found, return null (not empty object)
+        IF p_data IS NULL THEN
+            SET p_data = NULL;
+            SET p_error_message = 'No stock record found for this product model.';
+        END IF;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
         LEAVE proc_body;
     END IF;
+
 
     -- ==========================================================
     /* 5: GET ALL */
