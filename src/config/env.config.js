@@ -1,6 +1,7 @@
 // src/config/env.config.js
 const dotenv = require('dotenv');
 const path = require('path');
+const { cli } = require('winston/lib/winston/config');
 
 // Load environment variables
 dotenv.config({ path: path.join(__dirname, '../../.env') });
@@ -52,6 +53,15 @@ const config = {
     sameSite:
       process.env.COOKIE_SAMESITE ||
       (NODE_ENV === 'production' ? 'None' : 'Lax'),
+  },
+
+  drive:{
+    keyFile: process.env.GOOGLE_DRIVE_KEYFILE || 'service-account.json',
+    folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || 'YOUR_GOOGLE_DRIVE_FOLDER_ID',
+    clientId: process.env.CLIENT_ID || 'YOUR_CLIENT_ID',
+    clientSecret: process.env.CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
+    refreshToken: process.env.REFRESH_TOKEN || 'YOUR_REFRESH_TOKEN',
+    redirectUri: process.env.REIRECT_URI || 'https://developers.google.com/oauthplayground',
   },
 
   logLevel:

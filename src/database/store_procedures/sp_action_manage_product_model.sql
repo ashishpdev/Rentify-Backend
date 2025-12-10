@@ -109,14 +109,12 @@ proc_body: BEGIN
         SET p_error_message = CONCAT('Error logged (errno=', IFNULL(v_errno, '?'), ').');
     END;
 
-    -- Initialize
+    -- RESET OUTPUT PARAMETERS
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
 
-    -- ==================================================================================
     /* 1: CREATE */
-    -- ==================================================================================
     IF p_action = 1 THEN
         START TRANSACTION;
 
@@ -204,9 +202,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    -- ==================================================================================
     /* 2: UPDATE */
-    -- ==================================================================================
     IF p_action = 2 THEN
         START TRANSACTION;
 
@@ -311,24 +307,26 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    -- ==================================================================================
     /* 3: DELETE */
-    -- ==================================================================================
     IF p_action = 3 THEN
         START TRANSACTION;
 
-        -- A. Delete Stock First (Child Table)
-        CALL sp_manage_stock(
-            3,                       -- Action: Delete
-            p_business_id,
-            p_branch_id,
-            NULL, NULL,
-            p_product_model_id,
-            NULL,
-            NULL,
-            p_user_id,
-            p_role_id,
-            @p_success, @p_data, @p_error_code, @p_error_message
+        CALL sp_manage_product_model(
+            3,                       -- p_action
+            p_product_model_id,      -- p_product_model_id
+            p_business_id,           -- p_business_id
+            p_branch_id,             -- p_branch_id
+            p_product_segment_id,    -- p_product_segment_id
+            p_product_category_id,   -- p_product_category_id
+            NULL,                    -- p_model_name
+            NULL,                    -- p_description
+            NULL,                    -- p_product_model_images
+            NULL,                    -- p_default_rent
+            NULL,                    -- p_default_deposit
+            NULL,                    -- p_default_warranty_days
+            p_user_id,               -- p_user_id
+            p_role_id,               -- p_role_id
+            @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
         SELECT @p_success INTO p_success;
@@ -418,9 +416,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    -- ==================================================================================
     /* 4: GET */
-    -- ==================================================================================
     IF p_action = 4 THEN
         START TRANSACTION; -- (Optional for Reads, but keeps consistency)
 
@@ -507,9 +503,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    -- ==================================================================================
     /* 5: GET ALL */
-    -- ==================================================================================
     IF p_action = 5 THEN
         START TRANSACTION;
 
@@ -578,11 +572,8 @@ proc_body: BEGIN
                     -- Ensure images is always an array (even if empty)
                     SET v_models_json = JSON_SET(
                         v_models_json,
-                        CONCAT('$[', v_idx, '].images'), 
-                        CASE 
-                            WHEN v_images_json IS NOT NULL THEN JSON_EXTRACT(v_images_json, '$')
-                            ELSE JSON_ARRAY()
-                        END
+                        CONCAT('$[', v_idx, '].product_model_images'),
+                        JSON_EXTRACT(IFNULL(v_images_json, '[]'), '$')
                     );
                     
                     SET v_models_json = JSON_SET(
@@ -610,7 +601,8 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    -- Invalid Action
+
+    -- INVALID ACTION
     SET p_error_code = 'ERR_INVALID_ACTION';
     SET p_error_message = 'Invalid action provided.';
 END;
