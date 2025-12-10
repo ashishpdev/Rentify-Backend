@@ -1485,7 +1485,7 @@ CREATE TABLE stock_movements (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NOT NULL,
-  stock_movements_type_id INT NOT NULL,
+  stock_movement_type_id INT NOT NULL,
   quantity INT NOT NULL,
   from_product_status_id INT NOT NULL,
   to_product_status_id INT NOT NULL,
@@ -1510,6 +1510,10 @@ CREATE TABLE stock_movements (
 
   CONSTRAINT fk_stock_movements_product_model FOREIGN KEY (product_model_id)
     REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_type FOREIGN KEY (stock_movement_type_id)
+    REFERENCES stock_movement_type(stock_movement_type_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_movements_from_state FOREIGN KEY (from_product_status_id)
