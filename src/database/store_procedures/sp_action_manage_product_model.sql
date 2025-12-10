@@ -1,5 +1,4 @@
 DROP PROCEDURE IF EXISTS sp_action_manage_product_model;
-
 CREATE PROCEDURE sp_action_manage_product_model(
     IN  p_action INT,                          -- 1=Create, 2=Update, 3=Delete, 4=GetSingle, 5=GetAll
     IN  p_product_model_id INT,
@@ -34,6 +33,7 @@ proc_body: BEGIN
     DECLARE v_alt_text VARCHAR(512);
     DECLARE v_is_primary TINYINT(1);
     DECLARE v_image_order INT;
+    DECLARE v_stock_json JSON DEFAULT NULL;
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
@@ -158,6 +158,7 @@ proc_body: BEGIN
             p_product_category_id,
             v_product_model_id,      -- The new ID
             p_total_quantity,        -- Initial Quantity
+            1,                       -- p_movement_type_id = ADD_STOCK
             p_user_id,
             p_role_id,
             @p_success, @p_data, @p_error_code, @p_error_message
@@ -234,29 +235,6 @@ proc_body: BEGIN
         IF NOT p_success THEN
             ROLLBACK;
             LEAVE proc_body;
-        END IF;
-
-        -- B. Update Stock (Optional: Only if quantity is provided and differs)
-        -- Assuming Action 2 in sp_manage_stock updates available quantity
-        IF p_total_quantity IS NOT NULL THEN
-             CALL sp_manage_stock(
-                2,                       -- Action: Update
-                p_business_id,
-                p_branch_id,
-                NULL, NULL,              -- Segment/Category not needed for update
-                v_product_model_id,
-                p_total_quantity,        -- Update Quantity
-                p_user_id,
-                p_role_id,
-                @p_success, @p_data, @p_error_code, @p_error_message
-            );
-            
-            SELECT @p_success INTO p_success;
-            IF NOT p_success THEN
-                ROLLBACK;
-                SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-                LEAVE proc_body;
-            END IF;
         END IF;
 
         -- C. Update Images
@@ -346,6 +324,7 @@ proc_body: BEGIN
             p_branch_id,
             NULL, NULL,
             p_product_model_id,
+            NULL,
             NULL,
             p_user_id,
             p_role_id,
@@ -439,8 +418,8 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
--- ==================================================================================
-    -- 4: GET SINGLE (Orchestrate Model + Images + Stock)
+    -- ==================================================================================
+    /* 4: GET */
     -- ==================================================================================
     IF p_action = 4 THEN
         START TRANSACTION; -- (Optional for Reads, but keeps consistency)
@@ -490,8 +469,16 @@ proc_body: BEGIN
 
         -- C. Get Stock (Action 4: Single Stock)
         CALL sp_manage_stock(
-            4, p_business_id, p_branch_id, NULL, NULL, 
-            v_product_model_id, NULL, p_user_id, p_role_id,
+            4, 
+            p_business_id, 
+            p_branch_id, 
+            NULL, 
+            NULL, 
+            v_product_model_id, 
+            NULL, 
+            NULL,
+            p_user_id, 
+            p_role_id,
             @s_success, v_stock_json, @s_code, @s_msg
         );
         
@@ -512,7 +499,7 @@ proc_body: BEGIN
     END IF;
 
     -- ==================================================================================
-    -- 5: GET ALL (Orchestrate List Models + Loop for Images/Stock)
+    /* 5: GET ALL */
     -- ==================================================================================
     IF p_action = 5 THEN
         START TRANSACTION;
@@ -563,9 +550,17 @@ proc_body: BEGIN
                     
                     -- 2. Fetch Stock for this Model (Use Action 4 - Single)
                     CALL sp_manage_stock(
-                        4, p_business_id, p_branch_id, NULL, NULL, 
-                        v_model_id, NULL, p_user_id, p_role_id,
-                        @s_success, v_stock_json, @s_code, @s_msg
+                        5, 
+                        p_business_id, 
+                        p_branch_id, 
+                        NULL, 
+                        NULL, 
+                        v_model_id, 
+                        NULL, 
+                        NULL,
+                        p_user_id, 
+                        p_role_id,
+                        @s_success, @v_stock_json, @s_code, @s_msg
                     );
 
                     -- 3. Attach Data to current Array Item

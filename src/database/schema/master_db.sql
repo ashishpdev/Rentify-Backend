@@ -406,6 +406,21 @@ CREATE TABLE product_rental_status (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
+DROP TABLE IF EXISTS stock_movement_type;
+CREATE TABLE stock_movement_type (
+  stock_movement_type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(200) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
 DROP TABLE IF EXISTS billing_period;
 CREATE TABLE billing_period (
   billing_period_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -530,10 +545,12 @@ CREATE TABLE notification_status (
 -- Seed lookup rows (INSERT IGNORE to avoid duplicates)
 -- =========================================================
 INSERT IGNORE INTO product_status (code, name, description, created_by) VALUES
+  ('PROCUREMENT','Procurement','Item is being procured','system'),
   ('AVAILABLE','Available','Item is available for rent','system'),
   ('RESERVED','Reserved','Item reserved, not available','system'),
   ('RENTED','Rented','Item currently rented','system'),
   ('MAINTENANCE','Maintenance','Item under maintenance','system'),
+  ('DAMAGE','Damage','Item damaged','system'),
   ('LOST','Lost','Item lost','system'),
   ('RETIRED','Retired','Item retired from use','system');
 
@@ -551,6 +568,18 @@ INSERT IGNORE INTO product_rental_status (code, name, description, created_by) V
   ('CANCELLED','Cancelled','Rental cancelled','system'),
   ('LOST','Lost','Item lost during rental','system');
 
+INSERT IGNORE INTO stock_movement_type (code, name, description, created_by) VALUES
+  ('ADD_STOCK', 'Add Stock', 'Adding new stock to inventory', 'system'),
+  ('REMOVE_STOCK', 'Remove Stock', 'Removing stock from inventory', 'system'),
+  ('RENTAL_OUT', 'Rental Out', 'Item issued for rental', 'system'),
+  ('RENTAL_RETURN', 'Rental Return', 'Item returned from rental', 'system'),
+  ('RESERVE_ITEMS', 'Reserve Item', 'Item reserved for customer', 'system'),
+  ('UNRESERVE_ITEMS', 'Unreserve Item', 'Item unreserved/cancelled', 'system'),
+  ('MAINTENANCE_IN', 'Maintenance In', 'Item sent for maintenance', 'system'),
+  ('MAINTENANCE_OUT', 'Maintenance Out', 'Item returned from maintenance', 'system'),
+  ('MARK_DAMAGED', 'Marked Damaged', 'Item reported as damaged', 'system'),
+  ('LOST', 'Lost', 'Item reported as lost', 'system'),
+  ('RETIRE_ITEM', 'Retire Item', 'Item retired from inventory', 'system');
 INSERT IGNORE INTO billing_period (code, name, description, created_by) VALUES
   ('HOUR','Hour','Billing per hour','system'),
   ('DAY','Day','Billing per day','system'),
@@ -1213,6 +1242,7 @@ CREATE TABLE product_model_images (
 -- STOCK TABLE
 DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
+  stock_id                                INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT                         NOT NULL,
   branch_id INT                           NOT NULL,
   product_segment_id INT                  NOT NULL,
@@ -1240,14 +1270,17 @@ CREATE TABLE stock (
     CASE WHEN quantity_available > 0 THEN 1 ELSE 0 END
   ) STORED,
 
-  last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  last_updated_by VARCHAR(255),
+  last_updated_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
 
-  PRIMARY KEY (business_id, branch_id, product_model_id),
+  CONSTRAINT uq_stock_business_branch_model UNIQUE (business_id, branch_id, product_model_id),
 
   INDEX idx_stock_business_category (business_id, product_category_id),
   INDEX idx_stock_business_segment  (business_id, product_segment_id),
   INDEX idx_stock_business_branch   (business_id, branch_id),
-  INDEX idx_stock_last_updated      (last_updated),
+  INDEX idx_stock_last_updated_at      (last_updated_at),
 
   CONSTRAINT fk_stock_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1445,3 +1478,46 @@ CREATE TABLE IF NOT EXISTS proc_error_log (
     error_message TEXT,
     server_time_utc DATETIME(6) NOT NULL DEFAULT (UTC_TIMESTAMP(6))
 );
+
+DROP TABLE IF EXISTS stock_movements;
+CREATE TABLE stock_movements (
+  stock_movements_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  product_model_id INT NOT NULL,
+  stock_movements_type_id INT NOT NULL,
+  quantity INT NOT NULL,
+  from_product_status_id INT NOT NULL,
+  to_product_status_id INT NOT NULL,
+
+  INDEX idx_sm_business_model (business_id, branch_id, product_model_id),
+
+  created_by VARCHAR(255),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_stock_movements_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_product_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_from_state FOREIGN KEY (from_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_to_state FOREIGN KEY (to_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+
+) ENGINE=InnoDB;
