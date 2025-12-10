@@ -1212,7 +1212,6 @@ CREATE TABLE product_model_images (
 -- ========================================================
 -- STOCK TABLE
 DROP TABLE IF EXISTS stock;
-DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
   business_id INT                         NOT NULL,
   branch_id INT                           NOT NULL,
@@ -1220,7 +1219,6 @@ CREATE TABLE stock (
   product_category_id INT                 NOT NULL,
   product_model_id INT                    NOT NULL,
 
-  quantity_total         INT NOT NULL DEFAULT 0,  -- total physical units in branch (sum of the buckets below)
   quantity_available     INT NOT NULL DEFAULT 0,  -- in the branch and free (not reserved / not on rent / not in maintenance / not damaged / not lost)
   quantity_reserved      INT NOT NULL DEFAULT 0,  -- reserved for inbound/outbound orders or holds (not available)
   quantity_on_rent       INT NOT NULL DEFAULT 0,  -- currently out on rent / leased
@@ -1228,15 +1226,18 @@ CREATE TABLE stock (
   quantity_damaged       INT NOT NULL DEFAULT 0,  -- physically damaged (repairable or marked)
   quantity_lost          INT NOT NULL DEFAULT 0,  -- lost / irrecoverable
 
-  product_is_rentable    TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'cached from product_model.is_rentable for quick queries',
 
-  quantity_components_sum INT AS (
+  quantity_total INT AS (
     quantity_available
     + quantity_reserved
     + quantity_on_rent
     + quantity_in_maintenance
     + quantity_damaged
     + quantity_lost
+  ) STORED, -- total physical units in branch (sum of all states)
+
+  product_is_rentable TINYINT(1) GENERATED ALWAYS AS (
+    CASE WHEN quantity_available > 0 THEN 1 ELSE 0 END
   ) STORED,
 
   last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
@@ -1248,16 +1249,16 @@ CREATE TABLE stock (
   INDEX idx_stock_business_branch   (business_id, branch_id),
   INDEX idx_stock_last_updated      (last_updated),
 
-  CONSTRAINT fk_stock_product_segment FOREIGN KEY (product_segment_id)
-    REFERENCES product_segment(product_segment_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
   CONSTRAINT fk_stock_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_product_segment FOREIGN KEY (product_segment_id)
+    REFERENCES product_segment(product_segment_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_product_category FOREIGN KEY (product_category_id)
@@ -1268,14 +1269,12 @@ CREATE TABLE stock (
     REFERENCES product_model(product_model_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CHECK (quantity_total >= 0),
   CHECK (quantity_available >= 0),
   CHECK (quantity_reserved >= 0),
   CHECK (quantity_on_rent >= 0),
   CHECK (quantity_in_maintenance >= 0),
   CHECK (quantity_damaged >= 0),
-  CHECK (quantity_lost >= 0),
-  CHECK (quantity_total = quantity_components_sum)
+  CHECK (quantity_lost >= 0)
 ) ENGINE=InnoDB;
 
 

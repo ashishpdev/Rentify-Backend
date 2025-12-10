@@ -1,248 +1,209 @@
 DROP PROCEDURE IF EXISTS sp_manage_stock;
-CREATE PROCEDURE `sp_manage_stock`(
-    IN p_action INT,
+
+CREATE PROCEDURE sp_manage_stock(
+    IN p_action INT,                 -- 1:Create, 2:Update, 3:Delete, 4:Get(Single), 5:GetAll
     IN p_business_id INT,
     IN p_branch_id INT,
-    IN p_product_segment_id INT,
-    IN p_product_category_id INT,
-    IN p_product_model_id INT,
-    IN p_quantity INT,
-    IN p_role_id INT
+    IN p_product_segment_id INT,     -- Required for Create
+    IN p_product_category_id INT,    -- Required for Create
+    IN p_product_model_id INT,       -- Required for Create/Update/Delete/Get
+    IN p_quantity INT,               -- Used as 'quantity_available' for Create/Update
+    IN p_user_id INT,                -- For tracking/logging (optional implementation)
+    IN p_role_id INT,                -- For tracking/logging (optional implementation)
+
+    OUT p_success BOOLEAN,
+    OUT p_data JSON,
+    OUT p_error_code VARCHAR(50),
+    OUT p_error_message VARCHAR(500)
 )
-BEGIN
-    DECLARE v_role_id INT DEFAULT NULL;
-    DECLARE v_exists INT DEFAULT 0;
+proc_body: BEGIN
+
+    -- DECLARATIONS
+    DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-       ================================================================ */
+    -- =============================================
+    /* Exception Handling */
+    -- =============================================
+    -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
-        SELECT 'Error: Invalid reference - Segment, Category or Model not found.' AS message, 0 AS success;
+        SET p_error_message = 'Foreign key violation (likely missing reference).';
     END;
 
-    /* GENERAL SQL EXCEPTION HANDLER */
+    -- Specific Handler: Duplicate Key
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        ROLLBACK;
+        SET p_error_message = 'Duplicate key error (unique constraint).';
+    END;
+
+    -- Generic Handler: SQLEXCEPTION
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
-        -- capture diagnostics
-        GET DIAGNOSTICS CONDITION 1
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
+        GET DIAGNOSTICS v_cno = NUMBER;
+
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno     = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
+        ELSE
+            SET v_errno = NULL;
+            SET v_sql_state = NULL;
+            SET v_error_msg = 'No diagnostics available';
+        END IF;
+
         ROLLBACK;
-        SELECT CONCAT('Error: ', IFNULL(v_error_msg,'Unknown SQL error')) AS message, 0 AS success;
+
+        -- Log error details
+        INSERT INTO proc_error_log(
+            proc_name, 
+            proc_args, 
+            mysql_errno, 
+            sql_state, 
+            error_message
+        )
+        VALUES (
+            'sp_action_login_with_otp',
+            CONCAT('p_email=', LEFT(p_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
+            v_errno,
+            v_sql_state,
+            LEFT(v_error_msg, 2000)
+        );
+
+        -- Safe return message
+        SET p_error_message = CONCAT(
+            'Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'),
+            ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.'
+        );
     END;
 
-    main_block: BEGIN
+    -- Reset Outputs
+    SET p_success = FALSE;
+    SET p_data = NULL;
+    SET p_error_code = NULL;
+    SET p_error_message = NULL;
 
-        /* ---------------- GET USER ROLE ---------------- */
-        SELECT role_id INTO v_role_id
-        FROM master_user
-        WHERE role_id = p_role_id
+    -- ==========================================================
+    /* 1: CREATE */
+    -- ==========================================================
+    IF p_action = 1 THEN
+        INSERT INTO stock (
+            business_id,
+            branch_id,
+            product_segment_id,
+            product_category_id,
+            product_model_id,
+            quantity_available,
+            quantity_reserved,
+            quantity_on_rent,
+            quantity_in_maintenance,
+            quantity_damaged,
+            quantity_lost
+        ) VALUES (
+            p_business_id,
+            p_branch_id,
+            p_product_segment_id,
+            p_product_category_id,
+            p_product_model_id,
+            IFNULL(p_quantity, 0), -- Initial available quantity
+            0, 0, 0, 0, 0
+        );
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Stock created successfully.';
+        LEAVE proc_body;
+    END IF;
+
+    -- ==========================================================
+    /* 2: UPDATE */
+    -- ==========================================================
+    IF p_action = 2 THEN
+        UPDATE stock
+        SET quantity_available = IFNULL(p_quantity, quantity_available)
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND product_model_id = p_product_model_id;
+
+        IF ROW_COUNT() = 0 THEN
+            SET p_success = FALSE;
+            SET p_error_code = 'ERR_NOT_FOUND';
+            SET p_error_message = 'Stock record not found for update.';
+        ELSE
+            SET p_success = TRUE;
+            SET p_error_code = 'SUCCESS';
+            SET p_error_message = 'Stock updated successfully.';
+        END IF;
+        LEAVE proc_body;
+    END IF;
+
+    -- ==========================================================
+    /* 3: DELETE */
+    -- ==========================================================
+    IF p_action = 3 THEN
+        DELETE FROM stock
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND product_model_id = p_product_model_id;
+
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Stock deleted successfully.';
+        LEAVE proc_body;
+    END IF;
+
+    -- ==========================================================
+    /* 4: GET SINGLE */
+    -- ==========================================================
+    IF p_action = 4 THEN
+        SELECT JSON_OBJECT(
+            'stock_id', stock_id, -- Assuming PK exists, or composite key
+            'business_id', business_id,
+            'branch_id', branch_id,
+            'product_model_id', product_model_id,
+            'quantity_available', quantity_available,
+            'quantity_on_rent', quantity_on_rent,
+            'quantity_reserved', quantity_reserved
+        ) INTO p_data
+        FROM stock
+        WHERE business_id = p_business_id
+          AND branch_id = p_branch_id
+          AND product_model_id = p_product_model_id
         LIMIT 1;
 
-        IF v_role_id IS NULL THEN
-            SELECT 'Unauthorized: Role not found.' AS message, 0 AS success;
-            LEAVE main_block;
-        END IF;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        LEAVE proc_body;
+    END IF;
 
-        /* ---------------- BLOCK MODIFY ACTIONS ---------------- */
-        IF p_action IN (1,2,3) AND v_role_id NOT IN (1,2,3) THEN
-            SELECT 'Unauthorized: No permission to modify stock.' AS message, 0 AS success;
-            LEAVE main_block;
-        END IF;
+    -- ==========================================================
+    /* 5: GET ALL */
+    -- ==========================================================
+    IF p_action = 5 THEN
+        SELECT JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'product_model_id', product_model_id,
+                'quantity_available', quantity_available,
+                'quantity_on_rent', quantity_on_rent
+            )
+        ) INTO p_data
+        FROM stock
+        WHERE business_id = p_business_id
+          AND (p_branch_id IS NULL OR branch_id = p_branch_id);
 
-        /* ---------------- CHECK PRODUCT / SEGMENT / CATEGORY EXISTS ---------------- */
-        IF p_action IN (1,2,3) THEN
-            -- product_model
-            SELECT COUNT(*) INTO v_exists
-            FROM product_model
-            WHERE product_model_id = p_product_model_id;
+        SET p_success = TRUE;
+        SET p_error_code = 'SUCCESS';
+        LEAVE proc_body;
+    END IF;
 
-            IF v_exists = 0 THEN
-                SELECT 'Invalid product_model_id.' AS message, 0 AS success;
-                LEAVE main_block;
-            END IF;
+    -- Invalid Action
+    SET p_success = FALSE;
+    SET p_error_code = 'ERR_INVALID_ACTION';
+    SET p_error_message = 'Invalid action provided for stock management.';
 
-            -- product_segment
-            SELECT COUNT(*) INTO v_exists
-            FROM product_segment
-            WHERE product_segment_id = p_product_segment_id;
-
-            IF v_exists = 0 THEN
-                SELECT 'Invalid product_segment_id.' AS message, 0 AS success;
-                LEAVE main_block;
-            END IF;
-
-            -- product_category
-            SELECT COUNT(*) INTO v_exists
-            FROM product_category
-            WHERE product_category_id = p_product_category_id;
-
-            IF v_exists = 0 THEN
-                SELECT 'Invalid product_category_id.' AS message, 0 AS success;
-                LEAVE main_block;
-            END IF;
-        END IF;
-
-
-        /* 1: ADD */
-        IF p_action = 1 THEN
-            SELECT COUNT(*) INTO v_exists
-            FROM stock
-            WHERE business_id = p_business_id
-              AND branch_id = p_branch_id
-              AND product_model_id = p_product_model_id;
-
-            -- No record → Insert new stock
-            IF v_exists = 0 THEN
-                INSERT INTO stock(
-                    business_id,
-                    branch_id,
-                    product_segment_id,
-                    product_category_id,
-                    product_model_id,
-                    total_quantity,
-                    available_quantity,
-                    reserved_quantity,
-                    borrowed_quantity,
-                    last_updated
-                )
-                VALUES (
-                    p_business_id,
-                    p_branch_id,
-                    p_product_segment_id,
-                    p_product_category_id,
-                    p_product_model_id,
-                    p_quantity,
-                    p_quantity,
-                    0,
-                    0,
-                    UTC_TIMESTAMP(6)
-                );
-
-                SELECT 'Stock added successfully.' AS message, 1 AS success;
-                LEAVE main_block;
-            END IF;
-
-            -- Exists → Increase stock
-            UPDATE stock
-            SET 
-                total_quantity = total_quantity + p_quantity,
-                available_quantity = available_quantity + p_quantity,
-                last_updated = UTC_TIMESTAMP(6)
-            WHERE business_id = p_business_id
-              AND branch_id = p_branch_id
-              AND product_model_id = p_product_model_id;
-
-            SELECT 'Stock increased successfully.' AS message, 1 AS success;
-            LEAVE main_block;
-        END IF;
-
-
-
-        /* ──────────────────────────────────────────── */
-        /*                ACTION 2: UPDATE STOCK         */
-        /* ──────────────────────────────────────────── */
-
-        IF p_action = 2 THEN
-
-            UPDATE stock
-            SET 
-                total_quantity = p_quantity,
-                available_quantity = p_quantity - reserved_quantity - borrowed_quantity,
-                last_updated = UTC_TIMESTAMP(6)
-            WHERE business_id = p_business_id
-              AND branch_id = p_branch_id
-              AND product_model_id = p_product_model_id;
-
-            SELECT 'Stock updated successfully.' AS message, 1 AS success;
-            LEAVE main_block;
-        END IF;
-
-
-
-        /* ──────────────────────────────────────────── */
-        /*             ACTION 3: DECREASE STOCK          */
-        /* ──────────────────────────────────────────── */
-
-        IF p_action = 3 THEN
-
-            IF (SELECT available_quantity FROM stock
-                WHERE business_id = p_business_id
-                  AND branch_id = p_branch_id
-                  AND product_model_id = p_product_model_id) < p_quantity THEN
-
-                SELECT 'Not enough stock available.' AS message, 0 AS success;
-                LEAVE main_block;
-            END IF;
-
-            UPDATE stock
-            SET 
-                total_quantity = total_quantity - p_quantity,
-                available_quantity = available_quantity - p_quantity,
-                last_updated = UTC_TIMESTAMP(6)
-            WHERE business_id = p_business_id
-              AND branch_id = p_branch_id
-              AND product_model_id = p_product_model_id;
-
-            SELECT 'Stock decreased successfully.' AS message, 1 AS success;
-            LEAVE main_block;
-        END IF;
-
-
-
-        /* ──────────────────────────────────────────── */
-        /*            ACTION 4: GET STOCK (BRANCH)       */
-        /* ──────────────────────────────────────────── */
-
-        IF p_action = 4 THEN
-            SELECT *
-            FROM stock
-            WHERE business_id = p_business_id
-              AND branch_id = p_branch_id
-            ORDER BY product_model_id DESC;
-
-            LEAVE main_block;
-        END IF;
-
-
-
-        /* ──────────────────────────────────────────── */
-        /*            ACTION 5: GET STOCK (ROLE)         */
-        /* ──────────────────────────────────────────── */
-
-        IF p_action = 5 THEN
-
-            IF v_role_id = 1 THEN
-                SELECT *
-                FROM stock
-                WHERE business_id = p_business_id
-                ORDER BY branch_id, product_model_id DESC;
-
-                LEAVE main_block;
-            ELSE
-                SELECT *
-                FROM stock
-                WHERE business_id = p_business_id
-                  AND branch_id = p_branch_id
-                ORDER BY product_model_id DESC;
-
-                LEAVE main_block;
-            END IF;
-        END IF;
-
-
-
-        /* ──────────────────────────────────────────── */
-        /*                INVALID ACTION                 */
-        /* ──────────────────────────────────────────── */
-
-        SELECT 'Invalid action.' AS message, 0 AS success;
-
-    END; -- main_block
 END;
