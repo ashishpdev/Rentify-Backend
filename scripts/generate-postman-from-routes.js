@@ -257,7 +257,6 @@ function findValidatorFile(controllerFilePath) {
   return null;
 }
 
-// Extract Joi schemas from validator file
 function extractJoiSchemas(validatorFilePath) {
   const code = readFile(validatorFilePath);
   if (!code) return {};
@@ -268,19 +267,20 @@ function extractJoiSchemas(validatorFilePath) {
   const schemas = {};
 
   traverse(ast, {
-    // Look for: const schemaName = Joi.object({...})
     VariableDeclarator({ node }) {
       if (
+        node.id &&
         node.id.type === "Identifier" &&
         node.init &&
         node.init.type === "CallExpression" &&
         node.init.callee.type === "MemberExpression" &&
+        node.init.callee.object &&
         node.init.callee.object.name === "Joi" &&
+        node.init.callee.property &&
         node.init.callee.property.name === "object"
       ) {
         const schemaName = node.id.name;
         const schemaObj = node.init.arguments[0];
-
         if (schemaObj && schemaObj.type === "ObjectExpression") {
           schemas[schemaName] = parseJoiObject(schemaObj);
         }
@@ -291,41 +291,41 @@ function extractJoiSchemas(validatorFilePath) {
   return schemas;
 }
 
-// Parse Joi.object() definition to generate example
+// Parse Joi.object({...}) AST node into a schema map: field -> schemaEntry
 function parseJoiObject(objectExpression) {
-  const example = {};
+  const schema = {};
 
   if (!objectExpression || objectExpression.type !== "ObjectExpression") {
-    return example;
+    return schema;
   }
 
   objectExpression.properties.forEach((prop) => {
     if (prop.type === "ObjectProperty") {
       const key = prop.key.name || prop.key.value;
-      const value = parseJoiChain(prop.value);
-      example[key] = value;
+      const valueNode = prop.value;
+      const parsed = parseJoiChain(valueNode);
+      schema[key] = parsed;
     }
   });
 
-  return example;
+  return schema;
 }
 
-// Parse Joi validation chain (e.g., Joi.string().email().required())
+// Parse Joi chain AST node into a structured schema entry
 function parseJoiChain(node) {
   const chain = [];
   let current = node;
 
-  // Walk through the call chain
+  // walk call chain (Joi.string().min()....)
   while (current) {
-    if (current.type === "CallExpression") {
-      if (current.callee.type === "MemberExpression") {
-        const methodName = current.callee.property.name;
-        const args = current.arguments || [];
-        chain.push({ method: methodName, args });
-        current = current.callee.object;
-      } else {
-        break;
-      }
+    if (
+      current.type === "CallExpression" &&
+      current.callee.type === "MemberExpression"
+    ) {
+      const methodName = current.callee.property.name;
+      const args = current.arguments || [];
+      chain.push({ method: methodName, args });
+      current = current.callee.object;
     } else if (current.type === "MemberExpression") {
       const propName = current.property.name;
       chain.push({ method: propName, args: [] });
@@ -338,68 +338,338 @@ function parseJoiChain(node) {
     }
   }
 
-  chain.reverse(); // Base type first
+  chain.reverse(); // base type first
 
-  // Determine base type and modifiers
-  let baseType = null;
+  // collectors
+  let baseType = "any";
   let defaultValue = undefined;
   let validValues = [];
+  let isRequired = false;
+  let allowNull = false;
   let hasEmail = false;
   let hasPattern = false;
-  let isRequired = false;
+  let children = null; // for objects
+  let items = null; // for arrays
 
   for (const { method, args } of chain) {
-    // Base types
+    // base types
     if (
-      ["string", "number", "integer", "boolean", "array", "object"].includes(
-        method
-      )
+      [
+        "string",
+        "number",
+        "integer",
+        "boolean",
+        "array",
+        "object",
+        "any",
+      ].includes(method)
     ) {
-      baseType = method;
+      baseType = method === "integer" ? "number" : method;
     }
 
-    // Modifiers
+    // default(...)
     if (method === "default" && args.length > 0) {
-      const arg = args[0];
-      if (arg.type === "StringLiteral") defaultValue = arg.value;
-      else if (arg.type === "NumericLiteral") defaultValue = arg.value;
-      else if (arg.type === "BooleanLiteral") defaultValue = arg.value;
+      const a = args[0];
+      if (a.type === "StringLiteral") defaultValue = a.value;
+      else if (a.type === "NumericLiteral") defaultValue = a.value;
+      else if (a.type === "BooleanLiteral") defaultValue = a.value;
     }
 
+    // valid(...)
     if (method === "valid" && args.length > 0) {
-      args.forEach((arg) => {
-        if (arg.type === "StringLiteral") validValues.push(arg.value);
-        else if (arg.type === "NumericLiteral") validValues.push(arg.value);
+      args.forEach((a) => {
+        if (a.type === "StringLiteral") validValues.push(a.value);
+        else if (a.type === "NumericLiteral") validValues.push(a.value);
+        else if (a.type === "BooleanLiteral") validValues.push(a.value);
+      });
+    }
+
+    if (method === "required") isRequired = true;
+
+    if (method === "allow" && args.length > 0) {
+      args.forEach((a) => {
+        if (a.type === "NullLiteral") allowNull = true;
+        // we ignore empty-string allowances here (could be added if you need)
       });
     }
 
     if (method === "email") hasEmail = true;
     if (method === "pattern") hasPattern = true;
-    if (method === "required") isRequired = true;
+
+    // nested object: Joi.object({ ... })
+    if (
+      method === "object" &&
+      args.length > 0 &&
+      args[0].type === "ObjectExpression"
+    ) {
+      children = parseJoiObject(args[0]);
+      baseType = "object";
+    }
+
+    // array items: Joi.array().items(...)
+    if (method === "items" && args.length > 0) {
+      const first = args[0];
+      // If items is Joi.object({...})
+      if (
+        first.type === "CallExpression" &&
+        first.callee.type === "MemberExpression" &&
+        first.callee.object &&
+        first.callee.object.name === "Joi"
+      ) {
+        const innerMethod = first.callee.property.name;
+        if (
+          innerMethod === "object" &&
+          first.arguments[0] &&
+          first.arguments[0].type === "ObjectExpression"
+        ) {
+          items = parseJoiObject(first.arguments[0]); // items is a children map
+        } else {
+          // items could be Joi.string(), Joi.number(), etc.
+          items = parseJoiChain(first);
+        }
+      } else {
+        // fallback: if items is identifier or unknown, keep generic
+        items = { type: "any", example: null, required: false };
+      }
+      baseType = "array";
+    }
   }
 
-  // Generate example value
-  if (validValues.length > 0) return validValues[0];
-  if (defaultValue !== undefined) return defaultValue;
-
-  // Type-based defaults
-  switch (baseType) {
-    case "string":
-      if (hasEmail) return "user@example.com";
-      if (hasPattern) return "pattern123";
-      return "string";
-    case "number":
-    case "integer":
-      return 123;
-    case "boolean":
-      return true;
-    case "array":
-      return [];
-    case "object":
-      return {};
-    default:
-      return null;
+  // pick example priority: valid > default > type-based
+  let example;
+  if (validValues.length > 0) example = validValues[0];
+  else if (defaultValue !== undefined) example = defaultValue;
+  else {
+    switch (baseType) {
+      case "string":
+        if (hasEmail) example = "user@example.com";
+        else if (hasPattern) example = "pattern_example";
+        else example = "string";
+        break;
+      case "number":
+        example = 123;
+        break;
+      case "boolean":
+        example = true;
+        break;
+      case "array":
+        example = []; // real array sample built in generator
+        break;
+      case "object":
+        example = {}; // real object sample built in generator
+        break;
+      default:
+        example = null;
+    }
   }
+
+  const schemaEntry = {
+    type: baseType || "any",
+    required: !!isRequired,
+    allowNull: !!allowNull,
+    example: example,
+    valid: validValues,
+  };
+
+  if (children) schemaEntry.children = children;
+  if (items) schemaEntry.items = items;
+
+  return schemaEntry;
+}
+
+function generateSampleFromSchema(schemaObj) {
+  if (!schemaObj || Object.keys(schemaObj).length === 0) return {};
+
+  const out = {};
+
+  for (const [key, entry] of Object.entries(schemaObj)) {
+    if (!entry) {
+      out[key] = null;
+      continue;
+    }
+
+    const t = entry.type || "any";
+
+    // PRIMITIVE types
+    if (t === "string" || t === "number" || t === "boolean" || t === "any") {
+      if (entry.required) {
+        out[key] =
+          entry.example !== undefined
+            ? entry.example
+            : t === "number"
+              ? 0
+              : t === "boolean"
+                ? false
+                : "string";
+      } else {
+        // optional primitive -> null (explicitly show optional)
+        out[key] = null;
+      }
+      continue;
+    }
+
+    // OBJECT
+    if (t === "object") {
+      if (entry.children && Object.keys(entry.children).length > 0) {
+        // always show object shape so frontend sees nested fields
+        const childObj = {};
+        for (const [ck, centry] of Object.entries(entry.children)) {
+          if (!centry) {
+            childObj[ck] = null;
+            continue;
+          }
+          if (centry.type === "object") {
+            childObj[ck] = generateSampleFromSchema(centry.children || {});
+          } else if (centry.type === "array") {
+            // for nested arrays, produce one item
+            if (centry.items) {
+              if (
+                typeof centry.items === "object" &&
+                !Array.isArray(centry.items) &&
+                Object.keys(centry.items).length > 0 &&
+                Object.values(centry.items)[0] &&
+                Object.values(centry.items)[0].type
+              ) {
+                childObj[ck] = [generateSampleFromSchema(centry.items)];
+              } else {
+                // centry.items is a schema entry
+                const it = centry.items;
+                if (it.type === "object" && it.children)
+                  childObj[ck] = [generateSampleFromSchema(it.children)];
+                else childObj[ck] = [];
+              }
+            } else {
+              childObj[ck] = [];
+            }
+          } else {
+            // primitive inside object: required -> example, optional -> null
+            childObj[ck] = centry.required
+              ? centry.example !== undefined
+                ? centry.example
+                : centry.type === "number"
+                  ? 0
+                  : centry.type === "boolean"
+                    ? false
+                    : "string"
+              : null;
+          }
+        }
+        out[key] = childObj;
+      } else {
+        // no children info - either required -> example or optional -> null
+        out[key] = entry.required
+          ? entry.example !== undefined
+            ? entry.example
+            : {}
+          : null;
+      }
+      continue;
+    }
+
+    // ARRAY
+    if (t === "array") {
+      // For arrays we show a representative array with one item (so frontend sees the item shape).
+      if (entry.items) {
+        // if items is a children map (object shape)
+        if (
+          typeof entry.items === "object" &&
+          !entry.items.type &&
+          Object.keys(entry.items).length > 0
+        ) {
+          // items is a children map
+          out[key] = [generateSampleFromSchema(entry.items)];
+        } else if (entry.items.type === "object" && entry.items.children) {
+          out[key] = [generateSampleFromSchema(entry.items.children)];
+        } else if (entry.items.type) {
+          // primitive item schema
+          const it = entry.items;
+          const val = it.required
+            ? it.example !== undefined
+              ? it.example
+              : it.type === "number"
+                ? 0
+                : it.type === "boolean"
+                  ? false
+                  : "string"
+            : null;
+          out[key] = [val];
+        } else {
+          out[key] = [];
+        }
+      } else {
+        out[key] = [];
+      }
+      continue;
+    }
+
+    // fallback
+    out[key] = entry.required
+      ? entry.example !== undefined
+        ? entry.example
+        : null
+      : null;
+  }
+
+  return out;
+}
+
+function buildFieldListDescription(schemaObj) {
+  if (!schemaObj || Object.keys(schemaObj).length === 0) return "";
+
+  const lines = [];
+  lines.push("Fields (required vs optional):");
+  for (const [key, entry] of Object.entries(schemaObj)) {
+    const type = (entry && entry.type) || "any";
+    const req = entry && entry.required ? "required" : "optional";
+    const ex = (() => {
+      if (!entry) return "null";
+      // If primitive and optional -> show null
+      if (
+        (type === "string" ||
+          type === "number" ||
+          type === "boolean" ||
+          type === "any") &&
+        !entry.required
+      )
+        return "null";
+      // show example or structural hint
+      if (entry.example !== undefined && entry.example !== null) {
+        try {
+          return JSON.stringify(entry.example);
+        } catch (e) {
+          return String(entry.example);
+        }
+      }
+      // objects/arrays show brief shape
+      if (entry.type === "object" && entry.children) {
+        return `{ ${Object.keys(entry.children).join(", ")} }`;
+      }
+      if (entry.type === "array" && entry.items) {
+        if (entry.items.children)
+          return `[ { ${Object.keys(entry.items.children).join(", ")} } ]`;
+        if (entry.items.type) return `[ ${entry.items.type} ]`;
+      }
+      return "null";
+    })();
+
+    lines.push(`- ${key}: ${type} (${req}) — example: ${ex}`);
+
+    if (entry && entry.type === "object" && entry.children) {
+      lines.push(
+        `  - nested fields: ${Object.keys(entry.children).join(", ")}`
+      );
+    }
+    if (entry && entry.type === "array" && entry.items) {
+      if (entry.items && entry.items.children) {
+        lines.push(
+          `  - array item fields: ${Object.keys(entry.items.children).join(", ")}`
+        );
+      } else if (entry.items && entry.items.type) {
+        lines.push(`  - array item type: ${entry.items.type}`);
+      }
+    }
+  }
+  return lines.join("\n");
 }
 
 // Match schema to method name
@@ -611,6 +881,7 @@ function generatePostmanCollection(endpoints) {
         // No manual headers needed - cookies are automatically sent by Postman
 
         // Add Content-Type header for requests with body
+        // Add Content-Type header for requests with body
         if (endpoint.body && Object.keys(endpoint.body).length > 0) {
           request.request.header.push({
             key: "Content-Type",
@@ -618,15 +889,24 @@ function generatePostmanCollection(endpoints) {
             type: "text",
           });
 
+          // Build JSON sample from parsed schema (required fields -> example, optional primitives -> null, but show object/array shape)
+          const sampleBody = generateSampleFromSchema(endpoint.body);
+
           request.request.body = {
             mode: "raw",
-            raw: JSON.stringify(endpoint.body, null, 2),
+            raw: JSON.stringify(sampleBody, null, 2),
             options: {
               raw: {
                 language: "json",
               },
             },
           };
+
+          // Add field-level description (required vs optional, example/null)
+          const fieldDesc = buildFieldListDescription(endpoint.body);
+          // append to existing description later — but if `description` already exists, we'll append when building request.description
+          // We'll return `fieldDesc` so higher code can append; here attach to request._fieldDesc for later use:
+          request._fieldDesc = fieldDesc;
         }
 
         // Add description
@@ -642,7 +922,8 @@ function generatePostmanCollection(endpoints) {
         } else if (onlyAccessToken) {
           description += "🔒 Requires access_token cookie only";
         } else if (onlySessionToken) {
-          description += "🔒 Requires session_token cookie only (used to refresh expired access_token)";
+          description +=
+            "🔒 Requires session_token cookie only (used to refresh expired access_token)";
         } else {
           description +=
             "🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)";

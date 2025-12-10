@@ -5,4 +5,4 @@ merge
 docs/logger
 sessions/
 .wwebjs_auth/
-.wwebjs_cache/
+.wwebjs_cache/service-account.json 

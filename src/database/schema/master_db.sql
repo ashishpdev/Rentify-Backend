@@ -684,8 +684,6 @@ CREATE TABLE product_model (
   default_rent DECIMAL(12,2) NOT NULL,
   default_deposit DECIMAL(12,2) NOT NULL,
   default_warranty_days INT,
-  total_quantity INT NOT NULL DEFAULT 0,
-  available_quantity INT NOT NULL DEFAULT 0,
   
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -694,7 +692,6 @@ CREATE TABLE product_model (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
-
 
   INDEX idx_product_model_business_category (business_id, product_category_id),
   INDEX idx_product_model_business_name (business_id, model_name),
@@ -843,7 +840,6 @@ CREATE TABLE rental_item (
   product_model_id INT NOT NULL,
   asset_id INT NOT NULL,
   customer_id INT NOT NULL,
-  item_images JSON NULL, -- array of image URLs at time of rental
   rent_price DECIMAL(14,2) NOT NULL,
   notes TEXT,
   created_by VARCHAR(255),
@@ -853,8 +849,6 @@ CREATE TABLE rental_item (
 
   INDEX idx_rental_item_model (product_model_id),
   INDEX idx_rental_item_unit (asset_id),
-
-  CONSTRAINT chk_item_images_json_valid CHECK (JSON_VALID(item_images)),
 
   CONSTRAINT fk_product_rental_status_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1215,85 +1209,8 @@ CREATE TABLE product_model_images (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- image of specific asset like
--- EX: Canon EOS 5D Mark IV with serial no XYZ12345
-DROP TABLE IF EXISTS asset_images;
-CREATE TABLE asset_images (
-  asset_image_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  product_model_id INT NULL,
-  asset_id INT NULL,
-  url VARCHAR(1024) NOT NULL,
-  alt_text VARCHAR(512),
-  is_primary TINYINT(1) DEFAULT 0,
-  
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
-
-  CONSTRAINT fk_asset_image_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_asset_image_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_asset_image_product_model FOREIGN KEY (product_model_id)
-    REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_asset_image_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
--- =========================================================
--- BORROW RECORDS & STOCK (UTC timestamps)
--- =========================================================
-
-DROP TABLE IF EXISTS borrow_records;
-CREATE TABLE borrow_records (
-  borrow_record_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  asset_id INT NOT NULL,
-  lender_business_name VARCHAR(255) NOT NULL,
-  lender_branch_name VARCHAR(255) NOT NULL,
-  borrowed_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
-  due_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
-  returned_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp',
-  status VARCHAR(64) DEFAULT 'ACTIVE',
-  quantity INT DEFAULT 1,
-  purchase_bill_url VARCHAR(1024),
-  notes TEXT,
-  
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
-
-  CONSTRAINT fk_borrow_record_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_borrow_record_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_borrow_record_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
+-- ========================================================
+-- STOCK TABLE
 DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
   business_id INT NOT NULL,
@@ -1301,10 +1218,10 @@ CREATE TABLE stock (
   product_segment_id INT NOT NULL,
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
-  total_quantity INT NOT NULL DEFAULT 0,
-  available_quantity INT NOT NULL DEFAULT 0,
-  reserved_quantity INT NOT NULL DEFAULT 0,
-  borrowed_quantity INT NOT NULL DEFAULT 0,
+  available_quantity INT NOT NULL DEFAULT 0, --At time of New stock add
+  borrowed_quantity INT NOT NULL DEFAULT 0, -- At time of New stock add
+  reserved_quantity INT NOT NULL DEFAULT 0, -- After added
+  total_quantity INT NOT NULL DEFAULT 0, -- Totoal of available + reserved + borrowed
   last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
   
   PRIMARY KEY (business_id, branch_id, product_model_id),
@@ -1334,7 +1251,6 @@ CREATE TABLE stock (
     ON DELETE RESTRICT ON UPDATE CASCADE  
 
 ) ENGINE=InnoDB;
-
 
 -- =========================================================
 DROP TABLE IF EXISTS location_history;
@@ -1378,7 +1294,6 @@ CREATE TABLE location_history (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-
 DROP TABLE IF EXISTS deposit;
 CREATE TABLE deposit (
   deposit_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -1411,6 +1326,10 @@ CREATE TABLE deposit (
     REFERENCES customer(customer_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+-- =========================================================
+-- LOGGING TABLES (UTC timestamps)
+-- =========================================================  
 
 DROP TABLE IF EXISTS notification_log;
 CREATE TABLE notification_log (

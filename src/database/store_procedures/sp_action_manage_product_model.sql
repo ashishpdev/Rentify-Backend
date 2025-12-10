@@ -25,9 +25,7 @@ CREATE PROCEDURE sp_action_manage_product_model(
 )
 proc_body: BEGIN
 
-    /* ================================================================
-       DECLARATIONS
-       ================================================================ */
+    -- DECLARATIONS
     DECLARE v_product_model_id INT DEFAULT NULL;
     DECLARE v_product_image_id INT DEFAULT NULL;
     DECLARE v_image JSON DEFAULT NULL;
@@ -111,19 +109,14 @@ proc_body: BEGIN
         SET p_error_message = CONCAT('Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'), ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.');
     END;
 
-    /* ================================================================
-       RESET OUTPUT PARAMETERS
-       ================================================================ */
+    -- RESET OUTPUT PARAMETERS
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-    /* ================================================================
-       ACTION 1: CREATE PRODUCT MODEL
-       (unchanged except kept for completeness)
-       ================================================================ */
+    /* 1: CREATE */
     IF p_action = 1 THEN
         START TRANSACTION;
         CALL sp_manage_product_model(
@@ -139,8 +132,6 @@ proc_body: BEGIN
             p_default_rent,          -- p_default_rent
             p_default_deposit,       -- p_default_deposit
             p_default_warranty_days, -- p_default_warranty_days
-            p_total_quantity,        -- p_total_quantity
-            p_available_quantity,    -- p_available_quantity
             p_user_id,               -- p_user_id
             p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
@@ -187,10 +178,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    /* ================================================================
-       ACTION 2: UPDATE PRODUCT MODEL
-       - also manage images (create / update / delete) via sp_manage_product_model_images
-       ================================================================ */
+    /* 2: UPDATE */
     IF p_action = 2 THEN
         START TRANSACTION;
         CALL sp_manage_product_model(
@@ -206,8 +194,6 @@ proc_body: BEGIN
             p_default_rent,          -- p_default_rent
             p_default_deposit,       -- p_default_deposit
             p_default_warranty_days, -- p_default_warranty_days
-            p_total_quantity,        -- p_total_quantity
-            p_available_quantity,    -- p_available_quantity
             p_user_id,               -- p_user_id
             p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
@@ -295,10 +281,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    /* ================================================================
-       ACTION 3: DELETE PRODUCT MODEL
-       - also soft-delete associated images (either specified or all)
-       ================================================================ */
+    /* 3: DELETE */
     IF p_action = 3 THEN
         START TRANSACTION;
 
@@ -315,8 +298,6 @@ proc_body: BEGIN
             NULL,                    -- p_default_rent
             NULL,                    -- p_default_deposit
             NULL,                    -- p_default_warranty_days
-            NULL,                    -- p_total_quantity
-            NULL,                    -- p_available_quantity
             p_user_id,               -- p_user_id
             p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
@@ -397,10 +378,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    /* ================================================================
-       ACTION 4: GET SINGLE PRODUCT MODEL
-       - fetch model then fetch/attach images
-       ================================================================ */
+    /* 4: GET */
     IF p_action = 4 THEN
         START TRANSACTION;
         CALL sp_manage_product_model(
@@ -416,8 +394,6 @@ proc_body: BEGIN
             NULL,                    -- p_default_rent
             NULL,                    -- p_default_deposit
             NULL,                    -- p_default_warranty_days
-            NULL,                    -- p_total_quantity
-            NULL,                    -- p_available_quantity
             NULL,                    -- p_user_id
             p_role_id,                    -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
@@ -458,10 +434,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    /* ================================================================
-       ACTION 5: GET ALL PRODUCT MODELS
-       - fetch all models and attach images per model
-       ================================================================ */
+    /* 5: GET ALL */
     IF p_action = 5 THEN
         START TRANSACTION;
         CALL sp_manage_product_model(
@@ -477,8 +450,6 @@ proc_body: BEGIN
             NULL,                    -- p_default_rent
             NULL,                    -- p_default_deposit
             NULL,                    -- p_default_warranty_days
-            NULL,                    -- p_total_quantity
-            NULL,                    -- p_available_quantity
             p_user_id,               -- p_user_id
             p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
@@ -539,9 +510,8 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-    /* ================================================================
-       INVALID ACTION
-       ================================================================ */
+
+    -- INVALID ACTION
     SET p_error_code = 'ERR_INVALID_ACTION';
     SET p_error_message = 'Invalid action provided.';
 
