@@ -1212,24 +1212,41 @@ CREATE TABLE product_model_images (
 -- ========================================================
 -- STOCK TABLE
 DROP TABLE IF EXISTS stock;
+DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  product_segment_id INT NOT NULL,
-  product_category_id INT NOT NULL,
-  product_model_id INT NOT NULL,
-  available_quantity INT NOT NULL DEFAULT 0, --At time of New stock add
-  borrowed_quantity INT NOT NULL DEFAULT 0, -- At time of New stock add
-  reserved_quantity INT NOT NULL DEFAULT 0, -- After added
-  total_quantity INT NOT NULL DEFAULT 0, -- Totoal of available + reserved + borrowed
-  last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
-  
+  business_id INT                         NOT NULL,
+  branch_id INT                           NOT NULL,
+  product_segment_id INT                  NOT NULL,
+  product_category_id INT                 NOT NULL,
+  product_model_id INT                    NOT NULL,
+
+  quantity_total         INT NOT NULL DEFAULT 0,  -- total physical units in branch (sum of the buckets below)
+  quantity_available     INT NOT NULL DEFAULT 0,  -- in the branch and free (not reserved / not on rent / not in maintenance / not damaged / not lost)
+  quantity_reserved      INT NOT NULL DEFAULT 0,  -- reserved for inbound/outbound orders or holds (not available)
+  quantity_on_rent       INT NOT NULL DEFAULT 0,  -- currently out on rent / leased
+  quantity_in_maintenance INT NOT NULL DEFAULT 0, -- in maintenance / servicing
+  quantity_damaged       INT NOT NULL DEFAULT 0,  -- physically damaged (repairable or marked)
+  quantity_lost          INT NOT NULL DEFAULT 0,  -- lost / irrecoverable
+
+  product_is_rentable    TINYINT(1) NOT NULL DEFAULT 0 COMMENT 'cached from product_model.is_rentable for quick queries',
+
+  quantity_components_sum INT AS (
+    quantity_available
+    + quantity_reserved
+    + quantity_on_rent
+    + quantity_in_maintenance
+    + quantity_damaged
+    + quantity_lost
+  ) STORED,
+
+  last_updated TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+
   PRIMARY KEY (business_id, branch_id, product_model_id),
 
   INDEX idx_stock_business_category (business_id, product_category_id),
-  INDEX idx_stock_business_segment (business_id, product_segment_id),
-  INDEX idx_stock_business_branch (business_id, branch_id),
-  INDEX idx_stock_last_updated (last_updated),
+  INDEX idx_stock_business_segment  (business_id, product_segment_id),
+  INDEX idx_stock_business_branch   (business_id, branch_id),
+  INDEX idx_stock_last_updated      (last_updated),
 
   CONSTRAINT fk_stock_product_segment FOREIGN KEY (product_segment_id)
     REFERENCES product_segment(product_segment_id)
@@ -1242,15 +1259,26 @@ CREATE TABLE stock (
   CONSTRAINT fk_stock_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
+
   CONSTRAINT fk_stock_product_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE, 
 
   CONSTRAINT fk_stock_product_model FOREIGN KEY (product_model_id)
     REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE  
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
+  CHECK (quantity_total >= 0),
+  CHECK (quantity_available >= 0),
+  CHECK (quantity_reserved >= 0),
+  CHECK (quantity_on_rent >= 0),
+  CHECK (quantity_in_maintenance >= 0),
+  CHECK (quantity_damaged >= 0),
+  CHECK (quantity_lost >= 0),
+  CHECK (quantity_total = quantity_components_sum)
 ) ENGINE=InnoDB;
+
+
 
 -- =========================================================
 DROP TABLE IF EXISTS location_history;
