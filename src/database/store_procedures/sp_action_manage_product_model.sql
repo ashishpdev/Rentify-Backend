@@ -12,8 +12,8 @@ CREATE PROCEDURE sp_action_manage_product_model(
     IN  p_default_rent DECIMAL(12,2),
     IN  p_default_deposit DECIMAL(12,2),
     IN  p_default_warranty_days INT,
-    IN  p_total_quantity INT,
-    IN  p_available_quantity INT,
+    IN  p_total_quantity INT,               -- Mapped to Stock Quantity
+    IN  p_available_quantity INT,           -- (Optional, usually same as total on creation)
     IN  p_user_id INT,
     IN  p_role_id INT,
 
@@ -33,28 +33,27 @@ proc_body: BEGIN
     DECLARE v_alt_text VARCHAR(512);
     DECLARE v_is_primary TINYINT(1);
     DECLARE v_image_order INT;
+    DECLARE v_stock_json JSON DEFAULT NULL;
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
-
-    -- JSON helper variables
-    DECLARE v_images_json JSON DEFAULT NULL;     -- used to hold image lists returned from image proc
-    DECLARE v_models_json JSON DEFAULT NULL;     -- used for list of models (action 5)
+    
+    -- Variables for List Fetching
+    DECLARE v_images_json JSON DEFAULT NULL;
+    DECLARE v_models_json JSON DEFAULT NULL;
     DECLARE v_model_id INT DEFAULT NULL;
     DECLARE v_idx INT DEFAULT 0;
     DECLARE v_total INT DEFAULT 0;
 
-    -- ==================================================================================
+    -- =============================================
     /* Exception Handling */
-    -- ==================================================================================
-    
+    -- =============================================
+
     -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
-        SET p_success = FALSE;
-        SET p_error_code = 'ERR_FK_VIOLATION';
         SET p_error_message = 'Foreign key violation (likely missing reference).';
     END;
 
@@ -62,8 +61,6 @@ proc_body: BEGIN
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
         ROLLBACK;
-        SET p_success = FALSE;
-        SET p_error_code = 'ERR_DUPLICATE';
         SET p_error_message = 'Duplicate key error (unique constraint).';
     END;
 
@@ -81,7 +78,7 @@ proc_body: BEGIN
             SET v_sql_state = NULL;
             SET v_error_msg = 'No diagnostics available';
         END IF;
-        ROLLBACK;
+        ROLLBACK; -- Critical: Rollback entire transaction
 
         -- Log error details
         INSERT INTO proc_error_log(
@@ -93,32 +90,35 @@ proc_body: BEGIN
         )
         VALUES (
             'sp_action_manage_product_model',
-              CONCAT(
+            CONCAT(
                 'p_action=', IFNULL(p_action, 'NULL'),
-                ', p_product_model_id=', IFNULL(p_product_model_id, 'NULL'),
-                ', p_business_id=', IFNULL(p_business_id, 'NULL')
-              ),
+                ', p_id=', IFNULL(p_product_model_id, 'NULL')),
             v_errno,
             v_sql_state,
             LEFT(v_error_msg, 2000)
         );
 
         -- Safe return message
+        SET p_error_message = CONCAT(
+            'Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'),
+            ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.'
+        );
+
         SET p_success = FALSE;
         SET p_error_code = 'ERR_EXCEPTION';
-        SET p_error_message = CONCAT('Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'), ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.');
+        SET p_error_message = CONCAT('Error logged (errno=', IFNULL(v_errno, '?'), ').');
     END;
 
     -- RESET OUTPUT PARAMETERS
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
-    SET p_error_code = NULL;
-    SET p_error_message = NULL;
 
     /* 1: CREATE */
     IF p_action = 1 THEN
         START TRANSACTION;
+
+        -- A. Create Product Model
         CALL sp_manage_product_model(
             1,                       -- p_action
             NULL,                    -- p_product_model_id
@@ -136,8 +136,9 @@ proc_body: BEGIN
             p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
-
-        SELECT @p_success, @p_id, @p_error_code, @p_error_message
+        
+        -- Validation
+        SELECT @p_success, @p_id, @p_error_code, @p_error_message 
         INTO p_success, v_product_model_id, p_error_code, p_error_message;
 
         IF NOT p_success THEN
@@ -145,6 +146,31 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
+        -- B. Initialize Stock (Create)
+        -- We use v_product_model_id generated above
+        CALL sp_manage_stock(
+            1,                       -- Action: Create
+            p_business_id,
+            p_branch_id,
+            p_product_segment_id,
+            p_product_category_id,
+            v_product_model_id,      -- The new ID
+            p_total_quantity,        -- Initial Quantity
+            1,                       -- p_movement_type_id = ADD_STOCK
+            p_user_id,
+            p_role_id,
+            @p_success, @p_data, @p_error_code, @p_error_message
+        );
+
+        -- Validation
+        SELECT @p_success INTO p_success;
+        IF NOT p_success THEN
+            ROLLBACK; -- Rollback Model creation if Stock creation fails
+            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
+            LEAVE proc_body;
+        END IF;
+
+        -- C. Manage Images (if provided)
         IF p_product_model_images IS NOT NULL AND JSON_LENGTH(p_product_model_images) > 0 THEN
             WHILE JSON_LENGTH(p_product_model_images) > 0 DO
                 CALL sp_manage_product_model_images(
@@ -157,11 +183,9 @@ proc_body: BEGIN
                     @p_success, @p_id, @p_data, @p_error_code, @p_error_message
                 );
 
-                -- check image call success via the user variable @p_success placed into p_success after SELECT
                 SELECT @p_success INTO p_success;
                 IF NOT p_success THEN
                     ROLLBACK;
-                    -- fetch error details to outer outputs
                     SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
                     LEAVE proc_body;
                 END IF;
@@ -174,13 +198,15 @@ proc_body: BEGIN
         SET p_success = TRUE;
         SET p_id = v_product_model_id;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product model created successfully.';
+        SET p_error_message = 'Product model and stock initialized successfully.';
         LEAVE proc_body;
     END IF;
 
     /* 2: UPDATE */
     IF p_action = 2 THEN
         START TRANSACTION;
+
+        -- A. Update Product Model
         CALL sp_manage_product_model(
             2,                       -- p_action
             p_product_model_id,      -- p_product_model_id
@@ -199,7 +225,7 @@ proc_body: BEGIN
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
-        SELECT @p_success, @p_id, @p_error_code, @p_error_message
+        SELECT @p_success, @p_id, @p_error_code, @p_error_message 
         INTO p_success, v_product_model_id, p_error_code, p_error_message;
 
         IF NOT p_success THEN
@@ -207,7 +233,7 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        -- Manage images: incoming JSON array instructs create/update/delete
+        -- C. Update Images
         IF p_product_model_images IS NOT NULL AND JSON_LENGTH(p_product_model_images) > 0 THEN
             WHILE JSON_LENGTH(p_product_model_images) > 0 DO
                 SET v_image = JSON_EXTRACT(p_product_model_images, '$[0]');
@@ -303,15 +329,13 @@ proc_body: BEGIN
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
-        SELECT @p_success, @p_id, @p_error_code, @p_error_message
-        INTO p_success, v_product_model_id, p_error_code, p_error_message;
-
+        SELECT @p_success INTO p_success;
         IF NOT p_success THEN
             ROLLBACK;
+            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
             LEAVE proc_body;
         END IF;
 
-        -- If caller supplied image deletion list, use that; otherwise delete all images attached to model
         IF p_product_model_images IS NOT NULL AND JSON_LENGTH(p_product_model_images) > 0 THEN
             WHILE JSON_LENGTH(p_product_model_images) > 0 DO
                 SET v_product_image_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(p_product_model_images, '$[0].product_image_id')) AS SIGNED);
@@ -370,24 +394,40 @@ proc_body: BEGIN
             END IF;
         END IF;
 
+        -- C. Delete Product Model (Parent Table)
+        CALL sp_manage_product_model(
+            3, p_product_model_id, p_business_id, p_branch_id, NULL, NULL, NULL, NULL, NULL, 
+            NULL, NULL, NULL, p_user_id, p_role_id,
+            @p_success, @p_id, @p_data, @p_error_code, @p_error_message
+        );
+
+        SELECT @p_success INTO p_success;
+        IF NOT p_success THEN
+            ROLLBACK;
+            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
+            LEAVE proc_body;
+        END IF;
+
         COMMIT;
         SET p_success = TRUE;
-        SET p_id = v_product_model_id;
+        SET p_id = p_product_model_id;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product model deleted successfully.';
+        SET p_error_message = 'Product model and related data deleted successfully.';
         LEAVE proc_body;
     END IF;
 
     /* 4: GET */
     IF p_action = 4 THEN
-        START TRANSACTION;
+        START TRANSACTION; -- (Optional for Reads, but keeps consistency)
+
+        -- A. Get Model Data
         CALL sp_manage_product_model(
             4,                       -- p_action
             p_product_model_id,      -- p_product_model_id
-            NULL,                    -- p_business_id
-            NULL,                    -- p_branch_id
-            NULL,                    -- p_product_segment_id
-            NULL,                    -- p_product_category_id
+            p_business_id,           -- p_business_id
+            p_branch_id,             -- p_branch_id
+            p_product_segment_id,    -- p_product_segment_id
+            p_product_category_id,   -- p_product_category_id
             NULL,                    -- p_model_name
             NULL,                    -- p_description
             NULL,                    -- p_product_model_images
@@ -395,7 +435,7 @@ proc_body: BEGIN
             NULL,                    -- p_default_deposit
             NULL,                    -- p_default_warranty_days
             NULL,                    -- p_user_id
-            p_role_id,                    -- p_role_id
+            p_role_id,               -- p_role_id
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
@@ -407,24 +447,53 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        -- Fetch associated images and attach as "images" field
+        -- B. Get Images (Action 5: Get all images for this model)
+        SET v_images_json = NULL;
         CALL sp_manage_product_model_images(
-            5, NULL, p_business_id, p_branch_id, v_product_model_id,
-            NULL, NULL, NULL, NULL, p_user_id,
-            @p_success, @p_id, @p_data, @p_error_code, @p_error_message
+            5,  -- Action 5: Get all images
+            NULL, 
+            p_business_id, 
+            p_branch_id, 
+            v_product_model_id,
+            NULL, NULL, NULL, NULL, 
+            p_user_id,
+            @s_success, @s_id, v_images_json, @s_code, @s_msg
         );
-        SELECT @p_success, @p_data INTO p_success, v_images_json;
-        IF NOT p_success THEN
-            ROLLBACK;
-            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-            LEAVE proc_body;
-        END IF;
 
-        -- attach images array (empty array if null)
+        -- C. Get Stock (Action 4: Single Stock)
+        SET v_stock_json = NULL;
+        CALL sp_manage_stock(
+            4, 
+            p_business_id, 
+            p_branch_id, 
+            NULL, 
+            NULL, 
+            v_product_model_id, 
+            NULL, 
+            NULL,
+            p_user_id, 
+            p_role_id,
+            @s_success, v_stock_json, @s_code, @s_msg
+        );
+
+        -- D. Construct Final JSON Response using JSON_SET
+        -- This preserves JSON types instead of converting to strings
         IF p_data IS NULL THEN
             SET p_data = JSON_OBJECT();
         END IF;
-        SET p_data = JSON_MERGE_PATCH(p_data, JSON_OBJECT('images', IFNULL(v_images_json, JSON_ARRAY())));
+
+        -- Ensure images is always an array (even if empty)
+        SET p_data = JSON_MERGE_PATCH(
+            IFNULL(p_data, '{}'),
+            CONCAT(
+            '{"images":',
+                IF(v_images_json IS NOT NULL, v_images_json, JSON_ARRAY()),
+            ',"stock":',
+                IF(v_stock_json IS NOT NULL, v_stock_json, 'null'),
+            '}'
+            )
+        );
+
 
         COMMIT;
         SET p_success = TRUE;
@@ -437,13 +506,15 @@ proc_body: BEGIN
     /* 5: GET ALL */
     IF p_action = 5 THEN
         START TRANSACTION;
+
+        -- A. Get All Models
         CALL sp_manage_product_model(
             5,                       -- p_action
-            NULL,                    -- p_product_model_id
+            p_product_model_id,      -- p_product_model_id
             p_business_id,           -- p_business_id
             p_branch_id,             -- p_branch_id
-            NULL,                    -- p_product_segment_id
-            NULL,                    -- p_product_category_id
+            p_product_segment_id,    -- p_product_segment_id
+            p_product_category_id,   -- p_product_category_id
             NULL,                    -- p_model_name
             NULL,                    -- p_description
             NULL,                    -- p_product_model_images
@@ -463,50 +534,70 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        -- if there are models, iterate each and fetch images, attaching under 'images'
-        IF v_models_json IS NULL THEN
-            SET p_data = JSON_ARRAY();
-        ELSE
+        -- B. Loop through Models to attach Images and Stock
+        IF v_models_json IS NOT NULL THEN
             SET v_total = JSON_LENGTH(v_models_json);
             SET v_idx = 0;
+
             WHILE v_idx < v_total DO
                 SET v_model_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(v_models_json, CONCAT('$[', v_idx, '].product_model_id'))) AS SIGNED);
 
                 IF v_model_id IS NOT NULL THEN
+                    
+                    -- 1. Fetch Images for this Model
+                    SET v_images_json = NULL;
                     CALL sp_manage_product_model_images(
                         5, NULL, p_business_id, p_branch_id, v_model_id,
                         NULL, NULL, NULL, NULL, p_user_id,
-                        @p_success, @p_id, @p_data, @p_error_code, @p_error_message
+                        @s_success, @s_id, v_images_json, @s_code, @s_msg
                     );
-                    SELECT @p_success, @p_data INTO p_success, v_images_json;
-                    IF NOT p_success THEN
-                        ROLLBACK;
-                        SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-                        LEAVE proc_body;
-                    END IF;
+                    
+                    -- 2. Fetch Stock for this Model (Action 4 - Single)
+                    SET v_stock_json = NULL;
+                    CALL sp_manage_stock(
+                        4,  -- ✅ CORRECT: Get single stock record
+                        p_business_id, 
+                        p_branch_id, 
+                        NULL, 
+                        NULL, 
+                        v_model_id, 
+                        NULL, 
+                        NULL,
+                        p_user_id, 
+                        p_role_id,
+                        @s_success, v_stock_json, @s_code, @s_msg
+                    );
 
-                    -- attach image array (or empty array)
+                    -- 3. Attach Data to current Array Item
+                    -- Ensure images is always an array (even if empty)
                     SET v_models_json = JSON_SET(
                         v_models_json,
                         CONCAT('$[', v_idx, '].product_model_images'),
                         JSON_EXTRACT(IFNULL(v_images_json, '[]'), '$')
                     );
-                ELSE
-                    -- attach empty images array if product model id not present
-                    SET v_models_json = JSON_SET(v_models_json, CONCAT('$[', v_idx, '].images'), JSON_ARRAY());
+                    
+                    SET v_models_json = JSON_SET(
+                        v_models_json,
+                        CONCAT('$[', v_idx, '].stock'),
+                        CASE
+                            WHEN v_stock_json IS NOT NULL THEN JSON_EXTRACT(v_stock_json, '$')
+                            ELSE NULL
+                        END
+                        );
+
+                    
                 END IF;
 
                 SET v_idx = v_idx + 1;
             END WHILE;
 
             SET p_data = v_models_json;
+        ELSE
+            SET p_data = JSON_ARRAY();
         END IF;
 
         COMMIT;
         SET p_success = TRUE;
-        SET p_id = v_product_model_id;
-        SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product models retrieved successfully.';
         LEAVE proc_body;
     END IF;
 
@@ -514,5 +605,4 @@ proc_body: BEGIN
     -- INVALID ACTION
     SET p_error_code = 'ERR_INVALID_ACTION';
     SET p_error_message = 'Invalid action provided.';
-
 END;
