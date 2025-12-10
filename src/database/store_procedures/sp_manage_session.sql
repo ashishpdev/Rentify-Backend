@@ -89,7 +89,7 @@ proc_body: BEGIN
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-    /* ACTION 1: CREATE */
+    /* 1: CREATE */
     IF p_action = 1 THEN
 
         -- Validate Inputs
@@ -151,7 +151,7 @@ proc_body: BEGIN
 
     END IF;
 
-    /* ACTION 2: UPDATE */
+    /* 2: UPDATE */
     IF p_action = 2 THEN
 
         -- Validate Inputs
@@ -202,7 +202,7 @@ proc_body: BEGIN
 
     END IF;
 
-    /* ACTION 3: DELETE */
+    /* 3: DELETE */
     IF p_action = 3 THEN
 
         -- Validate Inputs
@@ -226,7 +226,7 @@ proc_body: BEGIN
 
     END IF;
 
-    /* ACTION 4: GET */
+    /* 4: GET */
     IF p_action = 4 THEN
 
         -- Validate Inputs
@@ -263,9 +263,7 @@ proc_body: BEGIN
 
     END IF;
 
-    /* ================================================================
-       INVALID ACTION
-       ================================================================ */
+    -- INVALID ACTION
     SET p_success = FALSE;
     SET p_error_message = 'Invalid operation. Supported operations: 1 (Create), 2 (Update), 3 (Delete), 4 (Get)';
 
