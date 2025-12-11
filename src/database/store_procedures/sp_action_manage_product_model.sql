@@ -329,10 +329,12 @@ proc_body: BEGIN
             @p_success, @p_id, @p_data, @p_error_code, @p_error_message
         );
 
-        SELECT @p_success INTO p_success;
+        -- Capture output parameters including the product_model_id
+        SELECT @p_success, @p_id, @p_error_code, @p_error_message 
+        INTO p_success, v_product_model_id, p_error_code, p_error_message;
+
         IF NOT p_success THEN
             ROLLBACK;
-            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
             LEAVE proc_body;
         END IF;
 
@@ -393,21 +395,7 @@ proc_body: BEGIN
                 END WHILE;
             END IF;
         END IF;
-
-        -- C. Delete Product Model (Parent Table)
-        CALL sp_manage_product_model(
-            3, p_product_model_id, p_business_id, p_branch_id, NULL, NULL, NULL, NULL, NULL, 
-            NULL, NULL, NULL, p_user_id, p_role_id,
-            @p_success, @p_id, @p_data, @p_error_code, @p_error_message
-        );
-
-        SELECT @p_success INTO p_success;
-        IF NOT p_success THEN
-            ROLLBACK;
-            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-            LEAVE proc_body;
-        END IF;
-
+        
         COMMIT;
         SET p_success = TRUE;
         SET p_id = p_product_model_id;
