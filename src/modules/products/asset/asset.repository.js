@@ -6,7 +6,7 @@ class AssetRepository {
     try {
       // Call Stored Procedure
       await db.executeSP(
-        `CALL sp_manage_asset(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
+        `CALL sp_manage_asset(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
           @p_success, @p_id, @p_data, @p_error_code, @p_error_message)`,
         [
           params.action,
@@ -17,10 +17,8 @@ class AssetRepository {
           params.productCategoryId,
           params.productModelId,
           params.serialNumber,
-          params.productImages,
           params.productStatusId,
           params.productConditionId,
-          params.productRentalStatusId,
           params.purchasePrice,
           params.purchaseDate,
           params.currentValue,
@@ -31,7 +29,7 @@ class AssetRepository {
           params.borrowedFromBranchName,
           params.purchaseBillUrl,
           params.userId,
-          params.roleId
+          params.roleId,
         ]
       );
 
@@ -45,15 +43,16 @@ class AssetRepository {
           @p_error_message AS error_message`
       );
 
-      const success = (output.success == 1);
+      const success = output.success == 1;
 
       // Convert JSON if exists
       let parsedData = null;
       if (output.data) {
         try {
-          parsedData = typeof output.data === "string"
-            ? JSON.parse(output.data)
-            : output.data;
+          parsedData =
+            typeof output.data === "string"
+              ? JSON.parse(output.data)
+              : output.data;
         } catch (err) {
           logger.warn("Failed to parse asset JSON", { error: err.message });
           parsedData = [];
@@ -65,7 +64,7 @@ class AssetRepository {
         logger.warn("Stored procedure returned error", {
           action: params.action,
           errorCode: output.error_code,
-          errorMessage: output.error_message
+          errorMessage: output.error_message,
         });
       }
 
@@ -74,13 +73,12 @@ class AssetRepository {
         assetId: output.asset_id,
         data: parsedData,
         errorCode: output.error_code,
-        message: output.error_message || "Operation completed"
+        message: output.error_message || "Operation completed",
       };
-
     } catch (error) {
       logger.error("AssetRepository.manageAsset error", {
         action: params.action,
-        error: error.message
+        error: error.message,
       });
 
       return {
@@ -88,7 +86,7 @@ class AssetRepository {
         assetId: null,
         data: null,
         errorCode: "ERR_DATABASE_ERROR",
-        message: error.message || "Unexpected database error occurred."
+        message: error.message || "Unexpected database error occurred.",
       };
     }
   }

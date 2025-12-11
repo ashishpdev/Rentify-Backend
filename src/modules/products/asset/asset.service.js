@@ -18,7 +18,6 @@ class AssetService {
         productModelImages: assetData.asset_images || null, // Changed from productImages
         productStatusId: assetData.product_status_id,
         productConditionId: assetData.product_condition_id,
-        productRentalStatusId: assetData.product_rental_status_id,
         purchasePrice: assetData.purchase_price || null,
         purchaseDate: assetData.purchase_date || null,
         currentValue: assetData.current_value || null,
@@ -60,7 +59,6 @@ class AssetService {
         productModelImages: assetData.asset_images || null, // Changed from productImages
         productStatusId: assetData.product_status_id,
         productConditionId: assetData.product_condition_id,
-        productRentalStatusId: assetData.product_rental_status_id,
         purchasePrice: assetData.purchase_price || null,
         purchaseDate: assetData.purchase_date || null,
         currentValue: assetData.current_value || null,

@@ -8,10 +8,8 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_asset`(
     IN p_product_category_id INT,
     IN p_product_model_id INT,
     IN p_serial_number VARCHAR(200),
-    IN p_product_model_images JSON,
     IN p_product_status_id INT,
     IN p_product_condition_id INT,
-    IN p_product_rental_status_id INT,
     IN p_purchase_price DECIMAL(12,2),
     IN p_purchase_date DATETIME(6),
     IN p_current_value DECIMAL(12,2),
@@ -39,9 +37,12 @@ proc_body:BEGIN
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-        SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-    ================================================================ */
+
+    -- =============================================
+    /* Exception Handling */
+    -- =============================================
+    
+    -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
@@ -50,25 +51,79 @@ proc_body:BEGIN
         SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
     END;
 
-    /* ================================================================
-        GLOBAL ERROR HANDLER
-    ================================================================ */
+    -- Specific Handler: Duplicate Key
+    DECLARE EXIT HANDLER FOR 1062
+    BEGIN
+        ROLLBACK;
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_DUPLICATE_KEY';
+        SET p_error_message = 'Operation failed: Duplicate key error.';
+    END;
+
+        -- Generic Handler: SQLEXCEPTION
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
-        ROLLBACK;
-        SET p_success = FALSE;
-        IF p_error_code IS NULL THEN
-            SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Unexpected database error occurred.';
+
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno     = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
+        ELSE
+            SET v_errno = NULL;
+            SET v_sql_state = NULL;
+            SET v_error_msg = 'No diagnostics available';
         END IF;
+
+        ROLLBACK;
+
+        -- Log error details
+        INSERT INTO proc_error_log(
+            proc_name, 
+            proc_args, 
+            mysql_errno, 
+            sql_state, 
+            error_message
+        )
+        VALUES (
+            'sp_manage_asset',
+            JSON_OBJECT(
+                'p_action', p_action,
+                'p_asset_id', p_asset_id,
+                'p_business_id', p_business_id,
+                'p_branch_id', p_branch_id,
+                'p_product_segment_id', p_product_segment_id,
+                'p_product_category_id', p_product_category_id,
+                'p_product_model_id', p_product_model_id,
+                'p_serial_number', p_serial_number,
+                'p_product_status_id', p_product_status_id,
+                'p_product_condition_id', p_product_condition_id,
+                'p_purchase_price', p_purchase_price,
+                'p_purchase_date', p_purchase_date,
+                'p_current_value', p_current_value,
+                'p_rent_price', p_rent_price,
+                'p_deposit_amount', p_deposit_amount,
+                'p_source_type_id', p_source_type_id,
+                'p_borrowed_business', p_borrowed_business,
+                'p_borrowed_branch', p_borrowed_branch,
+                'p_purchase_bill_url', p_purchase_bill_url,
+                'p_user_id', p_user_id,
+                'p_role_id', p_role_id
+            ),
+            v_errno,
+            v_sql_state,
+            LEFT(v_error_msg, 2000)
+        );
+
+        -- Safe return message
+        SET p_error_message = CONCAT(
+            'An unexpected error occurred. Please contact support with Error Code: ',
+            IFNULL(v_errno, 'N/A')
+        );
     END;
 
-    /* Reset OUT variables */
+    -- RESET OUTPUT PARAMETERS
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
@@ -76,9 +131,7 @@ proc_body:BEGIN
     SET p_error_message = NULL;
 
 
-    /* ================================================================
-        ROLE VALIDATION
-    ================================================================ */
+    -- ROLE VALIDATION
     SELECT role_id INTO v_role_id
     FROM master_user WHERE role_id = p_role_id LIMIT 1;
 
@@ -96,9 +149,7 @@ proc_body:BEGIN
 
 
 
-    /* ================================================================
-        ACTION 1: CREATE ASSET
-    ================================================================ */
+    /* 1: CREATE */
     IF p_action = 1 THEN
 
         SELECT COUNT(*) INTO v_exist FROM asset
@@ -115,7 +166,7 @@ proc_body:BEGIN
         INSERT INTO asset (
             business_id, branch_id, product_segment_id, product_category_id,
             product_model_id, serial_number, product_status_id,
-            product_condition_id, product_rental_status_id, purchase_price, purchase_date,
+            product_condition_id, purchase_price, purchase_date,
             current_value, rent_price, deposit_amount, source_type_id,
             borrowed_from_business_name, borrowed_from_branch_name, purchase_bill_url,
             created_by
@@ -123,7 +174,7 @@ proc_body:BEGIN
         VALUES (
             p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
             p_product_model_id, p_serial_number, p_product_status_id,
-            p_product_condition_id, p_product_rental_status_id, p_purchase_price, p_purchase_date,
+            p_product_condition_id, p_purchase_price, p_purchase_date,
             p_current_value, p_rent_price, p_deposit_amount, p_source_type_id,
             p_borrowed_business, p_borrowed_branch, p_purchase_bill_url,
             p_user_id
@@ -140,9 +191,7 @@ proc_body:BEGIN
 
 
 
-    /* ================================================================
-        ACTION 2: UPDATE ASSET
-    ================================================================ */
+    /* 2: UPDATE  */
     IF p_action = 2 THEN
 
         START TRANSACTION;
@@ -156,7 +205,6 @@ proc_body:BEGIN
             serial_number = p_serial_number,
             product_status_id = p_product_status_id,
             product_condition_id = p_product_condition_id,
-            product_rental_status_id = p_product_rental_status_id,
             purchase_price = p_purchase_price,
             purchase_date = p_purchase_date,
             current_value = p_current_value,
@@ -188,9 +236,7 @@ proc_body:BEGIN
 
 
 
-    /* ================================================================
-        ACTION 3: DELETE (SOFT DELETE)
-    ================================================================ */
+    /* 3: DELETE */
     IF p_action = 3 THEN
 
         START TRANSACTION;
@@ -220,9 +266,7 @@ proc_body:BEGIN
 
 
 
-    /* ================================================================
-        ACTION 4: GET SINGLE ASSET
-    ================================================================ */
+    /* 4: GET */
     IF p_action = 4 THEN
 
         SELECT JSON_OBJECT(
@@ -235,7 +279,6 @@ proc_body:BEGIN
             'serial_number',serial_number,
             'product_status_id',product_status_id,
             'product_condition_id',product_condition_id,
-            'product_rental_status_id',product_rental_status_id,
             'purchase_price',purchase_price,
             'purchase_date',purchase_date,
             'current_value',current_value,
@@ -266,9 +309,7 @@ proc_body:BEGIN
 
 
 
-    /* ================================================================
-        ACTION 5: GET LIST
-    ================================================================ */
+    /* 5: GET LIST */
     IF p_action = 5 THEN
 
         SELECT JSON_ARRAYAGG(
@@ -291,7 +332,7 @@ proc_body:BEGIN
 
 
 
-    /* INVALID ACTION */
+    -- INVALID ACTION
     SET p_error_code='ERR_INVALID_ACTION';
     SET p_error_message='Invalid action provided.';
 

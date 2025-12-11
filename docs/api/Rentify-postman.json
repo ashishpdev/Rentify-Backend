@@ -982,7 +982,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -992,7 +992,7 @@
             "description": "Handler: AssetController.createAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- asset_images: any (optional) — example: null\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- product_rental_status_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
         },
         {
           "name": "POST /api/asset/update",
@@ -1018,7 +1018,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"asset_images\": null,\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"product_rental_status_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
+              "raw": "{\n  \"asset_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"product_model_id\": 123,\n  \"serial_number\": \"string\",\n  \"product_status_id\": 123,\n  \"product_condition_id\": 123,\n  \"purchase_price\": null,\n  \"purchase_date\": null,\n  \"current_value\": null,\n  \"rent_price\": null,\n  \"deposit_amount\": null,\n  \"source_type_id\": 123,\n  \"borrowed_from_business_name\": null,\n  \"borrowed_from_branch_name\": null,\n  \"purchase_bill_url\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1028,7 +1028,7 @@
             "description": "Handler: AssetController.updateAsset\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- asset_images: any (optional) — example: null\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- product_rental_status_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- product_model_id: number (required) — example: 123\n- serial_number: string (required) — example: \"string\"\n- product_status_id: number (required) — example: 123\n- product_condition_id: number (required) — example: 123\n- purchase_price: number (optional) — example: null\n- purchase_date: any (optional) — example: null\n- current_value: number (optional) — example: null\n- rent_price: number (optional) — example: null\n- deposit_amount: number (optional) — example: null\n- source_type_id: number (required) — example: 123\n- borrowed_from_business_name: string (optional) — example: null\n- borrowed_from_branch_name: string (optional) — example: null\n- purchase_bill_url: string (optional) — example: null"
         },
         {
           "name": "POST /api/asset/get",
@@ -1137,111 +1137,6 @@
           },
           "response": [],
           "_fieldDesc": "Fields (required vs optional):\n- asset_id: number (required) — example: 123"
-        }
-      ]
-    },
-    {
-      "name": "Whatsapp",
-      "item": [
-        {
-          "name": "GET /api/whatsapp/qr/:businessId",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/whatsapp/qr/:businessId",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "whatsapp",
-                "qr",
-                ":businessId"
-              ]
-            },
-            "description": "Handler: WhatsappController.generateQR\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
-          },
-          "response": []
-        },
-        {
-          "name": "GET /api/whatsapp/status/:businessId",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/whatsapp/status/:businessId",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "whatsapp",
-                "status",
-                ":businessId"
-              ]
-            },
-            "description": "Handler: WhatsappController.getStatus\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
-          },
-          "response": []
-        },
-        {
-          "name": "POST /api/whatsapp/send/:businessId",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/whatsapp/send/:businessId",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "whatsapp",
-                "send",
-                ":businessId"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"businessId\": \"string\",\n  \"number\": \"pattern_example\",\n  \"message\": \"string\"\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: WhatsappController.sendMessage\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
-          },
-          "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- businessId: string (required) — example: \"string\"\n- number: string (required) — example: \"pattern_example\"\n- message: string (required) — example: \"string\""
-        },
-        {
-          "name": "DELETE /api/whatsapp/logout/:businessId",
-          "request": {
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{baseUrl}}/api/whatsapp/logout/:businessId",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "whatsapp",
-                "logout",
-                ":businessId"
-              ]
-            },
-            "description": "Handler: WhatsappController.logout\n🔒 Requires access_token cookie only"
-          },
-          "response": []
         }
       ]
     },

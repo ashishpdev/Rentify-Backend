@@ -406,13 +406,13 @@ CREATE TABLE product_rental_status (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS stock_movement_type;
-CREATE TABLE stock_movement_type (
-  stock_movement_type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+DROP TABLE IF EXISTS inventory_movement_type;
+CREATE TABLE inventory_movement_type (
+  inventory_movement_type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
   description TEXT,
-  created_by VARCHAR(255),
+  created_by VARCHAR(255) NOT NULL DEFAULT 'system',
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
@@ -568,18 +568,19 @@ INSERT IGNORE INTO product_rental_status (code, name, description, created_by) V
   ('CANCELLED','Cancelled','Rental cancelled','system'),
   ('LOST','Lost','Item lost during rental','system');
 
-INSERT IGNORE INTO stock_movement_type (code, name, description, created_by) VALUES
-  ('ADD_STOCK', 'Add Stock', 'Adding new stock to inventory', 'system'),
-  ('REMOVE_STOCK', 'Remove Stock', 'Removing stock from inventory', 'system'),
+INSERT IGNORE INTO inventory_movement_type (code, name, description, created_by) VALUES
+  ('ADD', 'Add Stock', 'Adding new stock to inventory', 'system'),
+  ('REMOVE', 'Remove Stock', 'Removing stock from inventory', 'system'),
   ('RENTAL_OUT', 'Rental Out', 'Item issued for rental', 'system'),
   ('RENTAL_RETURN', 'Rental Return', 'Item returned from rental', 'system'),
-  ('RESERVE_ITEMS', 'Reserve Item', 'Item reserved for customer', 'system'),
-  ('UNRESERVE_ITEMS', 'Unreserve Item', 'Item unreserved/cancelled', 'system'),
+  ('RESERVE', 'Reserve Item', 'Item reserved for customer', 'system'),
+  ('UNRESERVE', 'Unreserve Item', 'Item unreserved/cancelled', 'system'),
   ('MAINTENANCE_IN', 'Maintenance In', 'Item sent for maintenance', 'system'),
   ('MAINTENANCE_OUT', 'Maintenance Out', 'Item returned from maintenance', 'system'),
   ('MARK_DAMAGED', 'Marked Damaged', 'Item reported as damaged', 'system'),
   ('LOST', 'Lost', 'Item reported as lost', 'system'),
-  ('RETIRE_ITEM', 'Retire Item', 'Item retired from inventory', 'system');
+  ('RETIRE', 'Retire Item', 'Item retired from inventory', 'system');
+
 INSERT IGNORE INTO billing_period (code, name, description, created_by) VALUES
   ('HOUR','Hour','Billing per hour','system'),
   ('DAY','Day','Billing per day','system'),
@@ -758,7 +759,6 @@ CREATE TABLE asset (
   serial_number VARCHAR(200) NOT NULL,
   product_status_id INT NOT NULL,
   product_condition_id INT NOT NULL,
-  product_rental_status_id INT NOT NULL,
   purchase_price DECIMAL(12,2),
   purchase_date DATETIME(6),
   current_value DECIMAL(12,2),
@@ -815,10 +815,6 @@ CREATE TABLE asset (
     REFERENCES product_condition(product_condition_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_asset_product_rental_status FOREIGN KEY (product_rental_status_id)
-    REFERENCES product_rental_status(product_rental_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
   CONSTRAINT fk_asset_source_type FOREIGN KEY (source_type_id)
     REFERENCES source_type(source_type_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
@@ -858,6 +854,7 @@ CREATE TABLE customer (
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
 -- Stores each specific item that was rented as part of that rental.
 DROP TABLE IF EXISTS rental_item;
 CREATE TABLE rental_item (
@@ -868,6 +865,7 @@ CREATE TABLE rental_item (
   product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   asset_id INT NOT NULL,
+  product_rental_status_id INT NOT NULL,
   customer_id INT NOT NULL,
   rent_price DECIMAL(14,2) NOT NULL,
   notes TEXT,
@@ -901,6 +899,10 @@ CREATE TABLE rental_item (
 
   CONSTRAINT fk_product_rental_status_asset FOREIGN KEY (asset_id)
     REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_product_rental_status_product_rental_status FOREIGN KEY (product_rental_status_id)
+    REFERENCES product_rental_status(product_rental_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_product_rental_status_customer FOREIGN KEY (customer_id)
@@ -1117,43 +1119,6 @@ CREATE TABLE damage_reports (
     REFERENCES asset(asset_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS item_history;
-CREATE TABLE item_history (
-  item_history_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  asset_id INT NOT NULL,
-  changed_field VARCHAR(255) NOT NULL COMMENT 'e.g. status_id, branch_id, location, serial_number',
-  old_value TEXT NULL COMMENT 'Textual representation of previous value',
-  new_value TEXT NULL COMMENT 'Textual representation of new value',
-  changed_by VARCHAR(255) NULL,
-  note TEXT,
-  
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
-
-  INDEX idx_item_history_unit (business_id, asset_id),
-  INDEX idx_item_history_field (asset_id, changed_field),
-
-  CONSTRAINT fk_item_history_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_item_history_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_item_history_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
 
 -- =========================================================
 -- RESERVATIONS & DEPOSITS (UTC timestamps)
@@ -1396,8 +1361,7 @@ CREATE TABLE notification_log (
   notification_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  customer_id INT NOT NULL,     
-  asset_id INT NULL,         
+  customer_id INT NOT NULL,        
   rental_id INT NULL,        
 
   contact_type_id INT NOT NULL,
@@ -1429,7 +1393,6 @@ CREATE TABLE notification_log (
   INDEX idx_notification_business (business_id),
   INDEX idx_notification_branch (branch_id),
   INDEX idx_notification_customer (customer_id),
-  INDEX idx_notification_asset (asset_id),
   INDEX idx_notification_rental (rental_id),
   INDEX idx_notification_status_scheduled (notification_status_id, scheduled_for),
   INDEX idx_notification_contact_value (contact_value),
@@ -1444,10 +1407,6 @@ CREATE TABLE notification_log (
     
   CONSTRAINT fk_notification_log_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_notification_log_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_notification_log_rental FOREIGN KEY (rental_id)
@@ -1485,20 +1444,31 @@ CREATE TABLE stock_movements (
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   product_model_id INT NOT NULL,
-  stock_movement_type_id INT NOT NULL,
+  inventory_movement_type_id INT NOT NULL,
   quantity INT NOT NULL,
-  from_product_status_id INT NOT NULL,
-  to_product_status_id INT NOT NULL,
+  from_branch_id INT NULL,
+  to_branch_id INT NULL,
+  from_product_status_id INT NULL,
+  to_product_status_id INT NULL,
 
-  INDEX idx_sm_business_model (business_id, branch_id, product_model_id),
+  related_rental_id INT NULL,
+  related_reservation_id INT NULL,
+  related_maintenance_id INT NULL,
+  reference_no VARCHAR(255) NULL,
+  note TEXT NULL,
+  metadata JSON NULL COMMENT 'extra structured data (photos, condition report, operator, device_id)',
 
-  created_by VARCHAR(255),
+  created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_sm_business_model (business_id, branch_id, product_model_id),
+  INDEX idx_sm_type (inventory_movement_type_id),
+  INDEX idx_sm_dates (created_at),
 
   CONSTRAINT fk_stock_movements_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1512,9 +1482,17 @@ CREATE TABLE stock_movements (
     REFERENCES product_model(product_model_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_stock_movements_type FOREIGN KEY (stock_movement_type_id)
-    REFERENCES stock_movement_type(stock_movement_type_id)
+  CONSTRAINT fk_stock_movements_type FOREIGN KEY (inventory_movement_type_id)
+    REFERENCES inventory_movement_type(inventory_movement_type_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_from_branch FOREIGN KEY (from_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_to_branch FOREIGN KEY (to_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_movements_from_state FOREIGN KEY (from_product_status_id)
     REFERENCES product_status(product_status_id)
@@ -1522,6 +1500,101 @@ CREATE TABLE stock_movements (
 
   CONSTRAINT fk_stock_movements_to_state FOREIGN KEY (to_product_status_id)
     REFERENCES product_status(product_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
+  CONSTRAINT fk_stock_movements_rental FOREIGN KEY (related_rental_id)
+    REFERENCES rental(rental_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_reservation FOREIGN KEY (related_reservation_id)
+    REFERENCES reservations(reservation_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_stock_movements_maintenance FOREIGN KEY (related_maintenance_id)
+    REFERENCES maintenance_records(maintenance_id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS asset_movements;
+CREATE TABLE asset_movements (
+  asset_movement_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,                     -- branch where movement was recorded (nullable if cross-branch)
+  product_model_id INT NULL,                  -- redundant but useful for fast queries
+  asset_id INT NOT NULL,
+  inventory_movement_type_id INT NOT NULL,    -- unified enum
+  quantity INT NOT NULL DEFAULT 1,            -- normally 1 for serialized assets; keep for compatibility
+  from_branch_id INT NULL,
+  to_branch_id INT NULL,
+  from_product_status_id INT NULL,
+  to_product_status_id INT NULL,
+
+  related_rental_id INT NULL,
+  related_reservation_id INT NULL,
+  related_maintenance_id INT NULL,
+  reference_no VARCHAR(255) NULL,
+  note TEXT NULL,
+  metadata JSON NULL COMMENT 'extra structured data (photos, condition report, operator, device_id)',
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_asset_mov_asset (business_id, asset_id),
+  INDEX idx_asset_mov_model (business_id, product_model_id),
+  INDEX idx_asset_mov_type (inventory_movement_type_id),
+  INDEX idx_asset_mov_dates (created_at),
+
+  CONSTRAINT fk_asset_movements_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_type FOREIGN KEY (inventory_movement_type_id)
+    REFERENCES inventory_movement_type(inventory_movement_type_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_from_branch FOREIGN KEY (from_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_to_branch FOREIGN KEY (to_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_from_state FOREIGN KEY (from_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_to_state FOREIGN KEY (to_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_rental FOREIGN KEY (related_rental_id)
+    REFERENCES rental(rental_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_reservation FOREIGN KEY (related_reservation_id)
+    REFERENCES reservations(reservation_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_asset_movements_maintenance FOREIGN KEY (related_maintenance_id)
+    REFERENCES maintenance_records(maintenance_id)
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
