@@ -1,7 +1,8 @@
 // src/modules/products/model/model.validator.js
 const Joi = require("joi");
 
-const base64DataRegex = /^(?:data:[\w-]+\/[\w+.-]+;base64,)?(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const base64DataRegex =
+  /^(?:data:[\w-]+\/[\w+.-]+;base64,)?(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
 
 const createModelSchema = Joi.object({
   product_segment_id: Joi.number().integer().positive().required().messages({
@@ -33,8 +34,10 @@ const createModelSchema = Joi.object({
           .required()
           .messages({
             "string.base": "Image URL must be a string",
-            "alternatives.match": "Image must be a valid URI or base64 data (raw base64 or data URI)",
-            "string.pattern.base": "Image must be valid base64 data or data URI",
+            "alternatives.match":
+              "Image must be a valid URI or base64 data (raw base64 or data URI)",
+            "string.pattern.base":
+              "Image must be valid base64 data or data URI",
             "any.required": "Image URL is required",
           }),
         alt_text: Joi.string().max(512).optional().messages({
@@ -65,7 +68,12 @@ const createModelSchema = Joi.object({
     "number.min": "Default deposit must be at least 0",
     "any.required": "Default deposit is required",
   }),
-  default_warranty_days: Joi.number().integer().min(0).allow(null).optional().messages({
+  default_warranty_days: Joi.number()
+    .integer()
+    .min(0)
+    .allow(null)
+    .optional()
+    .messages({
       "number.base": "Default warranty days must be a number",
       "number.integer": "Default warranty days must be an integer",
       "number.min": "Default warranty days must be at least 0",
@@ -77,11 +85,11 @@ const createModelSchema = Joi.object({
     "any.required": "Total quantity is required",
   }),
   available_quantity: Joi.number().integer().min(0).required().messages({
-      "number.base": "Available quantity must be a number",
-      "number.integer": "Available quantity must be an integer",
-      "number.min": "Available quantity must be at least 0",
-      "any.required": "Available quantity is required",
-    }),
+    "number.base": "Available quantity must be a number",
+    "number.integer": "Available quantity must be an integer",
+    "number.min": "Available quantity must be at least 0",
+    "any.required": "Available quantity is required",
+  }),
 });
 
 const updateModelSchema = Joi.object({
@@ -118,8 +126,10 @@ const updateModelSchema = Joi.object({
           .required()
           .messages({
             "string.base": "Image URL must be a string",
-            "alternatives.match": "Image must be a valid URI or base64 data (raw base64 or data URI)",
-            "string.pattern.base": "Image must be valid base64 data or data URI",
+            "alternatives.match":
+              "Image must be a valid URI or base64 data (raw base64 or data URI)",
+            "string.pattern.base":
+              "Image must be valid base64 data or data URI",
             "any.required": "Image URL is required",
           }),
         alt_text: Joi.string().max(512).optional().messages({
