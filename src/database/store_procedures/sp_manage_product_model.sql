@@ -140,12 +140,12 @@ proc_body: BEGIN
         INSERT INTO product_model (
             business_id, branch_id, product_segment_id, product_category_id,
             model_name, description, default_rent, default_deposit,
-            default_warranty_days, is_active, is_deleted
+            default_warranty_days, created_by, is_active, is_deleted
         )
         VALUES (
             p_business_id, p_branch_id, p_product_segment_id, p_product_category_id,
             p_model_name, p_description, p_default_rent, p_default_deposit,
-            p_default_warranty_days, 1, 0
+            p_default_warranty_days, p_user_id, 1, 0
         );
 
         SET p_id = LAST_INSERT_ID();
@@ -200,8 +200,7 @@ proc_body: BEGIN
             default_rent = p_default_rent,
             default_deposit = p_default_deposit,
             default_warranty_days = p_default_warranty_days,
-            updated_by = p_user_id,
-            updated_at = UTC_TIMESTAMP(6)
+            updated_by = p_user_id
         WHERE product_model_id = p_product_model_id
           AND is_deleted = 0;
 
