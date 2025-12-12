@@ -64,6 +64,13 @@ const config = {
     redirectUri: process.env.REIRECT_URI || 'https://developers.google.com/oauthplayground',
   },
 
+  twillio:{
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '',
+    smsNumber: process.env.TWILIO_SMS_NUMBER || '',
+  },
+
   logLevel:
     process.env.LOG_LEVEL || (NODE_ENV === 'development' ? 'debug' : 'info'),
 };
