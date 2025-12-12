@@ -1231,7 +1231,7 @@ CREATE TABLE stock (
     + quantity_lost
   ) STORED, -- total physical units in branch (sum of all states)
 
-  product_is_rentable TINYINT(1) GENERATED ALWAYS AS (
+  is_product_model_rentable TINYINT(1) GENERATED ALWAYS AS (
     CASE WHEN quantity_available > 0 THEN 1 ELSE 0 END
   ) STORED,
 
