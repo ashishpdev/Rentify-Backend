@@ -7,6 +7,7 @@ const categoryRoutes = require("../modules/products/category/category.routes");
 const modelRoutes = require("../modules/products/model/model.routes");
 const assetRoutes = require("../modules/products/asset/asset.routes");
 const driveRoutes = require("../modules/google-drive/drive.routes");
+const twillioRoutes = require("../modules/twillio/twillio.route");
 
 const router = express.Router();
 
@@ -41,6 +42,8 @@ router.use("/category", categoryRoutes);
 router.use("/model", modelRoutes);
 router.use("/asset", assetRoutes);
 router.use("/drive", driveRoutes);
+router.use("/twillio", twillioRoutes);
+
 
 // 404 handler - changed from "*" to catch-all middleware
 router.use((req, res) => {
