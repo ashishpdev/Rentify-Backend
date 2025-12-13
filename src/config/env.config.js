@@ -53,6 +53,8 @@ const config = {
     sameSite:
       process.env.COOKIE_SAMESITE ||
       (NODE_ENV === 'production' ? 'None' : 'Lax'),
+
+    domain: process.env.COOKIE_DOMAIN || 'rentzfy.com',
   },
 
   drive:{
