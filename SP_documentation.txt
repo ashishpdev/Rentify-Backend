@@ -1,0 +1,513 @@
+# Stored Procedure Reference — Rentify
+
+Below is a concise, industry-style reference document for the stored procedures (SPs) found in your uploaded SQL files.
+For each procedure I provide: **Purpose / Use-case**, **Inputs / Outputs**, **Tables read / written (affected)**, **Other SPs called**, **Transaction behavior & notes**, and a short **Example / important constraints**. I used your uploaded files as the source.  
+
+---
+
+**How to read this doc / format used (industry standard):**
+
+* Title: procedure name
+* Purpose: one-line intention + typical use case
+* Signature: IN / OUT params with types and brief meaning
+* Affected objects: tables (read / write), temp tables, sequence of major statements
+* Calls: which other SPs / functions are invoked
+* Transactions / locking: whether it opens/commits, uses FOR UPDATE, temp tables, etc.
+* Error/Return semantics: how success/failure is signalled
+* Notes & recommendations: pitfalls, concurrency concerns, improvements
+* Example call: minimal example of how to call the SP (where applicable)
+
+---
+
+# 1) `sp_action_issue_rental`
+
+Purpose / use-case
+
+* Create a rental (header + rental_items) for a list of assets, mark assets RENTED, insert asset_movements and stock movements, and compute subtotal. Typical call when issuing equipment to a customer. 
+
+Signature (key params)
+
+* IN: `p_business_id INT`, `p_branch_id INT`, `p_customer_id INT`, `p_user_id INT`, `p_asset_ids_json JSON` (JSON array of asset ids), `p_start_date`, `p_due_date`, `p_billing_period_id`, `p_rent_price_per_item DECIMAL`, `p_reference_no`, `p_notes`, `p_invoice_url`, `p_invoice_no`, etc.
+* OUT: `p_success BOOLEAN`, `p_rental_id INT`, `p_error_code VARCHAR(50)`, `p_error_message VARCHAR(1000)`. 
+
+Tables read / written (major)
+
+* Reads: `product_status`, `product_rental_status`, `inventory_movement_type`, `asset`, `stock`
+* Writes: `rental`, `rental_item`, `asset` (update), `asset_movements`, `stock` (update), `stock_movements`, `invoice_photos` (optional)
+* Temp objects: `tmp_asset_ids` and `tmp_asset_rows` (MEMORY temporary tables used to order and lock assets). 
+
+Other SPs called
+
+* None inside; this is implemented as a single procedure doing all work (bulk inserts). (It **does not** call `sp_update_asset_status` — it performs direct updates so as to avoid nested transactions.) 
+
+Transactions / locking / concurrency
+
+* Opens `START TRANSACTION` at start and `COMMIT` at end. Uses `FOR UPDATE` to lock `asset` rows when inserting into `tmp_asset_rows`. Deterministic ordering (ORDER BY asset_id) to reduce deadlocks. Rolls back on validation failures. 
+
+Return / errors
+
+* Returns `p_success = TRUE` + `p_rental_id` on success; sets `p_error_code` / `p_error_message` otherwise. Several explicit error codes (e.g., `ERR_NO_ASSETS`, `ERR_ASSET_NOT_AVAILABLE`). 
+
+Notes & recommendations
+
+* Well-structured for bulk operations. Avoid calling inner SPs that perform their own commits (transaction-agnostic helper pattern is recommended when composing with other transactional SPs). Keep using deterministic ordering for locking. Validate `p_asset_ids_json` early as done. 
+
+Example call (simplified)
+
+```sql
+CALL sp_action_issue_rental(1, NULL, 10, 5, 2, 'https://...', 'INV-100', '2025-12-01', '2025-12-05', 2, '[1,2,3]', 500.00, 'REF-1', 'notes', @ok, @rental_id, @err, @msg);
+```
+
+---
+
+# 2) `sp_update_asset_status`
+
+Purpose / use-case
+
+* Change a single asset's product_status (e.g., AVAILABLE → RENTED), insert corresponding `asset_movements`, optionally update stock movement metadata. Designed to be used both as standalone (own transaction) and as a helper inside larger transactions. 
+
+Signature (key params)
+
+* IN: `p_business_id`, `p_branch_id`, `p_asset_id`, `p_from_product_status_code` (optional), `p_to_product_status_code` (required), `p_inventory_movement_code` (e.g., 'RENTAL_OUT'), `p_reference_no`, `p_note`, `p_user_id`, `p_standalone BOOLEAN`
+* OUT: `p_success`, `p_error_code`, `p_error_message`. 
+
+Tables read / written
+
+* Reads: `product_status` (to lookup codes), `asset` (existence and current status)
+* Writes: `asset` (update row), `asset_movements` (insert), possibly `stock`/`stock_movements` depending on implementation (search shows core focuses on asset & asset_movements). Temp tables not required. 
+
+Other SPs called
+
+* None in snippet; it looks self-contained. Use `p_standalone` when caller wants this proc to open/close its own transaction. 
+
+Transactions / locking / concurrency
+
+* Uses `p_standalone` flag — if TRUE it should `START TRANSACTION`/`COMMIT` inside; otherwise caller must manage transaction to avoid nested commits. **Important**: To compose this with other SPs (like `sp_action_issue_rental`) prefer the transaction-agnostic variant (i.e., `p_standalone = FALSE`) to avoid breaking caller atomicity. (Your code currently contains this option.) 
+
+Notes & recommendations
+
+* Keep the `transaction-agnostic helper` variant and avoid committing inside helper when used in multi-step flows (common industry best-practice). Validate status codes early. Add explicit checks to ensure `from_status` matches actual asset status when provided to avoid inconsistent movements.
+
+---
+
+# 3) `sp_confirm_reservation`
+
+Purpose / use-case
+
+* Confirm a reservation: convert reservation → rental, create rental_items, update assets to RENTED, move reserved→on_rent in stock, insert asset_movements and stock_movements, mark reservation confirmed. Typical flow: when customer arrives to pick reserved assets. 
+
+Signature (key params)
+
+* IN: `p_reservation_id INT`, `p_user_id VARCHAR(255)`
+* OUT: `p_rental_id INT`, `p_success BOOLEAN`, `p_error_code VARCHAR(50)`, `p_error_message VARCHAR(500)`. 
+
+Tables read / written
+
+* Reads: `reservation_status`, `product_status`, `inventory_movement_type`, `tmp_confirm_assets` (created in proc via a select), `reservations`, `asset`
+* Writes: `rental`, `rental_item`, `asset` (update status), `asset_movements`, `stock` (adjust reserved → on_rent), `stock_movements`, `reservations` (update status)
+* Temp tables: `tmp_confirm_assets` (MEMORY) used for deterministic grouping and updates. 
+
+Other SPs called
+
+* None shown — implemented inline. 
+
+Transactions / locking / concurrency
+
+* Starts a transaction and commits at end. Uses grouped updates and inserts to keep changes atomic. Uses `COUNT` checks and validation before commit. 
+
+Notes
+
+* Similar to `sp_action_issue_rental` for stock/asset manipulations but operates off reservations. Good practice: keep both procedures consistent in terms of movement types and status lookup values.
+
+---
+
+# 4) `sp_apply_stock_deltas`
+
+Purpose / use-case
+
+* Apply multiple stock delta changes in a compact JSON payload to update `stock.quantity_available`, `stock.quantity_reserved`, `stock.quantity_on_rent`. Intended for batch adjustments (e.g., reconciliation or bulk movement). 
+
+Signature (key params)
+
+* IN: `p_business_id INT`, `p_branch_id INT`, `p_deltas_json JSON` (array of `{product_model_id, delta_available, delta_reserved, delta_on_rent}`), `p_user_id VARCHAR(255)`
+* OUT: `p_success BOOLEAN`, `p_error_code VARCHAR(50)`, `p_error_message VARCHAR(500)`. 
+
+Tables read / written
+
+* Reads: `stock` (join), `product_model` indirectly via `s.product_model_id`
+* Writes: `stock` (UPDATE), no direct inserts into `stock_movements` here (this SP only applies deltas; other SPs may insert stock_movements)
+* Temp tables: `tmp_stock_deltas` (MEMORY) used to parse/validate JSON. 
+
+Transaction / constraints
+
+* The SP expects to be called inside a transaction (caller responsibility is noted). It validates that no `quantity_available` becomes negative; if any delta causes negative available, the procedure aborts with `ERR_STOCK_CONSTRAINT` and **does not** partially apply deltas. It compares `ROW_COUNT()` with number of deltas to guarantee all updates applied. 
+
+Notes & recommendations
+
+* Good pattern: parse JSON into MEMORY temp table and do set-based updates. Caller should wrap in TX if combining with other operations. Consider producing `stock_movements` in same proc if auditing of deltas is required.
+
+---
+
+# 5) `sp_action_login_with_otp`
+
+Purpose / use-case
+
+* Validate OTP (using hashed OTP), increment attempts, set verified, fetch user/business/role/session info, remove used OTPs and existing sessions — used at login flow. 
+
+Signature (key params)
+
+* IN: `p_email VARCHAR(255)`, `p_otp_code_hash VARCHAR(255)`, `p_ip_address VARCHAR(255)`
+* OUT: `p_user_id INT`, `p_business_id INT`, `p_branch_id INT`, `p_role_id INT`, `p_contact_number VARCHAR(50)`, `p_user_name VARCHAR(255)`, `p_business_name VARCHAR(255)`, `p_branch_name VARCHAR(255)`, `p_role_name VARCHAR(255)`, `p_is_owner BOOLEAN`, `p_error_message VARCHAR(500)` 
+
+Tables read / written
+
+* Reads: `master_otp`, `master_user`, `master_business`, `master_role_type`, `master_branch`
+* Writes: increments `master_otp.attempts`, possibly updates `master_otp` to VERIFIED and deletes OTP row, deletes entries from `master_user_session`. Also writes to `proc_error_log` in SQLEXCEPTION handler. 
+
+Transaction / concurrency
+
+* Uses `START TRANSACTION`, uses `FOR UPDATE` when selecting OTP to avoid double usage. Commits on success, rolls back on error. Special handling: if OTP mismatch, the proc commits the increment then returns `Invalid OTP` (so attempts increment is persisted). Uses structured exception handlers. 
+
+Notes
+
+* Good practice to lock OTP row. Keep hashed verification outside DB or pass hashed OTP (you are passing `p_otp_code_hash`). Logging in `proc_error_log` is present for errors.
+
+---
+
+# 6) `sp_action_verify_otp`
+
+Purpose / use-case
+
+* Verify an OTP for a given target identifier (email/phone), set status and return OTP id. Used by verification endpoints. 
+
+Signature (key params)
+
+* IN: `p_target_identifier VARCHAR(255)`, `p_otp_code_hash VARCHAR(255)`, `p_otp_type_id INT`
+* OUT: `p_success BOOLEAN`, `p_otp_id CHAR(36)`, `p_error_code VARCHAR(50)`, `p_error_message VARCHAR(500)` 
+
+Tables read / written
+
+* Reads: `master_otp` (finds OTP row)
+* Writes: updates `master_otp` (`verified_at`, `otp_status_id`), commits on success. 
+
+Notes
+
+* Uses optimistic checks (ROW_COUNT) after update to assert the OTP was updated. Rollback on failure.
+
+---
+
+# 7) `sp_manage_business`
+
+Purpose / use-case
+
+* CRUD and single retrieval for `master_business` rows. Used by higher-level flows that create businesses (e.g., registration SP). 
+
+Signature (key params)
+
+* IN: `p_action INT` (1=Create,2=Update,3=Delete,4=Get), `p_business_id`, `p_business_name`, `p_business_email`, `p_contact_person`, `p_contact_number`, `p_status_code`, `p_created_by`
+* OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. 
+
+Tables read / written
+
+* `master_business` (insert/update/delete/select) and related FK checks against `master_business_status`, `master_subscription_type`, etc. Error handlers log failures to `proc_error_log`. 
+
+Notes
+
+* Has handlers for FK violation and duplicates. Properly uses transactions on create/update.
+
+---
+
+# 8) `sp_action_register_business_branch_owner`
+
+Purpose / use-case
+
+* High-level orchestrator that creates a business, HQ branch, and owner user in sequence. Calls `sp_manage_business` and `sp_manage_owner` internally; validates owner OTP beforehand. Use-case: onboarding flow for new business + owner. 
+
+Signature (key params)
+
+* IN: `p_business_name`, `p_business_email`, `p_contact_person`, `p_contact_number`, `p_owner_name`, `p_owner_email`, `p_owner_contact_number`, `p_created_by`
+* OUT: `p_success`, `p_business_id`, `p_branch_id`, `p_owner_id`, `p_error_code`, `p_error_message`. 
+
+Tables / SPs used
+
+* Calls: `sp_manage_business` (create), `sp_manage_owner` (create). Reads `master_otp` to ensure owner email is verified. Writes: `master_branch` (direct insert) and uses the called SPs to insert other rows. 
+
+Transactions / error handling
+
+* Hybrid approach: calls SPs that may open/commit TXs themselves; contains transaction blocks for the branch insert and cleanup. If owner creation fails after business creation, it currently returns the error and **does not** automatically delete the business (comment notes suggest you might want to delete in that case). Consider rollback pattern or a compensating delete to maintain atomicity, or ensure called SPs are transaction-agnostic and this orchestrator manages a single TX. 
+
+Recommendation
+
+* Convert `sp_manage_business` and `sp_manage_owner` calls to transaction-agnostic variants or wrap full sequence within one transaction in this SP to preserve atomicity.
+
+---
+
+# 9) `sp_manage_asset`
+
+Purpose / use-case
+
+* CRUD operations on `asset` (create single asset, update, delete (soft-delete), get single/list). Usually called by admin UIs or back-office tooling. 
+
+Signature (key params)
+
+* IN: `p_action INT` (1=Create, 2=Update, 3=Delete, 4=Get Single, 5=Get List), `p_asset_id`, `p_business_id`, `p_branch_id`, `p_product_model_id`, `p_serial_number`, `p_product_status_id`, `p_product_condition_id`, `p_rent_price`, `p_deposit_amount`, `p_purchase_price`, `p_purchase_date`, `p_user_id`, `p_role_id`
+* OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. 
+
+Tables read / written
+
+* `asset` (insert/update/delete/select), and error logging to `proc_error_log` on exceptions. 
+
+Transactions / concurrency
+
+* Uses transaction and exception handlers; checks FK constraints and duplicate keys.
+
+---
+
+# 10) `sp_manage_product_model` / `sp_action_manage_product_model`
+
+Purpose / use-case
+
+* Manage product models (create/update/delete/get/get-all) and orchestrate related tasks such as creating product images, and aggregating images into output JSON. There is both a `sp_manage_product_model` (core CRUD) and an `sp_action_manage_product_model` orchestration wrapper that calls `sp_manage_product_model`, and `sp_manage_product_model_images` as needed.  
+
+Signature (key params)
+
+* IN: `p_action INT`, `p_product_model_id`, `p_business_id`, `p_branch_id`, `p_product_segment_id`, `p_product_category_id`, `p_model_name`, `p_description`, `p_product_model_images JSON`, `p_default_rent`, `p_default_deposit`, `p_default_warranty_days`, `p_total_quantity`, `p_available_quantity`, `p_user_id`, `p_role_id`
+* OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. 
+
+Tables read / written
+
+* `product_model` table(s), `product_model_images` and calls `sp_manage_product_model_images` for image handling. Uses temp JSON construction to return combined response with `images`. 
+
+Transactions / orchestration
+
+* The “action” wrapper coordinates model creation then stock initialization then image creation. Each step checks `@p_success` returned from called SPs and performs `ROLLBACK` if a step fails — good transactional safety.
+
+Notes
+
+* Good separation: lower-level `sp_manage_product_model` does single responsibility and the higher-level action wrapper composes behavior.
+
+---
+
+# 11) `sp_manage_product_category`
+
+Purpose / use-case
+
+* CRUD for product categories. Typical admin/back-office usage. 
+
+Signature
+
+* IN: action, `p_product_category_id`, `p_business_id`, `p_branch_id`, `p_product_segment_id`, `p_code`, `p_name`, `p_description`, `p_user`
+* OUT: `p_success`, `p_id`, `p_data`, `p_error_code`, `p_error_message`. 
+
+Notes
+
+* Has FK violation and SQLEXCEPTION handlers; checks duplicate codes. Uses `START TRANSACTION` for create/update/delete flows.
+
+---
+
+# 12) `sp_manage_owner`
+
+Purpose / use-case
+
+* CRUD for owner (master_user with owner role). Called by registration orchestration (`sp_action_register_business_branch_owner`). 
+
+Signature
+
+* IN: `p_action INT` (1=Create), `p_owner_id`, `p_business_id`, `p_branch_id`, `p_owner_name`, `p_owner_email`, `p_owner_contact_number`, `p_created_by`
+* OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. 
+
+Tables read / written
+
+* `master_user` (insert/update/delete/select), `master_role_type` (lookup for OWNER). Has permission checks for updates/deletes. 
+
+# 13) `sp_manage_customer`
+
+* Purpose / use-case
+CRUD and listing for customers (create, update, soft-delete, get list, get list by role). Typical for admin/back-office customer management. 
+
+Signature
+* IN p_action INT (1=Create,2=Update,3=Delete,4=GetList,5=GetListByRole), p_customer_id, p_business_id, p_branch_id, p_first_name, p_last_name, p_email, p_contact_number, p_address_line, p_city, p_state, p_country, p_pincode, p_user, p_role_user
+* OUT: p_success BOOLEAN, p_id INT, p_data JSON, p_error_code VARCHAR(50), p_error_message VARCHAR(500). 
+
+Tables read / written
+
+Reads/writes customer table (insert/update/select/soft-delete). Uses role lookup (p_role_user) to determine the scope for action 5 (Get list by role).
+
+Transaction / locking / error behaviour
+Uses START TRANSACTION for mutating actions, has specific handlers for FK violation (1452) and generic SQLEXCEPTION handling that sets p_error_code/p_error_message and rolls back. Returns explicit error codes like ERR_INVALID_ACTION. 
+
+Notes / constraints
+Action 4 returns a JSON_ARRAYAGG of customers filtered by business_id/branch_id. Action 5 uses role to decide whether to return business-wide or branch-scoped list. Keep duplicate-email / unique constraints in mind (proc traps duplicate/FK errors).
+
+* Example:
+CALL sp_manage_customer(1, NULL, 1, NULL, 'John', 'Doe', 'john@example.com', '9999999', 'addr', 'Ahmedabad','GJ','India','380015','admin', 'admin', @ok,@id,@data,@code,@msg);
+``` :contentReference[oaicite:6]{index=6}
+
+---
+
+# 14) `sp_manage_otp`  
+**Purpose / use-case**  
+Create / fetch / delete OTP records for verification flows (registration, login, etc.). Supports expiry and returns the stored hash/expiry for caller. :contentReference[oaicite:7]{index=7}
+
+**Signature (key params)**  
+`IN p_action INT` (1=Create,2=Get,3=Delete), `p_target_identifier VARCHAR(255)` (email/phone), `p_otp_code_hash VARCHAR(255)`, `p_otp_type_id INT`, `p_expiry_minutes INT`, `p_ip_address`, `p_created_by`  
+OUT: `p_success BOOLEAN`, `p_id CHAR(36)`, `p_expires_at DATETIME(6)`, `p_otp_code_hash_out VARCHAR(255)`, `p_error_code`, `p_error_message`. :contentReference[oaicite:8]{index=8}
+
+**Tables read / written**  
+Reads/writes `master_otp` (insert/select/delete) and validates `master_otp_type` lookup. On exceptions, logs to `proc_error_log`. :contentReference[oaicite:9]{index=9}
+
+**Transaction / locking / error behaviour**  
+Uses transactions for create/update paths and has explicit handlers for FK violation and SQLEXCEPTION. Validates inputs (non-empty identifier and hash) and verifies `p_otp_type_id` is valid/active. Returns error codes like `ERR_INVALID_INPUT` or `ERR_INVALID_TYPE`. :contentReference[oaicite:10]{index=10}
+
+**Notes**  
+Default expiry fallback exists (default 10 minutes). The procedure returns the generated OTP id and expiry so the application can schedule delivery or logging. Keep OTP hashing/verification logic consistent between app and SP (this SP stores/returns hashes, verification happens in other SPs). :contentReference[oaicite:11]{index=11}
+
+**Example**  
+```sql
+CALL sp_manage_otp(1, 'alice@example.com', '<sha256hash>', 2, 10, '1.2.3.4', 'system', @ok,@otp_id,@expires,@hash_out,@code,@msg);
+``` :contentReference[oaicite:12]{index=12}
+
+---
+
+# 15) `sp_manage_product_model_images`  
+**Purpose / use-case**  
+Manage product model images (create, update, delete, get single, get all for a model). Keeps image ordering/primary flag and prevents order conflicts. :contentReference[oaicite:13]{index=13}
+
+**Signature (key params)**  
+`IN p_action INT` (1=Create,2=Update,3=Delete,4=GetSingle,5=GetAllByModel), `p_product_model_image_id`, `p_business_id`, `p_branch_id`, `p_product_model_id`, `p_url`, `p_alt_text`, `p_is_primary`, `p_image_order`, `p_user_id`  
+OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. :contentReference[oaicite:14]{index=14}
+
+**Tables read / written**  
+Reads/writes `product_model_images` (insert/update/delete/select). Maintains image order and primary-image constraints. Logs exceptions to `proc_error_log`. :contentReference[oaicite:15]{index=15}
+
+**Transaction / locking / error behaviour**  
+Has specific handlers for FK violation and duplicate keys; generic SQLEXCEPTION handler writes to `proc_error_log` and returns `ERR_EXCEPTION`. Uses transactions for mutating actions and rolls back on failure. :contentReference[oaicite:16]{index=16}
+
+**Notes / constraints**  
+When creating/updating, the proc ensures image order and `is_primary` are handled (it can swap orders / update `is_primary` across rows). Use action 5 to list images for a product model (helpful to assemble full product JSON). :contentReference[oaicite:17]{index=17}
+
+**Example**  
+```sql
+CALL sp_manage_product_model_images(1, NULL, 1, NULL, 123, 'https://cdn/.../img.jpg', 'front view', 1, 1, 'admin', @ok,@id,@data,@code,@msg);
+``` :contentReference[oaicite:18]{index=18}
+
+---
+
+# 16) `sp_manage_product_segment`  
+**Purpose / use-case**  
+CRUD for product segments (high-level grouping of product categories/models). Used by admin/back-office workflows. (Entry follows the same pattern as other `sp_manage_*` CRUD SPs in the repo.) :contentReference[oaicite:19]{index=19}
+
+**Signature (typical)**  
+`IN p_action INT` (1=Create,2=Update,3=Delete,4=Get,5=List), `p_product_segment_id`, `p_business_id`, `p_branch_id`, `p_code`, `p_name`, `p_description`, `p_user`  
+OUT: `p_success`, `p_id`, `p_data JSON`, `p_error_code`, `p_error_message`. :contentReference[oaicite:20]{index=20}
+
+**Tables read / written**  
+Reads/writes `product_segment` (or similarly named table), plus FK lookups to ensure valid references; error logging to `proc_error_log`. :contentReference[oaicite:21]{index=21}
+
+**Transaction / locking / error behaviour**  
+Uses transactions for create/update/delete; has FK and SQLEXCEPTION handlers (consistent with other CRUD SP patterns). Returns explicit error codes for duplicate or missing references. :contentReference[oaicite:22]{index=22}
+
+**Notes**  
+Matches the style of other `sp_manage_*` procs (consistent API shape). Use the same role/user params for permission checks when integrating with UI. :contentReference[oaicite:23]{index=23}
+
+**Example**  
+```sql
+CALL sp_manage_product_segment(1, NULL, 1, NULL, 'SEG-EVENT', 'Event Equipment', 'Segment for event rentals', 'admin', @ok,@id,@data,@code,@msg);
+``` :contentReference[oaicite:24]{index=24}
+
+---
+
+# 17)`sp_manage_session` (master_user_session helper)  
+**Purpose / use-case**  
+Create / update / delete / fetch user sessions (`master_user_session`) — used for token/session management (create session token, extend expiry, download current active session). See usage in login flows. :contentReference[oaicite:25]{index=25}
+
+**Signature (typical)**  
+`IN p_action INT` (1=Create,2=Update,3=Delete,4=Get), `p_user_id`, `p_session_token`, `p_expiry_at`, `p_user_agent`, etc. OUT: `p_success`, `p_session_token_out`, `p_expiry_at`, `p_error_message`. :contentReference[oaicite:26]{index=26}
+
+**Tables read / written**  
+Reads/writes `master_user_session`. When returning active session, checks `expiry_at > UTC_TIMESTAMP(6)` and `is_active = TRUE`. :contentReference[oaicite:27]{index=27}
+
+**Transaction / locking / error behaviour**  
+Mutating actions use transactions; `Get` checks active state and expiry and returns `ERR_SESSION_NOT_FOUND` if none found. Error handling follows repo pattern. :contentReference[oaicite:28]{index=28}
+
+**Notes**  
+This SP is typically called by login SPs to create sessions (and by auth middleware to validate tokens). Ensure token expiry logic in app and DB is consistent. :contentReference[oaicite:29]{index=29}
+
+**Example**  
+```sql
+CALL sp_manage_session(1, 'user-123', 'token-xyz', '2026-01-01 00:00:00', 'chrome', @ok,@token_out,@expiry,@msg);
+``` :contentReference[oaicite:30]{index=30}
+
+---
+
+# 18)`sp_manage_stock_admin`  
+**Purpose / use-case**  
+Admin-facing stock sync and reporting SP. Supports sync/update (action 2), get-single (4), and list (5) operations for `stock` rows; can filter by segment/category/model/branch. Useful for reconciliation and admin dashboards. :contentReference[oaicite:31]{index=31}
+
+**Signature (key params)**  
+`IN p_action INT` (2=SYNC/UPDATE,4=GET_SINGLE,5=GET_LIST), `p_business_id`, `p_branch_id`, `p_product_segment_id`, `p_product_category_id`, `p_product_model_id`, `p_stock_id`, `p_user_id`, `p_role_id`  
+OUT: `p_success`, `p_data JSON`, `p_error_code`, `p_error_message`. :contentReference[oaicite:32]{index=32}
+
+**Tables read / written**  
+Reads/writes `stock` table; may insert `stock_movements` for audit; also consults `inventory_movement_type` and `product_status` lookups. On exceptions writes to `proc_error_log`. :contentReference[oaicite:33]{index=33}
+
+**Transaction / locking / error behaviour**  
+Has robust SQLEXCEPTION handler that writes diagnostics to `proc_error_log`. Validates `p_business_id` and lookup values before performing operations. Uses transactions for sync/update actions. :contentReference[oaicite:34]{index=34}
+
+**Notes / constraints**  
+When syncing, the procedure converts asset counts into stock totals and records `ADD` / `REMOVE` movement types. It's admin-level — prefer to call from trusted back-office services only. :contentReference[oaicite:35]{index=35}
+
+**Example**  
+```sql
+CALL sp_manage_stock_admin(2, 1, NULL, NULL, NULL, NULL, NULL, 'admin', 1, @ok,@data,@code,@msg);
+``` :contentReference[oaicite:36]{index=36}
+
+---
+
+# 19)`sp_reserve_by_models` (reserve by models)  
+**Purpose / use-case**  
+Create a reservation by product models/quantities (accepts requested models+qty), reserves stock and inserts `reservation_item` rows, and adds `stock_movements` for audit. Useful for model-level reservations (before assigning specific assets). :contentReference[oaicite:37]{index=37}
+
+**Signature (typical)**  
+`IN p_business_id INT`, `IN p_branch_id INT`, `IN p_user_id`, `IN p_requested_json JSON` (array `{product_model_id, qty, start_date, end_date}`), plus other metadata. OUT: `p_success`, `p_reservation_id`, `p_error_code`, `p_error_message`. :contentReference[oaicite:38]{index=38}
+
+**Tables read / written**  
+Reads product/stock availability and writes `reservation`, `reservation_item`, and `stock_movements` (it inserts `stock_movements` for audit when reserving). Uses temporary `tmp_requested` memory table to parse JSON. :contentReference[oaicite:39]{index=39}
+
+**Transaction / locking / error behaviour**  
+Parses JSON into a temporary memory table, validates availability per product_model, then inserts reservation and items, commits on success. Inserts stock movements with `inventory_movement_type` code `'RESERVE'`. Rolls back on validation errors. :contentReference[oaicite:40]{index=40}
+
+**Notes**  
+This SP reserves at model-level (not asset-level) — follow-up flows should confirm reservation into actual assets (e.g., `sp_confirm_reservation`). Good to include reservation expiry and cancellation paths. :contentReference[oaicite:41]{index=41}
+
+**Example**  
+```sql
+SET @req = '[{"product_model_id": 10, "qty": 2, "start_date":"2025-12-20","end_date":"2025-12-22"}]';
+CALL sp_reserve_by_models(1, NULL, 'admin', @req, @ok, @res_id, @code, @msg);
+``` :contentReference[oaicite:42]{index=42}
+
+---
+
+# 20)`sp_system_health_check`  
+**Purpose / use-case**  
+Run a set of health checks across data: stock mismatches (stock vs actual assets), orphaned rental items, overdue rentals, and missing FK references. Returns counts and a JSON health report for admin monitoring / automated checks. :contentReference[oaicite:43]{index=43}
+
+**Signature (key params)**  
+`IN p_business_id INT`, `IN p_branch_id INT`, OUT: `p_stock_mismatches INT`, `p_orphaned_items INT`, `p_overdue_rentals INT`, `p_health_report JSON`. :contentReference[oaicite:44]{index=44}
+
+**Checks performed**  
+- compares `stock.quantity_total` to actual `COUNT(asset)` per `product_model_id` and reports mismatches  
+- counts orphaned `rental_item` rows (no parent rental)  
+- counts overdue rentals where `due_date < UTC_TIMESTAMP(6)` and `end_date IS NULL`  
+- can be extended to include missing FK checks or other audits. :contentReference[oaicite:45]{index=45}
+
+**Transaction / locking / error behaviour**  
+Read-only checks (no mutation). Aggregates results into `p_health_report` JSON and returns numeric counts. Good to schedule via cron or call from monitoring endpoints. :contentReference[oaicite:46]{index=46}
+
+**Example**  
+```sql
+CALL sp_system_health_check(1, NULL, @mismatch, @orphans, @overdue, @report);
+SELECT @mismatch, @orphans, @overdue, @report;
+``` :contentReference[oaicite:47]{index=47}
+
+---
