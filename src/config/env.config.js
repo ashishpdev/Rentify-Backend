@@ -53,6 +53,8 @@ const config = {
     sameSite:
       process.env.COOKIE_SAMESITE ||
       (NODE_ENV === 'production' ? 'None' : 'Lax'),
+
+    domain: process.env.COOKIE_DOMAIN || 'rentzfy.com',
   },
 
   drive:{
@@ -62,6 +64,13 @@ const config = {
     clientSecret: process.env.CLIENT_SECRET || 'YOUR_CLIENT_SECRET',
     refreshToken: process.env.REFRESH_TOKEN || 'YOUR_REFRESH_TOKEN',
     redirectUri: process.env.REIRECT_URI || 'https://developers.google.com/oauthplayground',
+  },
+
+  twillio:{
+    accountSid: process.env.TWILIO_ACCOUNT_SID || '',
+    authToken: process.env.TWILIO_AUTH_TOKEN || '',
+    whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '',
+    smsNumber: process.env.TWILIO_SMS_NUMBER || '',
   },
 
   logLevel:
