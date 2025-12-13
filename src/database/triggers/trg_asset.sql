@@ -40,3 +40,84 @@ BEGIN
 
   END IF;
 END;
+
+/* AFTER INSERT: when a new asset row is created we should record an 'ADD' movement and update stock */
+DROP TRIGGER IF EXISTS trg_asset_after_insert;
+
+CREATE TRIGGER trg_asset_after_insert
+AFTER INSERT ON asset
+FOR EACH ROW
+BEGIN
+  DECLARE v_add_type INT DEFAULT NULL;
+
+  SELECT inventory_movement_type_id
+    INTO v_add_type
+    FROM inventory_movement_type
+    WHERE code = 'ADD'
+    LIMIT 1;
+
+  -- only proceed if the ADD movement type exists
+  IF v_add_type IS NOT NULL THEN
+
+    INSERT INTO asset_movements (
+      business_id,
+      branch_id,
+      product_model_id,
+      asset_id,
+      inventory_movement_type_id,
+      to_branch_id,
+      to_product_status_id,
+      created_by,
+      note,
+      metadata
+    ) VALUES (
+      NEW.business_id,
+      NEW.branch_id,
+      NEW.product_model_id,
+      NEW.asset_id,
+      v_add_type,
+      NEW.branch_id,
+      NEW.product_status_id,
+      COALESCE(NEW.created_by, 'system'),
+      'Initial asset record created',
+      JSON_OBJECT('origin','db-trigger','action','asset create')
+    );
+
+    UPDATE stock s
+    SET s.quantity_available = s.quantity_available + 1,
+        s.last_updated_by = COALESCE(NEW.created_by, 'system')
+    WHERE s.business_id = NEW.business_id
+      AND s.branch_id = NEW.branch_id
+      AND s.product_model_id = NEW.product_model_id;
+
+    IF ROW_COUNT() = 0 THEN
+      INSERT IGNORE INTO stock (
+        business_id, branch_id, product_segment_id, product_category_id, product_model_id,
+        quantity_available, quantity_reserved, quantity_on_rent, quantity_in_maintenance, quantity_damaged, quantity_lost,
+        created_by
+      ) VALUES (
+        NEW.business_id, NEW.branch_id, NEW.product_segment_id, NEW.product_category_id, NEW.product_model_id,
+        1, 0, 0, 0, 0, 0,
+        COALESCE(NEW.created_by, 'system')
+      );
+    END IF;
+
+    INSERT INTO stock_movements (
+      business_id, branch_id, product_model_id, inventory_movement_type_id,
+      quantity, to_branch_id, to_product_status_id, created_by, note, metadata
+    ) VALUES (
+      NEW.business_id,
+      NEW.branch_id,
+      NEW.product_model_id,
+      v_add_type,
+      1,
+      NEW.branch_id,
+      NEW.product_status_id,
+      COALESCE(NEW.created_by, 'system'),
+      'Stock added for new asset',
+      JSON_OBJECT('origin','db-trigger','asset_id', NEW.asset_id)
+    );
+
+  END IF;
+
+END;
