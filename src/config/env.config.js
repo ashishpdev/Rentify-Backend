@@ -45,9 +45,10 @@ const config = {
 
   cookie: {
     // HttpOnly: true in production (secure), false in development (allows JS access for testing)
-    httpOnly: 'false',
+    httpOnly:
+      process.env.COOKIE_HTTP_ONLY === 'true' ? true : false,
     // Secure: true in production (HTTPS only), false in development (allows HTTP)
-    secure: "false",
+    secure: process.env.COOKIE_SECURE === 'true' ? true : false,
     // SameSite: 'None' in production (cross-site), 'Lax' in development
     sameSite: process.env.COOKIE_SAMESITE || (NODE_ENV === 'production' ? 'None' : 'Lax'),
     // domain: '.rentzfy.com' in production, 'localhost' in development
