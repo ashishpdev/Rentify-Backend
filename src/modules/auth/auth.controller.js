@@ -465,12 +465,14 @@ class AuthController {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
+        domain: config.cookie.domain,
         maxAge: refreshResult.sessionMaxAgeMs || 60 * 60 * 1000,
       });
       res.cookie('access_token', refreshResult.accessToken, {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
+        domain: config.cookie.domain,
         maxAge:
           parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || '15', 10) *
           60 *
