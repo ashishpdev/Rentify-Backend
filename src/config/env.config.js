@@ -46,18 +46,16 @@ const config = {
   cookie: {
     // HttpOnly: true in production (secure), false in development (allows JS access for testing)
     httpOnly:
-      process.env.COOKIE_HTTP_ONLY === 'true' || NODE_ENV === 'production',
+      process.env.COOKIE_HTTP_ONLY,
     // Secure: true in production (HTTPS only), false in development (allows HTTP)
-    secure: process.env.COOKIE_SECURE === 'true' || NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE,
     // SameSite: 'None' in production (cross-site), 'Lax' in development
-    sameSite:
-      process.env.COOKIE_SAMESITE ||
-      (NODE_ENV === 'production' ? 'None' : 'Lax'),
-
-    domain: process.env.COOKIE_DOMAIN || 'rentzfy.com',
+    sameSite: process.env.COOKIE_SAMESITE || (NODE_ENV === 'production' ? 'None' : 'Lax'),
+    // domain: '.rentzfy.com' in production, 'localhost' in development
+    domain: NODE_ENV === 'production' ? process.env.COOKIE_DOMAIN || '.rentzfy.com' : 'localhost',
   },
 
-  drive:{
+  drive: {
     keyFile: process.env.GOOGLE_DRIVE_KEYFILE || 'service-account.json',
     folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || 'YOUR_GOOGLE_DRIVE_FOLDER_ID',
     clientId: process.env.CLIENT_ID || 'YOUR_CLIENT_ID',
@@ -66,7 +64,7 @@ const config = {
     redirectUri: process.env.REIRECT_URI || 'https://developers.google.com/oauthplayground',
   },
 
-  twillio:{
+  twillio: {
     accountSid: process.env.TWILIO_ACCOUNT_SID || '',
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     whatsappNumber: process.env.TWILIO_WHATSAPP_NUMBER || '',
