@@ -41,7 +41,7 @@ proc_exit: BEGIN
 
     -- lookups
     SELECT product_status_id INTO v_available_status FROM product_status WHERE code = 'AVAILABLE' LIMIT 1;
-    SELECT product_status_id INTO v_rented_status FROM product_status WHERE code = 'RENTED' LIMIT 1;
+    SELECT product_status_id INTO v_rented_status   FROM product_status WHERE code = 'RENTED'   LIMIT 1;
     SELECT product_rental_status_id INTO v_rental_status_active FROM product_rental_status WHERE code = 'ACTIVE' LIMIT 1;
     SELECT inventory_movement_type_id INTO v_rental_out_movement FROM inventory_movement_type WHERE code = 'RENTAL_OUT' LIMIT 1;
 
@@ -100,7 +100,10 @@ proc_exit: BEGIN
 
     -- ensure all are available
     IF EXISTS (
-      SELECT 1 FROM asset a JOIN tmp_asset_rows t ON a.asset_id = t.asset_id WHERE a.product_status_id <> v_available_status
+      SELECT 1
+      FROM asset a
+      JOIN tmp_asset_rows t ON a.asset_id = t.asset_id
+      WHERE a.product_status_id <> v_available_status
     ) THEN
       ROLLBACK;
       SET p_error_code = 'ERR_ASSET_NOT_AVAILABLE';
@@ -108,6 +111,7 @@ proc_exit: BEGIN
       LEAVE proc_exit;
     END IF;
 
+    /* invoice_photos */
     -- invoice photo (if any)
     IF p_invoice_url IS NOT NULL AND TRIM(p_invoice_url) <> '' THEN
       INSERT INTO invoice_photos (business_id, branch_id, customer_id, invoice_url, created_by)
@@ -115,27 +119,43 @@ proc_exit: BEGIN
       SET v_invoice_photo_id = LAST_INSERT_ID();
     END IF;
 
-    -- create rental header
+    /* rental */
+    -- create rental header (include product_rental_status_id to satisfy FK)
     INSERT INTO rental (
       business_id, branch_id, customer_id, user_id, invoice_no, invoice_photo_id,
-      invoice_date, start_date, due_date, subtotal_amount, billing_period_id, currency, notes, created_by, created_at
+      invoice_date, start_date, due_date, subtotal_amount, total_amount, billing_period_id,
+      currency, notes, product_rental_status_id, created_by, created_at
     ) VALUES (
       p_business_id, p_branch_id, p_customer_id, p_user_id, p_invoice_no, v_invoice_photo_id,
-      UTC_TIMESTAMP(6), p_start_date, p_due_date, 0.00, p_billing_period_id, 'INR', p_notes, p_user_id, UTC_TIMESTAMP(6)
+      UTC_TIMESTAMP(6), p_start_date, p_due_date, 0.00, 0.00, p_billing_period_id,
+      'INR', p_notes, v_rental_status_active, p_user_id, UTC_TIMESTAMP(6)
     );
     SET v_rental_id_local = LAST_INSERT_ID();
 
+    /* rental_items */
     -- bulk insert rental_item with rental_id FK (fast)
     INSERT INTO rental_item (
       rental_id, business_id, branch_id, product_segment_id, product_category_id, product_model_id,
       asset_id, product_rental_status_id, customer_id, rent_price, notes, created_by, created_at
     )
     SELECT
-      v_rental_id_local, a.business_id, a.branch_id, a.product_segment_id, a.product_category_id, a.product_model_id,
-      a.asset_id, v_rental_status_active, p_customer_id, IFNULL(a.rent_price, p_rent_price_per_item), p_notes, p_user_id, UTC_TIMESTAMP(6)
+      v_rental_id_local,
+      a.business_id,
+      a.branch_id,
+      a.product_segment_id,
+      a.product_category_id,
+      a.product_model_id,
+      a.asset_id,
+      v_rental_status_active,
+      p_customer_id,
+      IFNULL(a.rent_price, p_rent_price_per_item),
+      p_notes,
+      p_user_id,
+      UTC_TIMESTAMP(6)
     FROM asset a
     JOIN tmp_asset_rows t ON a.asset_id = t.asset_id;
 
+    /* asset */
     -- update assets in bulk to RENTED
     UPDATE asset a
     JOIN tmp_asset_rows t ON a.asset_id = t.asset_id
@@ -143,6 +163,7 @@ proc_exit: BEGIN
         a.updated_by = p_user_id,
         a.updated_at = UTC_TIMESTAMP(6);
 
+    /* asset_movements*/
     -- insert asset_movements in bulk
     INSERT INTO asset_movements (
       business_id, branch_id, product_model_id, asset_id,
@@ -150,43 +171,64 @@ proc_exit: BEGIN
       related_rental_id, reference_no, note, metadata, created_by, created_at
     )
     SELECT
-      a.business_id, a.branch_id, a.product_model_id, a.asset_id,
-      v_rental_out_movement, 1, v_available_status, v_rented_status,
-      v_rental_id_local, p_reference_no, p_notes, JSON_OBJECT('updated_by', p_user_id), p_user_id, UTC_TIMESTAMP(6)
+      a.business_id,
+      a.branch_id,
+      a.product_model_id,
+      a.asset_id,
+      v_rental_out_movement,
+      3,
+      v_available_status,
+      v_rented_status,
+      v_rental_id_local,
+      p_reference_no,
+      p_notes,
+      JSON_OBJECT('updated_by', p_user_id),
+      p_user_id,
+      UTC_TIMESTAMP(6)
     FROM asset a
     JOIN tmp_asset_rows t ON a.asset_id = t.asset_id;
 
-    -- grouped stock update
+    /* stock */
+    -- grouped stock update: fully qualify product_model_id
     UPDATE stock s
     JOIN (
-      SELECT product_model_id, COUNT(*) AS qty_change
+      SELECT a.product_model_id AS product_model_id, COUNT(*) AS qty_change
       FROM asset a
       JOIN tmp_asset_rows t ON a.asset_id = t.asset_id
-      GROUP BY product_model_id
+      GROUP BY a.product_model_id
     ) ch ON ch.product_model_id = s.product_model_id
     SET s.quantity_available = s.quantity_available - ch.qty_change,
         s.quantity_on_rent = s.quantity_on_rent + ch.qty_change,
-        s.last_updated_by = p_user_id,
-        s.last_updated_at = UTC_TIMESTAMP(6)
+        s.last_updated_by = p_user_id
     WHERE s.business_id = p_business_id AND (p_branch_id IS NULL OR s.branch_id = p_branch_id);
 
-    -- grouped stock_movements
+    /* stock_movements */
+    -- grouped stock_movements (qualify product_model_id)
     INSERT INTO stock_movements (
       business_id, branch_id, product_model_id, inventory_movement_type_id,
       quantity, related_rental_id, from_product_status_id, to_product_status_id, created_by, created_at
     )
     SELECT
-      p_business_id, p_branch_id, a.product_model_id, v_rental_out_movement,
-      COUNT(*), v_rental_id_local, v_available_status, v_rented_status, p_user_id, UTC_TIMESTAMP(6)
+      p_business_id,
+      p_branch_id,
+      a.product_model_id,
+      v_rental_out_movement,
+      COUNT(*) AS qty,
+      v_rental_id_local,
+      v_available_status,
+      v_rented_status,
+      p_user_id,
+      UTC_TIMESTAMP(6)
     FROM asset a
     JOIN tmp_asset_rows t ON a.asset_id = t.asset_id
     GROUP BY a.product_model_id;
 
+    /* rental */
     -- compute subtotal
     UPDATE rental r
     SET subtotal_amount = (
       SELECT IFNULL(SUM(ri.rent_price),0) FROM rental_item ri WHERE ri.rental_id = v_rental_id_local
-    ), last_updated_by = p_user_id, last_updated_at = UTC_TIMESTAMP(6)
+    ), updated_by = p_user_id
     WHERE r.rental_id = v_rental_id_local;
 
     COMMIT;

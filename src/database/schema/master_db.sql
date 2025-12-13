@@ -779,7 +779,7 @@ CREATE TABLE asset (
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
-  ADD CONSTRAINT chk_asset_prices CHECK (
+  CONSTRAINT chk_asset_prices CHECK (
     (purchase_price IS NULL OR purchase_price >= 0) AND
     (current_value IS NULL OR current_value >= 0) AND
     (rent_price IS NULL OR rent_price >= 0) AND
@@ -792,7 +792,7 @@ CREATE TABLE asset (
   INDEX idx_asset_source (business_id, source_type_id),
   INDEX idx_asset_model_branch (product_model_id, branch_id),
   INDEX idx_asset_model_status (business_id, branch_id, product_model_id, product_status_id, asset_id),
-  INDEX idx_asset_status_model (product_status_id, product_model_id, branch_id);
+  INDEX idx_asset_status_model (product_status_id, product_model_id, branch_id),
 
   CONSTRAINT uq_asset_business_branch_model_serial UNIQUE (business_id, branch_id, product_model_id, serial_number),
 
@@ -976,12 +976,7 @@ CREATE TABLE rental (
   currency VARCHAR(16) DEFAULT 'INR',
   notes TEXT,
   product_rental_status_id INT NOT NULL,
-  is_overdue BOOLEAN GENERATED ALWAYS AS (
-    CASE 
-      WHEN end_date IS NULL AND due_date < UTC_TIMESTAMP(6) THEN 1
-      ELSE 0
-    END
-  ) STORED,
+  is_overdue TINYINT(1) NOT NULL DEFAULT 0,
 
   CONSTRAINT chk_rental_amounts CHECK (
     subtotal_amount >= 0 AND
@@ -1184,8 +1179,7 @@ CREATE TABLE reservations (
   is_deleted TINYINT(1) DEFAULT 0,
 
   INDEX idx_reservations_dates (reserved_from, reserved_until),
-  INDEX idx_reservation_item_dates (start_date, end_date, reservation_id);
-
+  INDEX idx_reservation_item_dates (reserved_from, reserved_until, reservation_id),
 
   CONSTRAINT fk_reservation_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -1227,7 +1221,7 @@ CREATE TABLE reservation_item (
 
   INDEX idx_res_item_reservation (reservation_id),
   INDEX idx_res_item_model (product_model_id),
-  INDEX idx_reservation_item_dates (start_date, end_date, reservation_id);
+  INDEX idx_reservation_item_dates (start_date, end_date, reservation_id),
 
   CONSTRAINT fk_reservation_item_reservation FOREIGN KEY (reservation_id)
     REFERENCES reservations(reservation_id)
@@ -1678,45 +1672,3 @@ CREATE TABLE asset_movements (
     REFERENCES maintenance_records(maintenance_id)
     ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
-
-
--- ========================================================
--- AUDIT TRIGGER
--- ========================================================
-
--- Asset status change audit table
-DROP TABLE IF EXISTS asset_status_audit;
-CREATE TABLE asset_status_audit (
-  audit_id INT AUTO_INCREMENT PRIMARY KEY,
-  asset_id INT NOT NULL,
-  old_status_id INT,
-  new_status_id INT,
-  changed_by VARCHAR(255),
-  changed_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
-  reason VARCHAR(500),
-  
-  INDEX idx_audit_asset (asset_id, changed_at),
-  INDEX idx_audit_dates (changed_at),
-  
-  CONSTRAINT fk_audit_asset FOREIGN KEY (asset_id) 
-    REFERENCES asset(asset_id) ON DELETE CASCADE
-) ENGINE=InnoDB;
-
--- Trigger to log status changes
-DROP TRIGGER IF EXISTS trg_asset_status_change;
-CREATE TRIGGER trg_asset_status_change
-AFTER UPDATE ON asset
-FOR EACH ROW
-BEGIN
-  IF OLD.product_status_id != NEW.product_status_id THEN
-    INSERT INTO asset_status_audit (
-      asset_id, old_status_id, new_status_id, changed_by, reason
-    ) VALUES (
-      NEW.asset_id, 
-      OLD.product_status_id, 
-      NEW.product_status_id, 
-      NEW.updated_by,
-      'Status change via update'
-    );
-  END IF;
-END;
