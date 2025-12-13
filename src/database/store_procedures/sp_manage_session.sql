@@ -68,8 +68,8 @@ proc_body: BEGIN
             error_message
         )
         VALUES (
-            'sp_action_login_with_otp',
-            CONCAT('p_email=', LEFT(p_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
+            'sp_manage_session',
+            CONCAT('p_user_id=', LEFT(p_user_id, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
             v_errno,
             v_sql_state,
             LEFT(v_error_msg, 2000)

@@ -77,7 +77,7 @@ proc_body: BEGIN
         )
         VALUES (
             'sp_action_login_with_otp',
-            CONCAT('p_email=', LEFT(p_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
+            CONCAT('p_business_email=', LEFT(p_business_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
             v_errno,
             v_sql_state,
             LEFT(v_error_msg, 2000)

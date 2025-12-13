@@ -146,31 +146,7 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        -- B. Initialize Stock (Create)
-        -- We use v_product_model_id generated above
-        CALL sp_manage_stock(
-            1,                       -- Action: Create
-            p_business_id,
-            p_branch_id,
-            p_product_segment_id,
-            p_product_category_id,
-            v_product_model_id,      -- The new ID
-            p_total_quantity,        -- Initial Quantity
-            1,                       -- p_movement_type_id = ADD_STOCK
-            p_user_id,
-            p_role_id,
-            @p_success, @p_data, @p_error_code, @p_error_message
-        );
-
-        -- Validation
-        SELECT @p_success INTO p_success;
-        IF NOT p_success THEN
-            ROLLBACK; -- Rollback Model creation if Stock creation fails
-            SELECT @p_error_code, @p_error_message INTO p_error_code, p_error_message;
-            LEAVE proc_body;
-        END IF;
-
-        -- C. Manage Images (if provided)
+        -- B. Manage Images (if provided)
         IF p_product_model_images IS NOT NULL AND JSON_LENGTH(p_product_model_images) > 0 THEN
             WHILE JSON_LENGTH(p_product_model_images) > 0 DO
                 CALL sp_manage_product_model_images(
@@ -448,23 +424,7 @@ proc_body: BEGIN
             @s_success, @s_id, v_images_json, @s_code, @s_msg
         );
 
-        -- C. Get Stock (Action 4: Single Stock)
-        SET v_stock_json = NULL;
-        CALL sp_manage_stock(
-            4, 
-            p_business_id, 
-            p_branch_id, 
-            NULL, 
-            NULL, 
-            v_product_model_id, 
-            NULL, 
-            NULL,
-            p_user_id, 
-            p_role_id,
-            @s_success, v_stock_json, @s_code, @s_msg
-        );
-
-        -- D. Construct Final JSON Response using JSON_SET
+        -- Construct Final JSON Response using JSON_SET
         -- This preserves JSON types instead of converting to strings
         IF p_data IS NULL THEN
             SET p_data = JSON_OBJECT();
@@ -540,23 +500,7 @@ proc_body: BEGIN
                         @s_success, @s_id, v_images_json, @s_code, @s_msg
                     );
                     
-                    -- 2. Fetch Stock for this Model (Action 4 - Single)
-                    SET v_stock_json = NULL;
-                    CALL sp_manage_stock(
-                        4,  -- ✅ CORRECT: Get single stock record
-                        p_business_id, 
-                        p_branch_id, 
-                        NULL, 
-                        NULL, 
-                        v_model_id, 
-                        NULL, 
-                        NULL,
-                        p_user_id, 
-                        p_role_id,
-                        @s_success, v_stock_json, @s_code, @s_msg
-                    );
-
-                    -- 3. Attach Data to current Array Item
+                    -- 2. Attach Data to current Array Item
                     -- Ensure images is always an array (even if empty)
                     SET v_models_json = JSON_SET(
                         v_models_json,

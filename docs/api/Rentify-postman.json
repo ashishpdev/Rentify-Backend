@@ -1247,6 +1247,263 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Rentals",
+      "item": [
+        {
+          "name": "POST /api/rentals/issue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/issue",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "issue"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": 123,\n  \"invoice_url\": null,\n  \"invoice_no\": \"string\",\n  \"start_date\": null,\n  \"due_date\": null,\n  \"billing_period_id\": 123,\n  \"asset_ids\": [\n    null\n  ],\n  \"rent_price_per_item\": 123,\n  \"reference_no\": null,\n  \"notes\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.issueRental\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123\n- invoice_url: string (optional) — example: null\n- invoice_no: string (required) — example: \"string\"\n- start_date: any (required) — example: null\n- due_date: any (required) — example: null\n- billing_period_id: number (required) — example: 123\n- asset_ids: array (required) — example: []\n  - array item type: any\n- rent_price_per_item: number (required) — example: 123\n- reference_no: string (optional) — example: null\n- notes: string (optional) — example: null"
+        },
+        {
+          "name": "POST /api/rentals/get",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/get",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "get"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.getRental\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123"
+        },
+        {
+          "name": "POST /api/rentals/list",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/list",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "list"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer_id\": null,\n  \"product_rental_status_id\": null,\n  \"is_overdue\": null,\n  \"start_date_from\": null,\n  \"start_date_to\": null,\n  \"page\": null,\n  \"limit\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.listRentals\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (optional) — example: null\n- product_rental_status_id: number (optional) — example: null\n- is_overdue: boolean (optional) — example: null\n- start_date_from: any (optional) — example: null\n- start_date_to: any (optional) — example: null\n- page: number (optional) — example: null\n- limit: number (optional) — example: null"
+        },
+        {
+          "name": "POST /api/rentals/update",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/update",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "update"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": 123,\n  \"due_date\": null,\n  \"notes\": null,\n  \"product_rental_status_id\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.updateRental\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- due_date: any (optional) — example: null\n- notes: string (optional) — example: null\n- product_rental_status_id: number (optional) — example: null"
+        },
+        {
+          "name": "POST /api/rentals/return",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/return",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "return"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": 123,\n  \"end_date\": null,\n  \"notes\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.returnRental\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- end_date: any (required) — example: null\n- notes: string (optional) — example: null"
+        },
+        {
+          "name": "POST /api/rentals/record-payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/record-payment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "record-payment"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": 123,\n  \"amount\": 123,\n  \"mode_of_payment_id\": 123,\n  \"reference_no\": null,\n  \"notes\": null\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.recordPayment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- amount: number (required) — example: 123\n- mode_of_payment_id: number (required) — example: 123\n- reference_no: string (optional) — example: null\n- notes: string (optional) — example: null"
+        },
+        {
+          "name": "POST /api/rentals/get-payments",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/rentals/get-payments",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "rentals",
+                "get-payments"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rental_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: RentalController.getRentalPayments\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123"
+        }
+      ]
     }
   ],
   "variable": [
