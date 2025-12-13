@@ -14,7 +14,6 @@ BEGIN
       product_model_id,
       asset_id,
       inventory_movement_type_id,
-      quantity,
       from_branch_id,
       to_branch_id,
       from_product_status_id,
@@ -30,7 +29,6 @@ BEGIN
       NEW.asset_id,
       -- lookup STATUS_CHANGE id; ensure the row exists (seed above)
       (SELECT inventory_movement_type_id FROM inventory_movement_type LIMIT 1),
-      1,
       NEW.branch_id,    -- status-change does not move branch; keep branch context
       NEW.branch_id,
       OLD.product_status_id,

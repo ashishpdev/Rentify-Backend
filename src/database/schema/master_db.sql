@@ -20,116 +20,6 @@ SET time_zone = '+00:00';
 -- =========================================================
 CREATE DATABASE IF NOT EXISTS master_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE master_db;
-
--- =========================================================
--- MASTER ENUM TABLES
--- =========================================================
-
-DROP TABLE IF EXISTS master_business_status;
-CREATE TABLE master_business_status (
-    master_business_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_role_type;
-CREATE TABLE master_role_type (
-    master_role_type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN NOT NULL DEFAULT TRUE,
-    is_deleted TINYINT(1) NOT NULL DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_subscription_type;
-CREATE TABLE master_subscription_type (
-    master_subscription_type_id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    max_branches INT DEFAULT 1,
-    max_users INT DEFAULT 1,
-    max_items INT DEFAULT 20,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_subscription_status;
-CREATE TABLE master_subscription_status (
-    master_subscription_status_id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    description TEXT,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_billing_cycle;
-CREATE TABLE master_billing_cycle (
-    master_billing_cycle_id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_otp_type;
-CREATE TABLE master_otp_type (
-    master_otp_type_id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS master_otp_status;
-CREATE TABLE master_otp_status (
-    master_otp_status_id INT AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE,
-    name VARCHAR(255) NOT NULL,
-    created_by VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-    updated_by VARCHAR(255),
-    updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-    deleted_at TIMESTAMP(6) NULL,
-    is_active BOOLEAN DEFAULT TRUE,
-    is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
 -- =========================================================
 -- BUSINESS CORE TABLES
 -- =========================================================
@@ -304,333 +194,7 @@ CREATE TABLE master_otp (
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- -- =========================================================
--- -- SEED DATA
--- -- =========================================================
 
-INSERT INTO master_business_status (code, name, description, created_by) VALUES
-('ACTIVE', 'Active', 'Business is active', 'system'),
-('INACTIVE', 'Inactive', 'Business is inactive', 'system'),
-('SUSPENDED', 'Suspended', 'Business temporarily suspended', 'system'),
-('TERMINATED', 'Terminated', 'Business permanently closed', 'system');
-
-INSERT INTO master_role_type (code, name, description, created_by) VALUES
-('OWNER', 'Owner', 'Business Owner with full access', 'system'),
-('ADMIN', 'Admin', 'Administrator with management access', 'system'),
-('MANAGER', 'Manager', 'Manager with operational access', 'system'),
-('STAFF', 'Staff', 'Staff member with limited access', 'system'),
-('VIEWER', 'Viewer', 'Read-only access user', 'system');
-
-INSERT INTO master_subscription_type (code, name, description, max_branches, max_users, max_items, created_by) VALUES
-('TRIAL', 'Trial', 'Trial plan', 1, 1, 20, 'system'),
-('BASIC', 'Basic', 'Basic plan', 1, 5, 100, 'system'),
-('STANDARD', 'Standard', 'Standard plan', 3, 10, 500, 'system'),
-('PREMIUM', 'Premium', 'Premium plan', 5, 50, 2000, 'system'),
-('ENTERPRISE', 'Enterprise', 'Enterprise plan', 10, 200, 10000, 'system'),
-('CUSTOM', 'Custom', 'Custom plan as per requirement', 50, 500, 50000, 'system');
-
-INSERT INTO master_subscription_status (code, name, description, created_by) VALUES
-('ACTIVE', 'Active', 'Subscription is active', 'system'),
-('INACTIVE', 'Inactive', 'Subscription is inactive', 'system'),
-('SUSPENDED', 'Suspended', 'Subscription temporarily disabled', 'system'),
-('CANCELLED', 'Cancelled', 'Subscription cancelled by user', 'system'),
-('EXPIRED', 'Expired', 'Subscription expired', 'system');
-
-INSERT INTO master_billing_cycle (code, name, created_by) VALUES
-('MONTHLY', 'Monthly', 'system'),
-('QUARTERLY', 'Quarterly', 'system'),
-('YEARLY', 'Yearly', 'system'),
-('LIFETIME', 'Lifetime', 'system');
-
-INSERT INTO master_otp_type (code, name, created_by) VALUES
-('LOGIN', 'Login Verification', 'system'),
-('REGISTER', 'Register Verification', 'system'),
-('RESET_PASSWORD', 'Password Reset', 'system'),
-('VERIFY_EMAIL', 'Email Verification', 'system'),
-('VERIFY_PHONE', 'Phone Verification', 'system'),
-('TWO_FACTOR', 'Two Factor Authentication', 'system');
-
-INSERT into master_otp_status (code, name, created_by) VALUES
-('PENDING', 'Pending', 'system'),
-('VERIFIED', 'Verified', 'system'),
-('EXPIRED', 'Expired', 'system'),
-('FAILED', 'Failed', 'system');
--- =========================================================
--- PRODUCT/ASSET ENUM TABLES (UTC timestamps)
--- =========================================================
-
--- Status before give on rent
-DROP TABLE IF EXISTS product_status;
-CREATE TABLE product_status (
-  product_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS product_condition;
-CREATE TABLE product_condition (
-  product_condition_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
--- used for rental transaction status after issue
-DROP TABLE IF EXISTS product_rental_status;
-CREATE TABLE product_rental_status (
-  product_rental_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS inventory_movement_type;
-CREATE TABLE inventory_movement_type (
-  inventory_movement_type_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL DEFAULT 'system',
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS billing_period;
-CREATE TABLE billing_period (
-  billing_period_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS payment_mode;
-CREATE TABLE payment_mode (
-  payment_mode_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS maintenance_status;
-CREATE TABLE maintenance_status (
-  maintenance_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS reservation_status;
-CREATE TABLE reservation_status (
-  reservation_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS source_type;
-CREATE TABLE source_type (
-  source_type_id INT NOT NULL PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS contact_type;
-CREATE TABLE contact_type (
-  contact_type_id INT NOT NULL PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS notification_channel;
-CREATE TABLE notification_channel (
-  notification_channel_id INT NOT NULL PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS notification_status;
-CREATE TABLE notification_status (
-  notification_status_id INT NOT NULL PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255),
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
-
--- =========================================================
--- Seed lookup rows (INSERT IGNORE to avoid duplicates)
--- =========================================================
-INSERT IGNORE INTO product_status (code, name, description, created_by) VALUES
-  ('PROCUREMENT','Procurement','Item is being procured','system'),
-  ('AVAILABLE','Available','Item is available for rent','system'),
-  ('RESERVED','Reserved','Item reserved, not available','system'),
-  ('RENTED','Rented','Item currently rented','system'),
-  ('MAINTENANCE','Maintenance','Item under maintenance','system'),
-  ('DAMAGE','Damage','Item damaged','system'),
-  ('LOST','Lost','Item lost','system'),
-  ('RETIRED','Retired','Item retired from use','system');
-
-INSERT IGNORE INTO product_condition (code, name, description, created_by) VALUES
-  ('NEW','New','Brand new item','system'),
-  ('GOOD','Good','Good condition','system'),
-  ('FAIR','Fair','Fair condition','system'),
-  ('POOR','Poor','Poor condition','system'),
-  ('BROKEN','Broken','Non functional / broken','system');
-
-INSERT IGNORE INTO product_rental_status (code, name, description, created_by) VALUES
-  ('ACTIVE','Active','Currently active rental','system'),
-  ('RETURNED','Returned','Item returned','system'),
-  ('LATE','Late','Returned late','system'),
-  ('CANCELLED','Cancelled','Rental cancelled','system'),
-  ('LOST','Lost','Item lost during rental','system');
-
-INSERT IGNORE INTO inventory_movement_type (code, name, description, created_by) VALUES
-  ('ADD', 'Add Stock', 'Adding new stock to inventory', 'system'),
-  ('REMOVE', 'Remove Stock', 'Removing stock from inventory', 'system'),
-  ('RENTAL_OUT', 'Rental Out', 'Item issued for rental', 'system'),
-  ('RENTAL_RETURN', 'Rental Return', 'Item returned from rental', 'system'),
-  ('RESERVE', 'Reserve Item', 'Item reserved for customer', 'system'),
-  ('UNRESERVE', 'Unreserve Item', 'Item unreserved/cancelled', 'system'),
-  ('MAINTENANCE_IN', 'Maintenance In', 'Item sent for maintenance', 'system'),
-  ('MAINTENANCE_OUT', 'Maintenance Out', 'Item returned from maintenance', 'system'),
-  ('MARK_DAMAGED', 'Marked Damaged', 'Item reported as damaged', 'system'),
-  ('LOST', 'Lost', 'Item reported as lost', 'system'),
-  ('RETIRE', 'Retire Item', 'Item retired from inventory', 'system');
-
-INSERT IGNORE INTO billing_period (code, name, description, created_by) VALUES
-  ('HOUR','Hour','Billing per hour','system'),
-  ('DAY','Day','Billing per day','system'),
-  ('WEEK','Week','Billing per week','system'),
-  ('MONTH','Month','Billing per month','system'),
-  ('CUSTOM','Custom','Custom billing period','system');
-
-INSERT IGNORE INTO payment_mode (code, name, description, created_by) VALUES
-  ('CASH','Cash','Cash payment','system'),
-  ('CARD','Card','Card payment','system'),
-  ('UPI','UPI','UPI payment','system'),
-  ('BANK_TRANSFER','Bank Transfer','Bank transfer','system'),
-  ('CHEQUE','Cheque','Cheque payment','system'),
-  ('OTHER','Other','Other payment mode','system');
-
-INSERT IGNORE INTO maintenance_status (code, name, description, created_by) VALUES
-  ('PENDING','Pending','Maintenance pending','system'),
-  ('SCHEDULED','Scheduled','Maintenance scheduled','system'),
-  ('IN_PROGRESS','In Progress','Maintenance in progress','system'),
-  ('COMPLETED','Completed','Maintenance completed','system'),
-  ('CANCELLED','Cancelled','Maintenance cancelled','system');
-
-INSERT IGNORE INTO reservation_status (code, name, description, created_by) VALUES
-  ('PENDING','Pending','Reservation pending','system'),
-  ('CONFIRMED','Confirmed','Reservation confirmed','system'),
-  ('CANCELLED','Cancelled','Reservation cancelled','system'),
-  ('EXPIRED','Expired','Reservation expired','system');
-
-INSERT IGNORE INTO source_type (source_type_id, code, name, description, created_by) VALUES
-    (1, 'OWNED', 'Owned', 'Asset owned by business', 'system'),
-    (2, 'BORROWED', 'Borrowed', 'Asset borrowed/loaned from another party', 'system')
-
-INSERT IGNORE INTO contact_type (contact_type_id, code, name, description, created_by) VALUES
-    (1, 'MOBILE', 'Mobile', 'Mobile phone number (SMS) contact', 'system'),
-    (2, 'EMAIL', 'Email', 'Email contact', 'system'),
-    (3, 'BOTH', 'Both', 'Both mobile and email', 'system')
-
-INSERT IGNORE INTO notification_channel (notification_channel_id, code, name, description, created_by) VALUES
-    (1, 'SMS', 'SMS', 'SMS / Text messages', 'system'),
-    (2, 'EMAIL', 'Email', 'Email messages', 'system'),
-    (3, 'PUSH', 'Push', 'Push notification (mobile/web)', 'system'),
-    (4, 'WHATSAPP', 'WhatsApp', 'WhatsApp message via provider', 'system'),
-    (5, 'OTHER', 'Other', 'Other/third-party channel', 'system')
-
-INSERT IGNORE INTO notification_status (notification_status_id, code, name, description, created_by) VALUES
-    (1, 'PENDING', 'Pending', 'Pending to be sent', 'system'),
-    (2, 'SCHEDULED', 'Scheduled', 'Scheduled for sending', 'system'),
-    (3, 'SENT', 'Sent', 'Sent to provider', 'system'),
-    (4, 'DELIVERED', 'Delivered', 'Delivered to recipient (provider reported)', 'system'),
-    (5, 'FAILED', 'Failed', 'Delivery failed', 'system')
 
 -- ============================
 -- CORE: categories, models, asset units
@@ -865,6 +429,90 @@ CREATE TABLE customer (
 ) ENGINE=InnoDB;
 
 -- Stores each specific item that was rented as part of that rental.
+DROP TABLE IF EXISTS rental;
+CREATE TABLE rental (
+  rental_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  customer_id INT NOT NULL,
+  user_id INT NOT NULL COMMENT 'Staff who created the rental',
+  invoice_no VARCHAR(200) NOT NULL,
+  invoice_photo_id INT NULL,
+  invoice_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+  start_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp when given on rent',
+  due_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp - expected return date',
+  end_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp - actual returned date',
+  total_items INT NOT NULL DEFAULT 0,
+  security_deposit DECIMAL(12,2) NOT NULL DEFAULT 0,
+  subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(14,2) NOT NULL,
+  paid_amount DECIMAL(14,2) DEFAULT 0,
+  billing_period_id INT NOT NULL,
+  currency VARCHAR(16) DEFAULT 'INR',
+  notes TEXT,
+  product_rental_status_id INT NOT NULL,
+  is_overdue TINYINT(1) NOT NULL DEFAULT 0,
+
+  CONSTRAINT chk_rental_amounts CHECK (
+    subtotal_amount >= 0 AND
+    tax_amount >= 0 AND
+    discount_amount >= 0 AND
+    total_amount >= 0 AND
+    paid_amount >= 0 AND
+    security_deposit >= 0
+  ),
+  CONSTRAINT chk_rental_dates CHECK (
+    start_date <= due_date AND
+    (end_date IS NULL OR end_date >= start_date)
+  ),
+
+  INDEX idx_rental_business (business_id),
+  INDEX idx_rental_customer (customer_id),
+  INDEX idx_rental_dates (start_date, due_date),
+  INDEX idx_rental_dates_status (start_date, due_date, is_active),
+  INDEX idx_rental_customer_dates (customer_id, start_date, due_date),
+  INDEX idx_rental_product (product_rental_status_id),
+  INDEX idx_rental_overdue (is_overdue, business_id, branch_id),
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
+
+  CONSTRAINT fk_rental_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_user FOREIGN KEY (user_id)
+    REFERENCES master_user(master_user_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_invoice_photo FOREIGN KEY (invoice_photo_id)
+    REFERENCES invoice_photos(invoice_photo_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_rental_billing_period FOREIGN KEY (billing_period_id)
+    REFERENCES billing_period(billing_period_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_rental_product_rental_status FOREIGN KEY (product_rental_status_id)
+    REFERENCES product_rental_status(product_rental_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
 DROP TABLE IF EXISTS rental_item;
 CREATE TABLE rental_item (
   rental_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -950,90 +598,6 @@ CREATE TABLE invoice_photos (
     REFERENCES customer(customer_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS rental;
-CREATE TABLE rental (
-  rental_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  customer_id INT NOT NULL,
-  user_id INT NOT NULL COMMENT 'Staff who created the rental',
-  invoice_no VARCHAR(200) NOT NULL,
-  invoice_photo_id INT NULL,
-  invoice_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
-  start_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp when given on rent',
-  due_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp - expected return date',
-  end_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp - actual returned date',
-  total_items INT NOT NULL DEFAULT 0,
-  security_deposit DECIMAL(12,2) NOT NULL DEFAULT 0,
-  subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
-  tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
-  discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
-  total_amount DECIMAL(14,2) NOT NULL,
-  paid_amount DECIMAL(14,2) DEFAULT 0,
-  billing_period_id INT NOT NULL,
-  currency VARCHAR(16) DEFAULT 'INR',
-  notes TEXT,
-  product_rental_status_id INT NOT NULL,
-  is_overdue TINYINT(1) NOT NULL DEFAULT 0,
-
-  CONSTRAINT chk_rental_amounts CHECK (
-    subtotal_amount >= 0 AND
-    tax_amount >= 0 AND
-    discount_amount >= 0 AND
-    total_amount >= 0 AND
-    paid_amount >= 0 AND
-    security_deposit >= 0
-  ),
-  CONSTRAINT chk_rental_dates CHECK (
-    start_date <= due_date AND
-    (end_date IS NULL OR end_date >= start_date)
-  ),
-
-  INDEX idx_rental_business (business_id),
-  INDEX idx_rental_customer (customer_id),
-  INDEX idx_rental_dates (start_date, due_date),
-  INDEX idx_rental_dates_status (start_date, due_date, is_active),
-  INDEX idx_rental_customer_dates (customer_id, start_date, due_date),
-  INDEX idx_rental_product (product_rental_status_id),
-  INDEX idx_rental_overdue (is_overdue, business_id, branch_id),
-
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
-
-  CONSTRAINT fk_rental_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_rental_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_rental_customer FOREIGN KEY (customer_id)
-    REFERENCES customer(customer_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_rental_user FOREIGN KEY (user_id)
-    REFERENCES master_user(master_user_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_rental_invoice_photo FOREIGN KEY (invoice_photo_id)
-    REFERENCES invoice_photos(invoice_photo_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  
-  CONSTRAINT fk_rental_billing_period FOREIGN KEY (billing_period_id)
-    REFERENCES billing_period(billing_period_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_rental_product_rental_status FOREIGN KEY (product_rental_status_id)
-    REFERENCES product_rental_status(product_rental_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS rental_payments;
@@ -1598,7 +1162,6 @@ CREATE TABLE asset_movements (
   product_model_id INT NULL,                  -- redundant but useful for fast queries
   asset_id INT NOT NULL,
   inventory_movement_type_id INT NOT NULL,    -- unified enum
-  quantity INT NOT NULL DEFAULT 1,            -- normally 1 for serialized assets; keep for compatibility
   from_branch_id INT NULL,
   to_branch_id INT NULL,
   from_product_status_id INT NULL,

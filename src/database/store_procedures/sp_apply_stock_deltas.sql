@@ -1,3 +1,4 @@
+-- CURRENTLY NOT IN USE
 DROP PROCEDURE IF EXISTS sp_apply_stock_deltas;
 CREATE PROCEDURE sp_apply_stock_deltas(
     IN  p_business_id INT,

@@ -1,3 +1,4 @@
+-- CURRENTLY NOT IN USE
 DROP PROCEDURE IF EXISTS sp_manage_stock_admin;
 CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE sp_manage_stock_admin(
     IN  p_action INT,                   -- 2 = SYNC/UPDATE, 4 = GET_SINGLE, 5 = GET_LIST

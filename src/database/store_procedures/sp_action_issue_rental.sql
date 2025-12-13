@@ -167,7 +167,7 @@ proc_exit: BEGIN
     -- insert asset_movements in bulk
     INSERT INTO asset_movements (
       business_id, branch_id, product_model_id, asset_id,
-      inventory_movement_type_id, quantity, from_product_status_id, to_product_status_id,
+      inventory_movement_type_id, from_product_status_id, to_product_status_id,
       related_rental_id, reference_no, note, metadata, created_by, created_at
     )
     SELECT
@@ -176,7 +176,6 @@ proc_exit: BEGIN
       a.product_model_id,
       a.asset_id,
       v_rental_out_movement,
-      3,
       v_available_status,
       v_rented_status,
       v_rental_id_local,
