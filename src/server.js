@@ -2,6 +2,7 @@ const app = require("./app");
 const config = require("./config/env.config");
 const dbConnection = require("./database/connection");
 const logger = require("./config/logger.config");
+const { startWebSocketServer } = require("./ws/ws.connection");
 
 
 // Handle uncaught exceptions
@@ -21,6 +22,9 @@ const startServer = async () => {
   try {
     // Initialize database connections
     await dbConnection.initializeMasterConnection();
+
+    // Intialize WebSocket server
+    startWebSocketServer(app);
 
     // Start Express server
     const server = app.listen(config.port, () => {
