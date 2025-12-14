@@ -1,3 +1,4 @@
+-- CURRENTLY NOT IN USE
 DROP PROCEDURE IF EXISTS sp_update_asset_status;
 CREATE PROCEDURE sp_update_asset_status(
     IN  p_business_id INT,
