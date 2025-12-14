@@ -12,8 +12,6 @@ CREATE PROCEDURE sp_action_manage_product_model(
     IN  p_default_rent DECIMAL(12,2),
     IN  p_default_deposit DECIMAL(12,2),
     IN  p_default_warranty_days INT,
-    IN  p_total_quantity INT,               -- Mapped to Stock Quantity
-    IN  p_available_quantity INT,           -- (Optional, usually same as total on creation)
     IN  p_user_id INT,
     IN  p_role_id INT,
 

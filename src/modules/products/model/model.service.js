@@ -19,8 +19,6 @@ class ModelService {
         defaultRent: modelData.default_rent,
         defaultDeposit: modelData.default_deposit,
         defaultWarrantyDays: modelData.default_warranty_days || null,
-        totalQuantity: modelData.total_quantity,
-        availableQuantity: modelData.available_quantity,
         userId: userData.user_id,
         roleId: userData.role_id,
       });
@@ -56,8 +54,6 @@ class ModelService {
         defaultRent: modelData.default_rent,
         defaultDeposit: modelData.default_deposit,
         defaultWarrantyDays: modelData.default_warranty_days || null,
-        totalQuantity: modelData.total_quantity || 0,
-        availableQuantity: modelData.available_quantity || 0,
         userId: userData.user_id,
         roleId: userData.role_id,
       });
