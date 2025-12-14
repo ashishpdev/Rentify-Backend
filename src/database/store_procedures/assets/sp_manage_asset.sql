@@ -314,9 +314,16 @@ proc_body:BEGIN
 
         SELECT JSON_ARRAYAGG(
             JSON_OBJECT(
-                'asset_id', asset_id,
+                'asset_id',asset_id,
+                'business_id',business_id,
+                'branch_id',branch_id,
+                'product_segment_id',product_segment_id,
+                'product_category_id',product_category_id,
+                'product_model_id',product_model_id,
                 'serial_number', serial_number,
-                'product_status_id', product_status_id,
+                'product_status_id',product_status_id,
+                'product_condition_id',product_condition_id,
+                'purchase_price',purchase_price,
                 'rent_price', rent_price
             )
         ) INTO p_data
