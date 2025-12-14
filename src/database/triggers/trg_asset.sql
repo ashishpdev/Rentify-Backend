@@ -41,7 +41,8 @@ BEGIN
   END IF;
 END;
 
-/* AFTER INSERT: when a new asset row is created we should record an 'ADD' movement and update stock */
+/* AFTER INSERT */
+-- when a new asset row is created we should record an 'ADD' movement and update stock 
 DROP TRIGGER IF EXISTS trg_asset_after_insert;
 
 CREATE TRIGGER trg_asset_after_insert

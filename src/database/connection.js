@@ -40,7 +40,9 @@ class DatabaseConnection {
         error: err.message,
       });
       if (this.masterPool) {
-        try { await this.masterPool.end(); } catch (_) {}
+        try {
+          await this.masterPool.end();
+        } catch (_) {}
         this.masterPool = null;
       }
       throw err;
@@ -50,7 +52,8 @@ class DatabaseConnection {
   }
 
   getMasterPool() {
-    if (!this.masterPool) throw new Error("DB Not Initialized - Call initializeMasterConnection()");
+    if (!this.masterPool)
+      throw new Error("DB Not Initialized - Call initializeMasterConnection()");
     return this.masterPool;
   }
 
@@ -61,10 +64,52 @@ class DatabaseConnection {
   }
 
   /** Select First Row Output */
-  async executeSelect(query) {
+  async executeSelect(query, params = []) {
     const pool = this.getMasterPool();
-    const [rows] = await pool.query(query);
+    const [rows] = await pool.query(query, params);
+    // If caller expects a single row, return first row.
+    // If caller passed a query that returns multiple rows, they should use executeSelectMany.
     return rows?.[0] ?? {};
+  }
+
+  /** Select all rows */
+  async executeSelectMany(query, params = []) {
+    const pool = this.getMasterPool();
+    const [rows] = await pool.query(query, params);
+    return rows ?? [];
+  }
+
+  /** Insert statement */
+  async executeInsert(query, params = []) {
+    const pool = this.getMasterPool();
+    const [result] = await pool.query(query, params);
+    return result;
+  }
+
+  /** Update/Delete statement */
+  async executeUpdate(query, params = []) {
+    const pool = this.getMasterPool();
+    const [result] = await pool.query(query, params);
+    return result;
+  }
+
+  /** Execute a set of statements in a single transaction */
+  async executeTransaction(callback) {
+    const pool = this.getMasterPool();
+    const connection = await pool.getConnection();
+    try {
+      await connection.beginTransaction();
+      const res = await callback(connection);
+      await connection.commit();
+      return res;
+    } catch (err) {
+      try {
+        await connection.rollback();
+      } catch (_) {}
+      throw err;
+    } finally {
+      connection.release();
+    }
   }
 
   async closeConnections() {
