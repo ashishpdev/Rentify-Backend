@@ -8,18 +8,6 @@ class RentalService {
    */
   async issueRental(rentalData, userData) {
     try {
-      // Validate dates
-      const startDate = new Date(rentalData.start_date);
-      const dueDate = new Date(rentalData.due_date);
-
-      if (dueDate <= startDate) {
-        return {
-          success: false,
-          message: "Due date must be after start date",
-          data: null,
-        };
-      }
-
       const result = await rentalRepository.issueRental({
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -97,31 +85,34 @@ class RentalService {
           isOverdue: filters.is_overdue,
           startDateFrom: filters.start_date_from,
           startDateTo: filters.start_date_to,
+          // let DB paginate
+          page: paginationParams.page,
+          limit: paginationParams.limit,
         }
       );
 
-      // Apply pagination
-      const allRentals = result.data || [];
-      const total = allRentals.length;
-      const page = paginationParams.page || 1;
-      const limit = paginationParams.limit || 50;
-      const totalPages = Math.ceil(total / limit);
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      const paginatedRentals = allRentals.slice(startIndex, endIndex);
+      // Repository now returns a structured object from SP:
+      // { rentals: [...], pagination: {...} }
+      const payload =
+        result?.data && typeof result.data === "object" ? result.data : {};
+      const rentals = Array.isArray(payload.rentals)
+        ? payload.rentals
+        : Array.isArray(result.data)
+          ? result.data
+          : [];
 
       return {
         success: result.success,
         message: result.message,
         data: {
-          rentals: paginatedRentals,
-          pagination: {
-            page: page,
-            limit: limit,
-            total: total,
-            total_pages: totalPages,
-            has_next: page < totalPages,
-            has_prev: page > 1,
+          rentals,
+          pagination: payload.pagination || {
+            page: paginationParams.page || 1,
+            limit: paginationParams.limit || 50,
+            total: rentals.length,
+            total_pages: 1,
+            has_next: false,
+            has_prev: false,
           },
         },
       };
@@ -141,15 +132,6 @@ class RentalService {
       const updates = {};
 
       if (rentalData.due_date !== undefined) {
-        // Validate due date if provided
-        const dueDate = new Date(rentalData.due_date);
-        if (isNaN(dueDate.getTime())) {
-          return {
-            success: false,
-            message: "Invalid due date format",
-            data: null,
-          };
-        }
         updates.dueDate = rentalData.due_date;
       }
 
@@ -160,6 +142,9 @@ class RentalService {
       if (rentalData.product_rental_status_id !== undefined) {
         updates.productRentalStatusId = rentalData.product_rental_status_id;
       }
+
+      // for SP permission checks
+      updates.roleId = userData.role_id;
 
       const result = await rentalRepository.updateRental(
         userData.business_id,
@@ -188,23 +173,14 @@ class RentalService {
    */
   async returnRental(rentalData, userData) {
     try {
-      // Validate end date
-      const endDate = new Date(rentalData.end_date);
-      if (isNaN(endDate.getTime())) {
-        return {
-          success: false,
-          message: "Invalid end date format",
-          data: null,
-        };
-      }
-
       const result = await rentalRepository.returnRental(
         userData.business_id,
         userData.branch_id,
         rentalData.rental_id,
         rentalData.end_date,
         rentalData.notes || null,
-        userData.user_id
+        userData.user_id,
+        userData.role_id
       );
 
       return {
@@ -235,6 +211,7 @@ class RentalService {
         referenceNo: paymentData.reference_no || null,
         notes: paymentData.notes || null,
         userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
       return {
