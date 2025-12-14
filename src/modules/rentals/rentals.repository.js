@@ -23,25 +23,40 @@ class RentalRepository {
    */
   async issueRental(params) {
     try {
-      // Convert asset_ids array to JSON string for MySQL
       const assetIdsJson = JSON.stringify(params.assetIds);
 
       const output = await this.#execSpWithOutSelect(
-        `CALL sp_action_issue_rental(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
-          @p_success, @p_rental_id, @p_error_code, @p_error_message)`,
+        `CALL sp_action_issue_rental(
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          ?,
+          ?, ?, ?, ?, ?, ?, ?,
+          ?, ?,
+          @p_success, @p_rental_id, @p_error_code, @p_error_message
+        )`,
         [
           params.businessId,
           params.branchId,
           params.customerId,
           params.userId,
           params.roleId,
+
           params.invoiceUrl,
           params.invoiceNo,
           params.startDate,
           params.dueDate,
           params.billingPeriodId,
+
           assetIdsJson,
-          params.rentPricePerItem,
+
+          params.totalItems,
+          params.securityDeposit,
+          params.subtotalAmount,
+          params.taxAmount,
+          params.discountAmount,
+          params.totalAmount,
+          params.paidAmount,
+
           params.referenceNo,
           params.notes,
         ],
@@ -52,20 +67,20 @@ class RentalRepository {
           @p_error_message AS error_message`
       );
 
-      const success = output.success == 1;
+      const success = output?.success == 1;
 
       if (!success) {
         logger.warn("Issue rental procedure returned error", {
-          errorCode: output.error_code,
-          errorMessage: output.error_message,
+          errorCode: output?.error_code,
+          errorMessage: output?.error_message,
         });
       }
 
       return {
         success,
-        rentalId: output.rental_id,
-        errorCode: output.error_code,
-        message: output.error_message || "Rental issued successfully",
+        rentalId: output?.rental_id,
+        errorCode: output?.error_code,
+        message: output?.error_message || "Rental issued successfully",
       };
     } catch (error) {
       logger.error("RentalRepository.issueRental error", {
@@ -137,7 +152,6 @@ class RentalRepository {
    */
   async listRentals(businessId, branchId, filters = {}) {
     try {
-      // Delegate filtering/pagination to DB for speed.
       const output = await this.#execSpWithOutSelect(
         `CALL sp_action_list_rentals(?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_data, @p_error_code, @p_error_message)`,
         [
@@ -180,7 +194,7 @@ class RentalRepository {
 
       return {
         success: false,
-        data: [],
+        data: { rentals: [], pagination: null },
         message: error.message || "Failed to list rentals",
       };
     }

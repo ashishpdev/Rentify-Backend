@@ -43,10 +43,60 @@ const issueRentalSchema = Joi.object({
       "array.min": "At least one asset ID is required",
       "any.required": "Asset IDs are required",
     }),
-  rent_price_per_item: Joi.number().precision(2).min(0).required().messages({
-    "number.base": "Rent price per item must be a number",
-    "number.min": "Rent price per item must be at least 0",
-    "any.required": "Rent price per item is required",
+  total_items: Joi.number().integer().min(0).required().default(0).messages({
+    "number.base": "Total items must be a number",
+    "number.min": "Total items must be at least 0",
+    "any.required": "Total items is required",
+  }),
+  security_deposit: Joi.number()
+    .precision(2)
+    .min(0)
+    .required()
+    .default(0)
+    .messages({
+      "number.base": "Security deposit must be a number",
+      "number.min": "Security deposit must be at least 0",
+      "any.required": "Security deposit is required",
+    }),
+  subtotal_amount: Joi.number()
+    .precision(2)
+    .min(0)
+    .required()
+    .default(0)
+    .messages({
+      "number.base": "Subtotal amount must be a number",
+      "number.min": "Subtotal amount must be at least 0",
+      "any.required": "Subtotal amount is required",
+    }),
+  tax_amount: Joi.number().precision(2).min(0).required().default(0).messages({
+    "number.base": "Tax amount must be a number",
+    "number.min": "Tax amount must be at least 0",
+    "any.required": "Tax amount is required",
+  }),
+  discount_amount: Joi.number()
+    .precision(2)
+    .min(0)
+    .required()
+    .default(0)
+    .messages({
+      "number.base": "Discount amount must be a number",
+      "number.min": "Discount amount must be at least 0",
+      "any.required": "Discount amount is required",
+    }),
+  total_amount: Joi.number()
+    .precision(2)
+    .min(0)
+    .required()
+    .default(0)
+    .messages({
+      "number.base": "Total amount must be a number",
+      "number.min": "Total amount must be at least 0",
+      "any.required": "Total amount is required",
+    }),
+  paid_amount: Joi.number().precision(2).min(0).required().default(0).messages({
+    "number.base": "Paid amount must be a number",
+    "number.min": "Paid amount must be at least 0",
+    "any.required": "Paid amount is required",
   }),
   reference_no: Joi.string().max(255).allow(null, "").optional().messages({
     "string.base": "Reference number must be text",

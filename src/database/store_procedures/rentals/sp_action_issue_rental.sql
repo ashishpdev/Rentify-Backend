@@ -11,9 +11,15 @@ CREATE PROCEDURE sp_action_issue_rental(
     IN  p_due_date TIMESTAMP(6),
     IN  p_billing_period_id INT,
     IN  p_asset_ids_json JSON,       -- JSON array [1,2,3]
-    IN  p_rent_price_per_item DECIMAL(14,2),
-    IN  p_reference_no VARCHAR(255),
-    IN  p_notes TEXT,
+  IN  p_total_items INT,
+  IN  p_security_deposit DECIMAL(14,2),
+  IN  p_subtotal_amount DECIMAL(14,2),
+  IN  p_tax_amount DECIMAL(14,2),
+  IN  p_discount_amount DECIMAL(14,2),
+  IN  p_total_amount DECIMAL(14,2),
+  IN  p_paid_amount DECIMAL(14,2),
+  IN  p_reference_no VARCHAR(255),
+  IN  p_notes TEXT,
     OUT p_success BOOLEAN,
     OUT p_rental_id INT,
     OUT p_error_code VARCHAR(50),
@@ -27,11 +33,22 @@ proc_exit: BEGIN
     DECLARE v_row_count INT DEFAULT 0;
     DECLARE v_invoice_photo_id INT DEFAULT NULL;
     DECLARE v_rental_id_local INT DEFAULT NULL;
+  DECLARE v_missing_stock_rows INT DEFAULT 0;
+  DECLARE v_insufficient_stock_rows INT DEFAULT 0;
 
     SET p_success = FALSE;
     SET p_rental_id = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
+
+  -- Defaults
+  SET p_total_items = IFNULL(p_total_items, 0);
+  SET p_security_deposit = IFNULL(p_security_deposit, 0.00);
+  SET p_subtotal_amount = IFNULL(p_subtotal_amount, 0.00);
+  SET p_tax_amount = IFNULL(p_tax_amount, 0.00);
+  SET p_discount_amount = IFNULL(p_discount_amount, 0.00);
+  SET p_total_amount = IFNULL(p_total_amount, 0.00);
+  SET p_paid_amount = IFNULL(p_paid_amount, 0.00);
 
     IF p_asset_ids_json IS NULL OR JSON_VALID(p_asset_ids_json) = 0 OR JSON_LENGTH(p_asset_ids_json) = 0 THEN
         SET p_error_code = 'ERR_NO_ASSET_LIST';
@@ -80,7 +97,7 @@ proc_exit: BEGIN
     ) ENGINE=MEMORY;
 
     INSERT INTO tmp_asset_rows (asset_id, product_model_id, rent_price, business_id, branch_id)
-    SELECT a.asset_id, a.product_model_id, IFNULL(a.rent_price, p_rent_price_per_item), a.business_id, a.branch_id
+  SELECT a.asset_id, a.product_model_id, a.rent_price, a.business_id, a.branch_id
     FROM asset a
     JOIN tmp_asset_ids t ON t.asset_id = a.asset_id
     WHERE a.business_id = p_business_id
@@ -123,12 +140,17 @@ proc_exit: BEGIN
     -- create rental header (include product_rental_status_id to satisfy FK)
     INSERT INTO rental (
       business_id, branch_id, customer_id, user_id, invoice_no, invoice_photo_id,
-      invoice_date, start_date, due_date, subtotal_amount, total_amount, billing_period_id,
-      currency, notes, product_rental_status_id, created_by, created_at
+  invoice_date, start_date, due_date, end_date,
+  total_items, security_deposit,
+  subtotal_amount, tax_amount, discount_amount, total_amount, paid_amount,
+  billing_period_id, currency, notes, product_rental_status_id, created_by, created_at
     ) VALUES (
       p_business_id, p_branch_id, p_customer_id, p_user_id, p_invoice_no, v_invoice_photo_id,
-      UTC_TIMESTAMP(6), p_start_date, p_due_date, 0.00, 0.00, p_billing_period_id,
-      'INR', p_notes, v_rental_status_active, p_user_id, UTC_TIMESTAMP(6)
+  UTC_TIMESTAMP(6), p_start_date, p_due_date, NULL,
+  p_total_items, p_security_deposit,
+  p_subtotal_amount, p_tax_amount, p_discount_amount, p_total_amount, p_paid_amount,
+  p_billing_period_id,
+  'INR', p_notes, v_rental_status_active, p_user_id, UTC_TIMESTAMP(6)
     );
     SET v_rental_id_local = LAST_INSERT_ID();
 
@@ -148,7 +170,7 @@ proc_exit: BEGIN
       a.asset_id,
       v_rental_status_active,
       p_customer_id,
-      IFNULL(a.rent_price, p_rent_price_per_item),
+      a.rent_price,
       p_notes,
       p_user_id,
       UTC_TIMESTAMP(6)
@@ -188,6 +210,37 @@ proc_exit: BEGIN
     JOIN tmp_asset_rows t ON a.asset_id = t.asset_id;
 
     /* stock */
+    -- Validate stock rows exist + have enough availability BEFORE updating.
+    -- This avoids CHECK constraint failures like `quantity_available >= 0`.
+    SELECT
+      SUM(CASE WHEN s.stock_id IS NULL THEN 1 ELSE 0 END),
+      SUM(CASE WHEN s.stock_id IS NOT NULL AND s.quantity_available < ch.qty_change THEN 1 ELSE 0 END)
+    INTO v_missing_stock_rows, v_insufficient_stock_rows
+    FROM (
+      SELECT a.product_model_id AS product_model_id, COUNT(*) AS qty_change
+      FROM asset a
+      JOIN tmp_asset_rows t ON a.asset_id = t.asset_id
+      GROUP BY a.product_model_id
+    ) ch
+    LEFT JOIN stock s
+      ON s.business_id = p_business_id
+     AND (p_branch_id IS NULL OR s.branch_id = p_branch_id)
+     AND s.product_model_id = ch.product_model_id;
+
+    IF IFNULL(v_missing_stock_rows, 0) > 0 THEN
+      ROLLBACK;
+      SET p_error_code = 'ERR_STOCK_NOT_FOUND';
+      SET p_error_message = 'Stock row missing for one or more product models.';
+      LEAVE proc_exit;
+    END IF;
+
+    IF IFNULL(v_insufficient_stock_rows, 0) > 0 THEN
+      ROLLBACK;
+      SET p_error_code = 'ERR_INSUFFICIENT_STOCK';
+      SET p_error_message = 'Insufficient stock available for one or more product models.';
+      LEAVE proc_exit;
+    END IF;
+
     -- grouped stock update: fully qualify product_model_id
     UPDATE stock s
     JOIN (
@@ -223,12 +276,27 @@ proc_exit: BEGIN
     GROUP BY a.product_model_id;
 
     /* rental */
-    -- compute subtotal
-    UPDATE rental r
-    SET subtotal_amount = (
-      SELECT IFNULL(SUM(ri.rent_price),0) FROM rental_item ri WHERE ri.rental_id = v_rental_id_local
-    ), updated_by = p_user_id
-    WHERE r.rental_id = v_rental_id_local;
+    -- compute totals if caller didn't pass them
+    IF p_total_items = 0 THEN
+      UPDATE rental r
+      SET total_items = (
+        SELECT COUNT(*) FROM rental_item ri WHERE ri.rental_id = v_rental_id_local
+      ), updated_by = p_user_id
+      WHERE r.rental_id = v_rental_id_local;
+    END IF;
+
+    -- If subtotal/total not provided, compute from rental_item
+    IF p_subtotal_amount = 0.00 AND p_total_amount = 0.00 THEN
+      UPDATE rental r
+      SET subtotal_amount = (
+            SELECT IFNULL(SUM(ri.rent_price),0) FROM rental_item ri WHERE ri.rental_id = v_rental_id_local
+          ),
+          total_amount = (
+            SELECT IFNULL(SUM(ri.rent_price),0) FROM rental_item ri WHERE ri.rental_id = v_rental_id_local
+          ) + IFNULL(r.tax_amount,0) - IFNULL(r.discount_amount,0),
+          updated_by = p_user_id
+      WHERE r.rental_id = v_rental_id_local;
+    END IF;
 
     COMMIT;
 

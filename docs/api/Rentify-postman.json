@@ -797,7 +797,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null,\n  \"total_quantity\": 123,\n  \"available_quantity\": 123\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -807,7 +807,7 @@
             "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null\n- total_quantity: number (required) — example: 123\n- available_quantity: number (required) — example: 123"
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/update",
@@ -833,7 +833,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null,\n  \"total_quantity\": null,\n  \"available_quantity\": null\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -843,7 +843,7 @@
             "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null\n- total_quantity: number (optional) — example: null\n- available_quantity: number (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/get",
@@ -1249,6 +1249,31 @@
       ]
     },
     {
+      "name": "Twillio",
+      "item": [
+        {
+          "name": "POST /api/twillio/send-message",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/twillio/send-message",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "twillio",
+                "send-message"
+              ]
+            },
+            "description": "Handler: twillioController.sendMessage\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Rentals",
       "item": [
         {
@@ -1275,7 +1300,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"customer_id\": 123,\n  \"invoice_url\": null,\n  \"invoice_no\": \"string\",\n  \"start_date\": null,\n  \"due_date\": null,\n  \"billing_period_id\": 123,\n  \"asset_ids\": [\n    null\n  ],\n  \"rent_price_per_item\": 123,\n  \"reference_no\": null,\n  \"notes\": null\n}",
+              "raw": "{\n  \"customer_id\": 123,\n  \"invoice_url\": null,\n  \"invoice_no\": \"string\",\n  \"start_date\": null,\n  \"due_date\": null,\n  \"billing_period_id\": 123,\n  \"asset_ids\": [\n    null\n  ],\n  \"total_items\": 0,\n  \"security_deposit\": 0,\n  \"subtotal_amount\": 0,\n  \"tax_amount\": 0,\n  \"discount_amount\": 0,\n  \"total_amount\": 0,\n  \"paid_amount\": 0,\n  \"reference_no\": null,\n  \"notes\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1285,7 +1310,7 @@
             "description": "Handler: RentalController.issueRental\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123\n- invoice_url: string (optional) — example: null\n- invoice_no: string (required) — example: \"string\"\n- start_date: any (required) — example: null\n- due_date: any (required) — example: null\n- billing_period_id: number (required) — example: 123\n- asset_ids: array (required) — example: []\n  - array item type: any\n- rent_price_per_item: number (required) — example: 123\n- reference_no: string (optional) — example: null\n- notes: string (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- customer_id: number (required) — example: 123\n- invoice_url: string (optional) — example: null\n- invoice_no: string (required) — example: \"string\"\n- start_date: any (required) — example: null\n- due_date: any (required) — example: null\n- billing_period_id: number (required) — example: 123\n- asset_ids: array (required) — example: []\n  - array item type: any\n- total_items: number (required) — example: 0\n- security_deposit: number (required) — example: 0\n- subtotal_amount: number (required) — example: 0\n- tax_amount: number (required) — example: 0\n- discount_amount: number (required) — example: 0\n- total_amount: number (required) — example: 0\n- paid_amount: number (required) — example: 0\n- reference_no: string (optional) — example: null\n- notes: string (optional) — example: null"
         },
         {
           "name": "POST /api/rentals/get",
@@ -1430,78 +1455,6 @@
           },
           "response": [],
           "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- end_date: any (required) — example: null\n- notes: string (optional) — example: null"
-        },
-        {
-          "name": "POST /api/rentals/record-payment",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/rentals/record-payment",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "rentals",
-                "record-payment"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rental_id\": 123,\n  \"amount\": 123,\n  \"mode_of_payment_id\": 123,\n  \"reference_no\": null,\n  \"notes\": null\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: RentalController.recordPayment\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
-          },
-          "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- amount: number (required) — example: 123\n- mode_of_payment_id: number (required) — example: 123\n- reference_no: string (optional) — example: null\n- notes: string (optional) — example: null"
-        },
-        {
-          "name": "POST /api/rentals/get-payments",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/rentals/get-payments",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "rentals",
-                "get-payments"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"rental_id\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: RentalController.getRentalPayments\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
-          },
-          "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123"
         }
       ]
     }
