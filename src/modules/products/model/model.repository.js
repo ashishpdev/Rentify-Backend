@@ -10,7 +10,7 @@ class ModelRepository {
         : null;
 
       await db.executeSP(
-        "CALL sp_action_manage_product_model(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_data, @p_error_code, @p_error_message)",
+        "CALL sp_action_manage_product_model(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_data, @p_error_code, @p_error_message)",
         [
           params.action,
           params.productModelId,
