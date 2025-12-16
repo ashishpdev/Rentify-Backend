@@ -59,6 +59,7 @@ const config = {
   drive: {
     keyFile: process.env.GOOGLE_DRIVE_KEYFILE || "",
     folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || "",
+    invoiceFolderId: process.env.GOOGLE_DRIVE_INVOICE_FOLDER_ID || "",
     clientId: process.env.CLIENT_ID || "",
     clientSecret: process.env.CLIENT_SECRET || "",
     refreshToken: process.env.REFRESH_TOKEN || "",

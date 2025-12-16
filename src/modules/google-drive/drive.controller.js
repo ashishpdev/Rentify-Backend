@@ -1,6 +1,8 @@
 const ResponseUtil = require("../../utils/response.util");
 const logger = require("../../config/logger.config");
 const driveService = require("./drive.service");
+const HbsUtil = require("../../utils/hbs.util");
+const PdfUtil = require("../../utils/pdf.util");
 
 class DriveController {
 
@@ -72,6 +74,38 @@ class DriveController {
             return ResponseUtil.serverError(res, "Failed to fetch file");
         }
     }
+
+    // ============ INVOICE UPLOAD ============
+    async uploadInvoicePdf(req, res) {
+        try {
+            const user = req.user;
+            const data = req.body;
+
+            /* -------- HBS → HTML -------- */
+            const html = await HbsUtil.renderHbs("invoiceSentHtml", data);
+
+            /* -------- HTML → PDF BUFFER -------- */
+            const pdfBuffer = await PdfUtil.htmlToPdf(html);
+
+            if (!Buffer.isBuffer(pdfBuffer)) {
+                throw new Error("PDF generation failed");
+            }
+
+            /* -------- UPLOAD TO DRIVE -------- */
+            const upload = await driveService.uploadInovicePdf(
+                pdfBuffer,
+                user.business_id,
+                user.branch_id
+            );
+
+            return ResponseUtil.created(res, upload, "PDF uploaded successfully");
+
+        } catch (err) {
+            logger.error("Upload error", err);
+            return ResponseUtil.serverError(res, err.message || "Upload failed");
+        }
+    }
+
 }
 
 module.exports = new DriveController();

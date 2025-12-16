@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Invoice - The House of Vastra</title>
+
+    <style>
+        :root {
+            --primary: #f59e0b;
+            --primary-light: #fff7ed;
+            --border: #e5e7eb;
+            --gray: #6b7280;
+            --bg: #f9fafb;
+        }
+
+        body {
+            margin: 0;
+            padding: 40px;
+            background: var(--bg);
+            font-family: Inter, Arial, sans-serif;
+            color: #111827;
+        }
+
+        .invoice-wrapper {
+            max-width: 850px;
+            margin: auto;
+            background: #fff;
+            border-radius: 16px;
+            padding: 30px;
+            border: 1px solid var(--border);
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 20px;
+        }
+
+        .brand img {
+            height: 100px;
+            object-fit: contain;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-meta h2 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .invoice-meta p {
+            margin: 4px 0;
+            color: var(--gray);
+            font-size: 14px;
+        }
+
+        /* DETAILS */
+        .details {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 25px;
+        }
+
+        .details-box {
+            width: 48%;
+        }
+
+        .details-box h4 {
+            margin-bottom: 6px;
+            font-size: 14px;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        .details-box p {
+            margin: 2px 0;
+            font-size: 14px;
+        }
+
+        /* TABLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+
+        thead {
+            background: #f9fafb;
+        }
+
+        th,
+        td {
+            padding: 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 14px;
+        }
+
+        th {
+            text-align: left;
+            color: var(--gray);
+            font-weight: 600;
+        }
+
+        th:nth-child(1),
+        td:nth-child(1) {
+            width: 40px;
+            text-align: center;
+        }
+
+        th:nth-child(3),
+        th:nth-child(4),
+        th:nth-child(5),
+        td:nth-child(3),
+        td:nth-child(4),
+        td:nth-child(5) {
+            text-align: right;
+        }
+
+        /* AMOUNT BADGE */
+        .amount {
+            background: var(--primary-light);
+            color: var(--primary);
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-weight: 600;
+            display: inline-block;
+        }
+
+        /* TOTALS */
+        .totals {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .totals table {
+            width: 300px;
+        }
+
+        .totals td {
+            padding: 10px;
+            font-size: 14px;
+        }
+
+        .totals tr:last-child td {
+            font-size: 16px;
+            font-weight: 700;
+            border-top: 2px solid var(--border);
+        }
+
+        /* FOOTER */
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--gray);
+            border-top: 1px solid var(--border);
+            padding-top: 15px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="invoice-wrapper">
+
+        <!-- HEADER -->
+        <div class="header">
+            <div class="brand">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s"
+                    alt="The House of Vastra" />
+            </div>
+
+            <div class="invoice-meta">
+                <h2>Invoice</h2>
+                <p>Invoice No: INV-1024</p>
+                <p>Date: 16 Oct 2025</p>
+            </div>
+        </div>
+
+        <!-- DETAILS -->
+        <div class="details">
+            <div class="details-box">
+                <h4>From</h4>
+                <p><strong>The House of Vastra</strong></p>
+                <p>Mumbai, India</p>
+                <p>GST: 27ABCDE1234F1Z5</p>
+            </div>
+
+            <div class="details-box">
+                <h4>Billed To</h4>
+                <p><strong>Ravi Bisnoi</strong></p>
+                <p>Delhi, India</p>
+            </div>
+        </div>
+
+        <!-- ITEMS TABLE -->
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                </tr>
+            </thead>
+
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Designer Saree</td>
+                    <td>2</td>
+                    <td>₹15,000</td>
+                    <td><span class="amount">₹30,000</span></td>
+                </tr>
+
+                <tr>
+                    <td>2</td>
+                    <td>Kurta Set</td>
+                    <td>1</td>
+                    <td>₹7,500</td>
+                    <td><span class="amount">₹7,500</span></td>
+                </tr>
+            </tbody>
+        </table>
+
+        <!-- TOTALS -->
+        <div class="totals">
+            <table>
+                <tr>
+                    <td>Sub Total</td>
+                    <td style="text-align:right;">₹37,500</td>
+                </tr>
+                <tr>
+                    <td>GST (18%)</td>
+                    <td style="text-align:right;">₹6,750</td>
+                </tr>
+                <tr>
+                    <td>Grand Total</td>
+                    <td style="text-align:right;">₹44,250</td>
+                </tr>
+            </table>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="footer">
+            This is a system generated invoice<br />
+            Powered by <strong>Rentify</strong>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

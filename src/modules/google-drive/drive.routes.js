@@ -8,8 +8,11 @@ const { requireBothTokens } = require("../../middlewares/token-validation.middle
 const router = express.Router();
 
 router.post("/upload", requireBothTokens, upload.array("images", 10), controller.upload);
-router.get("/list",requireBothTokens, controller.list);
+router.get("/list", requireBothTokens, controller.list);
 router.get("/detail/:file_id", requireBothTokens, controller.getOne);
 router.put("/update/:file_id", requireBothTokens, upload.single("image"), controller.update);
 router.delete("/delete/:file_id", requireBothTokens, controller.delete);
+router.post("/upload-invoice", requireBothTokens, upload.single("pdf"), controller.uploadInvoicePdf);
+
+
 module.exports = router;
