@@ -318,8 +318,8 @@ CREATE TABLE product_model (
 DROP TABLE IF EXISTS asset;
 CREATE TABLE asset (
   asset_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
+  -- business_id INT NOT NULL,
+  -- branch_id INT NOT NULL,
   -- product_segment_id INT NOT NULL,
   -- product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
@@ -335,7 +335,7 @@ CREATE TABLE asset (
   source_type_id INT NOT NULL,
   borrowed_from_business_name VARCHAR(255) NULL,
   borrowed_from_branch_name VARCHAR(255) NULL,
-  purchase_bill_url VARCHAR(1024),
+  -- purchase_bill_url VARCHAR(1024),
 
 
   created_by VARCHAR(255) NOT NULL,
