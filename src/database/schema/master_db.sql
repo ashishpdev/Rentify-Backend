@@ -278,6 +278,9 @@ CREATE TABLE product_model (
   default_rent DECIMAL(12,2) NOT NULL,
   default_deposit DECIMAL(12,2) NOT NULL,
   default_warranty_days INT,
+
+  supports_rent TINYINT(1) DEFAULT 1,
+  supports_sell TINYINT(1) DEFAULT 0,
   
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -317,17 +320,17 @@ CREATE TABLE asset (
   asset_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  product_segment_id INT NOT NULL,
-  product_category_id INT NOT NULL,
+  -- product_segment_id INT NOT NULL,
+  -- product_category_id INT NOT NULL,
   product_model_id INT NOT NULL,
   serial_number VARCHAR(200) NOT NULL,
   product_status_id INT NOT NULL,
   product_condition_id INT NOT NULL,
-  purchase_price DECIMAL(12,2),
-  purchase_date DATETIME(6),
-  current_value DECIMAL(12,2),
+  -- purchase_price DECIMAL(12,2),
+  -- purchase_date DATETIME(6),
+  -- current_value DECIMAL(12,2),
   rent_price DECIMAL(12,2),
-  deposit_amount DECIMAL(12,2),
+  sell_price DECIMAL(12,2),
 
   source_type_id INT NOT NULL,
   borrowed_from_business_name VARCHAR(255) NULL,
@@ -344,10 +347,8 @@ CREATE TABLE asset (
   is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT chk_asset_prices CHECK (
-    (purchase_price IS NULL OR purchase_price >= 0) AND
-    (current_value IS NULL OR current_value >= 0) AND
     (rent_price IS NULL OR rent_price >= 0) AND
-    (deposit_amount IS NULL OR deposit_amount >= 0)
+    (sell_price IS NULL OR sell_price >= 0)
   ),
 
   INDEX idx_asset_business_object (business_id),
@@ -366,14 +367,6 @@ CREATE TABLE asset (
 
   CONSTRAINT fk_asset_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_asset_product_segment FOREIGN KEY (product_segment_id)
-    REFERENCES product_segment(product_segment_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_asset_product_category FOREIGN KEY (product_category_id)
-    REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_asset_product_model FOREIGN KEY (product_model_id)
@@ -429,31 +422,47 @@ CREATE TABLE customer (
 ) ENGINE=InnoDB;
 
 -- Stores each specific item that was rented as part of that rental.
-DROP TABLE IF EXISTS rental;
-CREATE TABLE rental (
-  rental_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+-- DROP TABLE IF EXISTS rental;
+DROP TABLE IF EXISTS rental_order;
+CREATE TABLE rental_order (
+  rental_order_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
   user_id INT NOT NULL COMMENT 'Staff who created the rental',
-  invoice_no VARCHAR(200) NOT NULL,
-  invoice_photo_id INT NULL,
-  invoice_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp',
+
+  order_no VARCHAR(255) NOT NULL,     -- internal order number (unique per business)
+  reference_no VARCHAR(255) NULL,     -- external reference (POS / merchant id / ext ref)
+
   start_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp when given on rent',
   due_date TIMESTAMP(6) NOT NULL COMMENT 'UTC timestamp - expected return date',
   end_date TIMESTAMP(6) NULL COMMENT 'UTC timestamp - actual returned date',
   total_items INT NOT NULL DEFAULT 0,
+
   security_deposit DECIMAL(12,2) NOT NULL DEFAULT 0,
+  deposit_due_on TIMESTAMP(6) NULL,
+
   subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
   total_amount DECIMAL(14,2) NOT NULL,
   paid_amount DECIMAL(14,2) DEFAULT 0,
-  billing_period_id INT NOT NULL,
+
+  rental_billing_period_id INT NOT NULL,
   currency VARCHAR(16) DEFAULT 'INR',
   notes TEXT,
-  product_rental_status_id INT NOT NULL,
-  is_overdue TINYINT(1) NOT NULL DEFAULT 0,
+  rental_order_status_id INT NOT NULL,
+  is_overdue TINYINT(1) GENERATED ALWAYS AS (
+    CASE WHEN is_active = 1 AND end_date IS NULL AND due_date < CURRENT_TIMESTAMP(6) THEN 1 ELSE 0 END
+  ) STORED,
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0,
 
   CONSTRAINT chk_rental_amounts CHECK (
     subtotal_amount >= 0 AND
@@ -468,21 +477,17 @@ CREATE TABLE rental (
     (end_date IS NULL OR end_date >= start_date)
   ),
 
-  INDEX idx_rental_business (business_id),
-  INDEX idx_rental_customer (customer_id),
-  INDEX idx_rental_dates (start_date, due_date),
-  INDEX idx_rental_dates_status (start_date, due_date, is_active),
-  INDEX idx_rental_customer_dates (customer_id, start_date, due_date),
-  INDEX idx_rental_product (product_rental_status_id),
-  INDEX idx_rental_overdue (is_overdue, business_id, branch_id),
+  CONSTRAINT uq_rental_order_business_branch_order_no UNIQUE (business_id, branch_id, order_no),
 
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0,
+
+  INDEX idx_rental_order_business (business_id),
+  INDEX idx_rental_order_customer (customer_id),
+  INDEX idx_rental_order_business_order (business_id, order_no),
+  INDEX idx_rental_order_dates (start_date, due_date),
+  INDEX idx_rental_order_dates_status (start_date, due_date, is_active),
+  INDEX idx_rental_order_customer_dates (customer_id, start_date, due_date),
+  INDEX idx_rental_order_product (rental_order_status_id),
+  INDEX idx_rental_order_overdue (is_overdue, business_id, branch_id),
 
   CONSTRAINT fk_rental_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -500,44 +505,43 @@ CREATE TABLE rental (
     REFERENCES master_user(master_user_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_rental_invoice_photo FOREIGN KEY (invoice_photo_id)
-    REFERENCES invoice_photos(invoice_photo_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  
-  CONSTRAINT fk_rental_billing_period FOREIGN KEY (billing_period_id)
-    REFERENCES billing_period(billing_period_id)
+  CONSTRAINT fk_rental_rental_billing_period FOREIGN KEY (rental_billing_period_id)
+    REFERENCES rental_billing_period(rental_billing_period_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_rental_product_rental_status FOREIGN KEY (product_rental_status_id)
-    REFERENCES product_rental_status(product_rental_status_id)
+  CONSTRAINT fk_rental_product_rental_status FOREIGN KEY (rental_order_status_id)
+    REFERENCES rental_order_status(rental_order_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS rental_item;
-CREATE TABLE rental_item (
-  rental_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  rental_id INT NOT NULL,
+-- DROP TABLE IF EXISTS rental_item;
+DROP TABLE IF EXISTS rental_order_item;
+CREATE TABLE rental_order_item (
+  rental_order_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  rental_order_id INT NOT NULL,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
-  product_segment_id INT NOT NULL,
-  product_category_id INT NOT NULL,
+
+  product_segment_id INT NULL,
+  product_category_id INT NULL,
   product_model_id INT NOT NULL,
   asset_id INT NOT NULL,
-  product_rental_status_id INT NOT NULL,
+
   customer_id INT NOT NULL,
   rent_price DECIMAL(14,2) NOT NULL,
   notes TEXT,
+
   created_by VARCHAR(255),
-  created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
 
-  INDEX idx_rental_item_rental (rental_id),
+  INDEX idx_rental_item_order (rental_order_id),
   INDEX idx_rental_item_model (product_model_id),
-  INDEX idx_rental_item_unit (asset_id),
+  INDEX idx_rental_item_asset (asset_id),
 
-  CONSTRAINT fk_rental_item_rental FOREIGN KEY (rental_id)
-    REFERENCES rental(rental_id)
+  CONSTRAINT fk_rental_item_rental FOREIGN KEY (rental_order_id)
+    REFERENCES rental_order(rental_order_id)
     ON DELETE CASCADE ON UPDATE CASCADE,
 
   CONSTRAINT fk_product_rental_status_business FOREIGN KEY (business_id)
@@ -548,11 +552,11 @@ CREATE TABLE rental_item (
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_product_rental_status_product_segment FOREIGN KEY (product_segment_id)
+  CONSTRAINT fk_product_rental_status_segment FOREIGN KEY (product_segment_id)
     REFERENCES product_segment(product_segment_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE, 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_product_rental_status_product_category FOREIGN KEY (product_category_id)
+  CONSTRAINT fk_product_rental_status_category FOREIGN KEY (product_category_id)
     REFERENCES product_category(product_category_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
@@ -564,55 +568,38 @@ CREATE TABLE rental_item (
     REFERENCES asset(asset_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_product_rental_status_product_rental_status FOREIGN KEY (product_rental_status_id)
-    REFERENCES product_rental_status(product_rental_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
   CONSTRAINT fk_product_rental_status_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS invoice_photos;
-CREATE TABLE invoice_photos (
-  invoice_photo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+-- 2.1 sales_order: order-level (can be POS / e-commerce)
+DROP TABLE IF EXISTS sales_order;
+CREATE TABLE sales_order (
+  sales_order_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
-  invoice_url VARCHAR(2048) NOT NULL,
+  user_id INT NULL,            -- staff who created the sale (nullable for online)
 
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_deleted TINYINT(1) DEFAULT 0,
+  order_no VARCHAR(255) NOT NULL,
+  reference_no VARCHAR(255) NULL,     -- external ref (gateway / POS / merchant)
 
-  CONSTRAINT fk_invoice_photo_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
+  order_date TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  shipping_date TIMESTAMP(6) NULL,
+  invoice_expected_date TIMESTAMP(6) NULL,
 
-  CONSTRAINT fk_invoice_photo_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT fk_invoice_photo_customer FOREIGN KEY (customer_id)
-    REFERENCES customer(customer_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
-
-) ENGINE=InnoDB;
-
-DROP TABLE IF EXISTS rental_payments;
-CREATE TABLE rental_payments (
-  rental_payment_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  business_id INT NOT NULL,
-  branch_id INT NOT NULL,
-  rental_id INT NOT NULL,
-  paid_on TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) COMMENT 'UTC timestamp',
-  amount DECIMAL(14,2) NOT NULL,
-  mode_of_payment_id INT,
-  reference_no VARCHAR(255),
+  subtotal_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  tax_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  discount_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  shipping_cost DECIMAL(14,2) NOT NULL DEFAULT 0,
+  total_amount DECIMAL(14,2) NOT NULL,
+  paid_amount DECIMAL(14,2) NOT NULL DEFAULT 0,
+  currency VARCHAR(16) DEFAULT 'INR',
+  sales_order_status_id INT NOT NULL , -- FK -> sales_order_status
   notes TEXT,
   
-  created_by VARCHAR(200),
+  created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(255),
   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
@@ -620,24 +607,249 @@ CREATE TABLE rental_payments (
   is_active BOOLEAN DEFAULT TRUE,
   is_deleted TINYINT(1) DEFAULT 0,
 
-  INDEX idx_rental_payment_rental (rental_id),
+  CONSTRAINT chk_sales_amounts CHECK (
+    subtotal_amount >= 0 AND
+    tax_amount >= 0 AND
+    discount_amount >= 0 AND
+    shipping_cost >= 0 AND
+    total_amount >= 0 AND
+    paid_amount >= 0
+  ),
+    CONSTRAINT chk_sales_dates CHECK (
+    (shipping_date IS NULL OR shipping_date >= order_date) AND
+    (invoice_expected_date IS NULL OR invoice_expected_date >= order_date)
+  ),
 
-  CONSTRAINT fk_rental_payment_business FOREIGN KEY (business_id)
+  CONSTRAINT uq_sales_order_business_branch_order_no UNIQUE (business_id, branch_id, order_no),
+  
+  INDEX idx_sales_order_business (business_id),
+  INDEX idx_sales_order_customer (customer_id),
+  INDEX idx_sales_order_business_order (business_id, order_no),
+  INDEX idx_sales_order_dates (order_date),
+  INDEX idx_sales_order_status (sales_order_status_id),
+  INDEX idx_sales_order_overdue (business_id, branch_id, sales_order_status_id),
+
+  CONSTRAINT fk_sales_order_business FOREIGN KEY (business_id) 
+    REFERENCES master_business(business_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_order_branch FOREIGN KEY (branch_id) 
+    REFERENCES master_branch(branch_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_order_customer FOREIGN KEY (customer_id) 
+    REFERENCES customer(customer_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_order_user FOREIGN KEY (user_id) 
+    REFERENCES master_user(master_user_id) 
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_order_status FOREIGN KEY (sales_order_status_id) 
+    REFERENCES sales_order_status(sales_order_status_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+-- 2.2 sales_order_item: lines (can reference product_model or specific asset)
+DROP TABLE IF EXISTS sales_order_item;
+CREATE TABLE sales_order_item (
+  sales_order_item_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  sales_order_id INT NOT NULL,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+
+  product_segment_id INT NULL,
+  product_category_id INT NULL,
+  product_model_id INT NULL,
+  asset_id INT NOT NULL,             -- if selling a serialized single unit
+
+  customer_id INT NOT NULL,
+  sell_price DECIMAL(14,2) NOT NULL,
+  notes TEXT,
+
+  created_by VARCHAR(255),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+
+  INDEX idx_sales_item_order (sales_order_id),
+  INDEX idx_sales_item_model (product_model_id),
+  INDEX idx_sales_item_asset (asset_id),
+
+  CONSTRAINT fk_sales_item_order FOREIGN KEY (sales_order_id) 
+    REFERENCES sales_order(sales_order_id) 
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_item_business FOREIGN KEY (business_id) 
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_rental_payment_branch FOREIGN KEY (branch_id)
+  CONSTRAINT fk_sales_item_branch FOREIGN KEY (branch_id) 
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_rental_payment_rental FOREIGN KEY (rental_id)
-    REFERENCES rental(rental_id)
+  CONSTRAINT fk_sales_item_segment FOREIGN KEY (product_segment_id) 
+    REFERENCES product_segment(product_segment_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
-  CONSTRAINT fk_payment_mode FOREIGN KEY (mode_of_payment_id)
-    REFERENCES payment_mode(payment_mode_id)
+  CONSTRAINT fk_sales_item_category FOREIGN KEY (product_category_id)
+    REFERENCES product_category(product_category_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_sales_item_product_model FOREIGN KEY (product_model_id) 
+    REFERENCES product_model(product_model_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_item_asset FOREIGN KEY (asset_id) 
+    REFERENCES asset(asset_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_sales_item_customer FOREIGN KEY (customer_id) 
+    REFERENCES customer(customer_id) 
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
+
+
+DROP TABLE IF EXISTS invoices;
+CREATE TABLE invoices (
+  invoice_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  business_id INT NOT NULL,
+  branch_id INT NOT NULL,
+  customer_id INT NULL,
+
+  rental_order_id INT NULL, -- link to exactly one order type (one of these two MUST be NOT NULL)
+  sales_order_id INT NULL,
+
+  invoice_no VARCHAR(255) NOT NULL,
+  invoice_date TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+
+  invoice_type ENUM('FINAL','PROFORMA','CREDIT_NOTE','DEBIT_NOTE') NOT NULL DEFAULT 'FINAL',
+
+  invoice_url VARCHAR(2048) NOT NULL,       -- cloud file URL
+  invoice_file_name VARCHAR(512) NULL,       -- friendly file name
+  notes TEXT NULL,
+
+  created_by VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+
+  CONSTRAINT uq_invoices_business_branch_invoice_no UNIQUE (business_id, branch_id, invoice_no),
+
+  INDEX idx_invoices_business (business_id, branch_id),
+  INDEX idx_invoices_rental (rental_order_id),
+  INDEX idx_invoices_sales (sales_order_id),
+  INDEX idx_invoices_invoice_no (business_id, invoice_no),
+
+  CONSTRAINT fk_invoices_business FOREIGN KEY (business_id) 
+    REFERENCES master_business(business_id) 
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_invoices_branch   FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_invoices_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_invoices_rental_order FOREIGN KEY (rental_order_id) 
+    REFERENCES rental_order(rental_order_id) 
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_invoices_sales_order  FOREIGN KEY (sales_order_id)
+    REFERENCES sales_order(sales_order_id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+
+  CONSTRAINT chk_invoices_one_order CHECK (
+    (rental_order_id IS NOT NULL AND sales_order_id IS NULL)
+    OR (rental_order_id IS NULL AND sales_order_id IS NOT NULL)
+  )
+) ENGINE=InnoDB;
+
+
+-- DROP TABLE IF EXISTS invoice_photos;
+-- CREATE TABLE invoice_photos (
+--   invoice_photo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+--   business_id INT NOT NULL,
+--   branch_id INT NOT NULL,
+--   customer_id INT NOT NULL,
+--   invoice_url VARCHAR(2048) NOT NULL,
+
+--   created_by VARCHAR(255) NOT NULL,
+--   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+--   deleted_at TIMESTAMP(6) NULL,
+--   is_deleted TINYINT(1) DEFAULT 0,
+
+--   CONSTRAINT fk_invoice_photo_business FOREIGN KEY (business_id)
+--     REFERENCES master_business(business_id)
+--     ON DELETE RESTRICT ON UPDATE CASCADE,
+
+--   CONSTRAINT fk_invoice_photo_branch FOREIGN KEY (branch_id)
+--     REFERENCES master_branch(branch_id)
+--     ON DELETE RESTRICT ON UPDATE CASCADE,
+
+--   CONSTRAINT fk_invoice_photo_customer FOREIGN KEY (customer_id)
+--     REFERENCES customer(customer_id)
+--     ON DELETE RESTRICT ON UPDATE CASCADE
+
+-- ) ENGINE=InnoDB;
+
+-- Central payments ledger
+DROP TABLE IF EXISTS payments;
+CREATE TABLE payments (
+  payment_id               BIGINT AUTO_INCREMENT PRIMARY KEY,
+  business_id              INT NOT NULL,
+  branch_id                INT NOT NULL,
+  payment_reference        VARCHAR(255) NULL, -- gateway id / txn id
+  paid_on                  TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  amount                   DECIMAL(14,2) NOT NULL,
+  currency                 VARCHAR(16) DEFAULT 'INR',
+  mode_of_payment_id       INT NULL,          -- FK -> payment_mode
+  payer_customer_id        INT NULL,          -- optional link to customer (who paid)
+  received_by_user_id      INT NULL,          -- staff who recorded payment
+  direction ENUM('IN','OUT') NOT NULL DEFAULT 'IN', -- 'OUT' for refunds
+  status ENUM('PENDING','COMPLETED','FAILED','REFUNDED') NOT NULL DEFAULT 'COMPLETED',
+  external_response TEXT NULL, -- raw gateway response if needed
+  notes TEXT NULL,
+  created_at               TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at               TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+
+  INDEX idx_payments_business (business_id, branch_id),
+  INDEX idx_payments_paid_on (paid_on),
+
+  CONSTRAINT fk_payments_business FOREIGN KEY (business_id) REFERENCES master_business(business_id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_branch   FOREIGN KEY (branch_id)   REFERENCES master_branch(branch_id)     ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_mode    FOREIGN KEY (mode_of_payment_id) REFERENCES payment_mode(payment_mode_id) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_payer   FOREIGN KEY (payer_customer_id) REFERENCES customer(customer_id) ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_payments_received_by FOREIGN KEY (received_by_user_id) REFERENCES master_user(master_user_id) ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS payment_allocation;
+CREATE TABLE payment_allocation (
+  payment_allocation_id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  payment_id            BIGINT NOT NULL,
+  -- Only one of these two should be non-null for each row
+  rental_id             INT NULL,
+  sales_order_id        INT NULL,
+  allocated_amount      DECIMAL(14,2) NOT NULL,
+  allocated_on          TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  notes                 TEXT,
+
+  INDEX idx_pa_payment (payment_id),
+  INDEX idx_pa_rental (rental_id),
+  INDEX idx_pa_sales (sales_order_id),
+
+  CONSTRAINT fk_pa_payment FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pa_rental  FOREIGN KEY (rental_id)  REFERENCES rental(rental_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pa_sales   FOREIGN KEY (sales_order_id) REFERENCES sales_order(sales_order_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  -- Enforce that either rental_id XOR sales_order_id is set
+  CONSTRAINT chk_pa_one_target CHECK (
+    (rental_id IS NOT NULL AND sales_order_id IS NULL)
+    OR (rental_id IS NULL AND sales_order_id IS NOT NULL)
+  )
+) ENGINE=InnoDB;
+
 
 -- =========================================================
 -- MAINTENANCE & TRACKING TABLES (UTC timestamps)
@@ -850,12 +1062,13 @@ CREATE TABLE stock (
   product_category_id INT                 NOT NULL,
   product_model_id INT                    NOT NULL,
 
-  quantity_available     INT NOT NULL DEFAULT 0,  -- in the branch and free (not reserved / not on rent / not in maintenance / not damaged / not lost)
-  quantity_reserved      INT NOT NULL DEFAULT 0,  -- reserved for inbound/outbound orders or holds (not available)
-  quantity_on_rent       INT NOT NULL DEFAULT 0,  -- currently out on rent / leased
+  quantity_available      INT NOT NULL DEFAULT 0,  -- in the branch and free (not reserved / not on rent / not in maintenance / not damaged / not lost)
+  quantity_reserved       INT NOT NULL DEFAULT 0,  -- reserved for inbound/outbound orders or holds (not available)
+  quantity_on_rent        INT NOT NULL DEFAULT 0,  -- currently out on rent / leased
+  quantity_sold           INT NOT NULL DEFAULT 0,  -- sold items (for sellable models)
   quantity_in_maintenance INT NOT NULL DEFAULT 0, -- in maintenance / servicing
-  quantity_damaged       INT NOT NULL DEFAULT 0,  -- physically damaged (repairable or marked)
-  quantity_lost          INT NOT NULL DEFAULT 0,  -- lost / irrecoverable
+  quantity_damaged        INT NOT NULL DEFAULT 0,  -- physically damaged (repairable or marked)
+  quantity_lost           INT NOT NULL DEFAULT 0,  -- lost / irrecoverable
 
 
   quantity_total INT AS (
@@ -878,10 +1091,20 @@ CREATE TABLE stock (
 
   CONSTRAINT uq_stock_business_branch_model UNIQUE (business_id, branch_id, product_model_id),
 
-  INDEX idx_stock_business_category (business_id, product_category_id),
-  INDEX idx_stock_business_segment  (business_id, product_segment_id),
   INDEX idx_stock_business_branch   (business_id, branch_id),
-  INDEX idx_stock_last_updated_at      (last_updated_at),
+  INDEX idx_stock_business_segment  (business_id, product_segment_id),
+  INDEX idx_stock_business_category (business_id, product_category_id),
+  INDEX idx_stock_business_model    (business_id, product_model_id),
+  INDEX idx_stock_sold              (business_id, branch_id, product_model_id, quantity_sold),
+  INDEX idx_stock_available         (quantity_available),
+  INDEX idx_stock_reserved          (quantity_reserved),
+  INDEX idx_stock_on_rent           (quantity_on_rent),
+  INDEX idx_stock_in_maintenance    (quantity_in_maintenance),
+  INDEX idx_stock_damaged           (quantity_damaged),
+  INDEX idx_stock_lost              (quantity_lost),
+  INDEX idx_stock_total             (quantity_total),
+  INDEX idx_stock_quantity_sold     (quantity_sold),
+  INDEX idx_stock_last_updated_at   (last_updated_at),
 
   CONSTRAINT fk_stock_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
