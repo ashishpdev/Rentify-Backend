@@ -3,256 +3,521 @@
 
 <head>
     <meta charset="UTF-8" />
-    <title>Invoice - The House of Vastra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Tax Invoice</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
 
     <style>
         :root {
-            --primary: #f59e0b;
-            --primary-light: #fff7ed;
-            --border: #e5e7eb;
-            --gray: #6b7280;
-            --bg: #f9fafb;
+            /* COLOR PALETTE */
+            --brand-color: #0f172a;
+            /* Dark Navy - Trustworthy */
+            --brand-accent: #2563eb;
+            /* Bright Blue - Highlights */
+            --text-primary: #334155;
+            /* Dark Grey */
+            --text-secondary: #64748b;
+            /* Light Grey */
+            --bg-light: #f8fafc;
+            /* Very Light Blue/Grey Background */
+            --border-color: #e2e8f0;
+            /* Subtle Border */
+            --white: #ffffff;
         }
 
         body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #e2e8f0;
+            /* Darker background for screen contrast */
             margin: 0;
             padding: 40px;
-            background: var(--bg);
-            font-family: Inter, Arial, sans-serif;
-            color: #111827;
+            color: var(--text-primary);
+            -webkit-print-color-adjust: exact;
         }
 
-        .invoice-wrapper {
-            max-width: 850px;
+        /* MAIN CONTAINER (A4 Ratio) */
+        .invoice-box {
+            max-width: 800px;
             margin: auto;
-            background: #fff;
+            padding: 0;
+            background: var(--white);
             border-radius: 16px;
-            padding: 30px;
-            border: 1px solid var(--border);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
         }
 
-        /* HEADER */
+        /* --- HEADER SECTION --- */
         .header {
+            padding: 40px 40px 20px 40px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            border-bottom: 2px solid var(--border);
-            padding-bottom: 20px;
+            align-items: flex-start;
+            border-bottom: 1px solid var(--border-color);
         }
 
-        .brand img {
-            height: 100px;
+        .brand-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .brand-logo {
+            /* HIGHLIGHTING THE LOGO */
+            max-height: 80px;
+            width: auto;
             object-fit: contain;
+            display: block;
+            margin-bottom: 10px;
         }
 
-        .invoice-meta {
+        .brand-name {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--brand-color);
+            margin: 0;
+        }
+
+        .brand-address {
+            font-size: 12px;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .invoice-details {
             text-align: right;
         }
 
-        .invoice-meta h2 {
-            margin: 0;
-            font-size: 26px;
+        .invoice-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--brand-accent);
+            margin: 0 0 5px 0;
+            text-transform: uppercase;
+            letter-spacing: -1px;
         }
 
-        .invoice-meta p {
-            margin: 4px 0;
-            color: var(--gray);
-            font-size: 14px;
+        .badge {
+            display: inline-block;
+            background: #dbeafe;
+            color: #1e40af;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            text-transform: uppercase;
+            margin-bottom: 15px;
         }
 
-        /* DETAILS */
-        .details {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 25px;
+        .meta-table {
+            margin-left: auto;
+            font-size: 12px;
+            text-align: right;
         }
 
-        .details-box {
-            width: 48%;
+        .meta-table td {
+            padding-bottom: 4px;
         }
 
-        .details-box h4 {
-            margin-bottom: 6px;
-            font-size: 14px;
-            color: var(--gray);
-            font-weight: 600;
+        .meta-label {
+            color: var(--text-secondary);
+            padding-right: 15px;
         }
 
-        .details-box p {
-            margin: 2px 0;
-            font-size: 14px;
+        .meta-value {
+            font-weight: 700;
+            color: var(--brand-color);
         }
 
-        /* TABLE */
+        /* --- INFO SECTION --- */
+        .info-section {
+            padding: 30px 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            background: var(--bg-light);
+        }
+
+        .info-col h3 {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin: 0 0 10px 0;
+            font-weight: 700;
+        }
+
+        .client-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--brand-color);
+            margin: 0 0 5px 0;
+        }
+
+        .client-details {
+            font-size: 13px;
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        /* --- TABLE SECTION --- */
+        .table-section {
+            padding: 20px 40px;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 30px;
+            font-size: 13px;
         }
 
-        thead {
-            background: #f9fafb;
-        }
-
-        th,
-        td {
-            padding: 14px;
-            border-bottom: 1px solid var(--border);
-            font-size: 14px;
-        }
-
-        th {
+        thead th {
             text-align: left;
-            color: var(--gray);
+            padding: 15px 10px;
+            background: var(--brand-color);
+            color: var(--white);
             font-weight: 600;
+            text-transform: uppercase;
+            font-size: 11px;
+            letter-spacing: 0.5px;
         }
 
-        th:nth-child(1),
-        td:nth-child(1) {
-            width: 40px;
-            text-align: center;
+        /* Rounded corners for header */
+        thead th:first-child {
+            border-radius: 8px 0 0 8px;
         }
 
-        th:nth-child(3),
-        th:nth-child(4),
-        th:nth-child(5),
-        td:nth-child(3),
-        td:nth-child(4),
-        td:nth-child(5) {
+        thead th:last-child {
+            border-radius: 0 8px 8px 0;
             text-align: right;
         }
 
-        /* AMOUNT BADGE */
-        .amount {
-            background: var(--primary-light);
-            color: var(--primary);
-            padding: 6px 12px;
-            border-radius: 999px;
+        thead th:nth-child(n+4) {
+            text-align: right;
+        }
+
+        /* Align numbers right */
+
+        tbody td {
+            padding: 16px 10px;
+            border-bottom: 1px solid var(--border-color);
+            color: var(--text-primary);
+            vertical-align: middle;
+        }
+
+        tbody td:last-child {
+            text-align: right;
             font-weight: 600;
-            display: inline-block;
         }
 
-        /* TOTALS */
-        .totals {
+        tbody td:nth-child(n+4) {
+            text-align: right;
+        }
+
+        .item-desc {
+            font-weight: 600;
+            color: var(--brand-color);
+            display: block;
+        }
+
+        .item-sub {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        /* --- TOTALS SECTION --- */
+        .summary-section {
+            padding: 10px 40px 40px 40px;
             display: flex;
-            justify-content: flex-end;
-            margin-top: 25px;
+            justify-content: space-between;
         }
 
-        .totals table {
-            width: 300px;
-        }
-
-        .totals td {
-            padding: 10px;
-            font-size: 14px;
-        }
-
-        .totals tr:last-child td {
-            font-size: 16px;
-            font-weight: 700;
-            border-top: 2px solid var(--border);
-        }
-
-        /* FOOTER */
-        .footer {
-            margin-top: 40px;
-            text-align: center;
+        .summary-left {
+            width: 50%;
             font-size: 12px;
-            color: var(--gray);
-            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+            padding-top: 10px;
+        }
+
+        .amount-words-box {
+            background: #fff;
+            border: 1px dashed var(--border-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .amount-words-label {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 5px;
+            color: var(--text-secondary);
+        }
+
+        .amount-words-value {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--brand-color);
+            font-style: italic;
+        }
+
+        .summary-right {
+            width: 40%;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        .totals-row.final {
+            margin-top: 15px;
             padding-top: 15px;
+            border-top: 2px solid var(--brand-color);
+            align-items: center;
+        }
+
+        .final-label {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--brand-color);
+        }
+
+        /* HIGHLIGHTING THE AMOUNT */
+        .final-amount {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--brand-accent);
+        }
+
+        /* --- FOOTER --- */
+        .footer {
+            background: var(--bg-light);
+            padding: 20px 40px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .powered-by {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 11px;
+            color: var(--text-secondary);
+        }
+
+        .powered-by img {
+            height: 16px;
+            opacity: 0.6;
+        }
+
+        .signature-block {
+            text-align: center;
+        }
+
+        .sign-space {
+            height: 40px;
+            margin-bottom: 5px;
+        }
+
+        .sign-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--brand-color);
+        }
+
+        /* --- PRINT SETTINGS --- */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .invoice-box {
+                box-shadow: none;
+                border-radius: 0;
+                max-width: 100%;
+            }
+
+            /* Ensure background colors print */
+            thead th {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .badge {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            .info-section {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
 
 <body>
 
-    <div class="invoice-wrapper">
+    <div class="invoice-box">
 
-        <!-- HEADER -->
-        <div class="header">
-            <div class="brand">
+        <header class="header">
+            <div class="brand-section">
                 <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s"
-                    alt="The House of Vastra" />
+                    alt="Company Logo" class="brand-logo">
+
+                <h1 class="brand-name">The House of Vastra</h1>
+                <div class="brand-address">
+                    Mumbai, Maharashtra – 400001<br>
+                    GSTIN: <strong>26CORPP3939N1ZA</strong><br>
+                    Email: billing@vastra.com
+                </div>
             </div>
 
-            <div class="invoice-meta">
-                <h2>Invoice</h2>
-                <p>Invoice No: INV-1024</p>
-                <p>Date: 16 Oct 2025</p>
+            <div class="invoice-details">
+                <span class="badge">Original for Recipient</span>
+                <h2 class="invoice-title">Tax Invoice</h2>
+
+                <table class="meta-table">
+                    <tr>
+                        <td class="meta-label">Invoice No:</td>
+                        <td class="meta-value">#55</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Date:</td>
+                        <td class="meta-value">20-Mar-2024</td>
+                    </tr>
+                    <tr>
+                        <td class="meta-label">Due Date:</td>
+                        <td class="meta-value">20-Mar-2024</td>
+                    </tr>
+                </table>
+            </div>
+        </header>
+
+        <div class="info-section">
+            <div class="info-col">
+                <h3>Bill To</h3>
+                <div class="client-name">Ronak Panchal</div>
+                <div class="client-details">
+                    202, Sunrise Apartments,<br>
+                    Ahmedabad, Gujarat<br>
+                    <strong>Place of Supply:</strong> Gujarat (24)
+                </div>
+            </div>
+            <div class="info-col">
+                <h3>Ship To</h3>
+                <div class="client-details">
+                    (Same as Bill To Address)<br><br>
+                    <strong>Tax Type:</strong> IGST<br>
+                    <strong>Currency:</strong> INR
+                </div>
             </div>
         </div>
 
-        <!-- DETAILS -->
-        <div class="details">
-            <div class="details-box">
-                <h4>From</h4>
-                <p><strong>The House of Vastra</strong></p>
-                <p>Mumbai, India</p>
-                <p>GST: 27ABCDE1234F1Z5</p>
-            </div>
-
-            <div class="details-box">
-                <h4>Billed To</h4>
-                <p><strong>Ravi Bisnoi</strong></p>
-                <p>Delhi, India</p>
-            </div>
-        </div>
-
-        <!-- ITEMS TABLE -->
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Description</th>
-                    <th>Qty</th>
-                    <th>Rate</th>
-                    <th>Amount</th>
-                </tr>
-            </thead>
-
-            <tbody>
-                <tr>
-                    <td>1</td>
-                    <td>Designer Saree</td>
-                    <td>2</td>
-                    <td>₹15,000</td>
-                    <td><span class="amount">₹30,000</span></td>
-                </tr>
-
-                <tr>
-                    <td>2</td>
-                    <td>Kurta Set</td>
-                    <td>1</td>
-                    <td>₹7,500</td>
-                    <td><span class="amount">₹7,500</span></td>
-                </tr>
-            </tbody>
-        </table>
-
-        <!-- TOTALS -->
-        <div class="totals">
+        <div class="table-section">
             <table>
-                <tr>
-                    <td>Sub Total</td>
-                    <td style="text-align:right;">₹37,500</td>
-                </tr>
-                <tr>
-                    <td>GST (18%)</td>
-                    <td style="text-align:right;">₹6,750</td>
-                </tr>
-                <tr>
-                    <td>Grand Total</td>
-                    <td style="text-align:right;">₹44,250</td>
-                </tr>
+                <thead>
+                    <tr>
+                        <th style="width: 5%;">#</th>
+                        <th style="width: 35%;">Item Description</th>
+                        <th style="width: 10%;">HSN</th>
+                        <th>Qty</th>
+                        <th>Rate</th>
+                        <th>Taxable</th>
+                        <th>IGST</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1</td>
+                        <td>
+                            <span class="item-desc">Basic Knit Top SS</span>
+                            <span class="item-sub">Size: 5-6Y</span>
+                        </td>
+                        <td>6109</td>
+                        <td>1</td>
+                        <td>189.52</td>
+                        <td>189.52</td>
+                        <td>9.48 (5%)</td>
+                        <td>199.00</td>
+                    </tr>
+                    <tr>
+                        <td>2</td>
+                        <td>
+                            <span class="item-desc">Premium Cotton Tee</span>
+                            <span class="item-sub">Size: 5-6Y | Color: Navy</span>
+                        </td>
+                        <td>6109</td>
+                        <td>1</td>
+                        <td>189.52</td>
+                        <td>189.52</td>
+                        <td>9.48 (5%)</td>
+                        <td>199.00</td>
+                    </tr>
+                </tbody>
             </table>
         </div>
 
-        <!-- FOOTER -->
+        <div class="summary-section">
+            <div class="summary-left">
+                <div class="amount-words-box">
+                    <span class="amount-words-label">Total Amount in Words</span>
+                    <span class="amount-words-value">Three Hundred and Ninety-Eight Rupees Only</span>
+                </div>
+
+                <div style="font-size: 11px; line-height: 1.5; color: #94a3b8;">
+                    <strong>Terms & Conditions:</strong><br>
+                    1. Goods once sold will not be taken back.<br>
+                    2. Subject to Mumbai Jurisdiction only.
+                </div>
+            </div>
+
+            <div class="summary-right">
+                <div class="totals-row">
+                    <span>Taxable Amount</span>
+                    <span style="font-weight: 600; color: var(--text-primary);">379.04</span>
+                </div>
+                <div class="totals-row">
+                    <span>Total IGST</span>
+                    <span style="font-weight: 600; color: var(--text-primary);">18.96</span>
+                </div>
+                <div class="totals-row">
+                    <span>Rounding Off</span>
+                    <span style="font-weight: 600; color: var(--text-primary);">0.00</span>
+                </div>
+
+                <div class="totals-row final">
+                    <span class="final-label">Total Payable</span>
+                    <span class="final-amount">₹123232323398.00</span>
+                </div>
+            </div>
+        </div>
+
         <div class="footer">
-            This is a system generated invoice<br />
-            Powered by <strong>Rentify</strong>
+            <div class="powered-by">
+                <span>Powered by</span>
+                <img src="https://lh3.googleusercontent.com/a-/ALV-UjWfT4Uh8ifm1jsUgt3VgJZ3EdoudkIRtDAas88L5nkhHnfdbVI=w90-h90-p-rp-mo-br100"
+                    alt="Rentify Logo">
+                <b>Rentify Platform</b>
+            </div>
+
+            <div class="signature-block">
+                <div class="sign-space"></div>
+                <div class="sign-label">Authorised Signatory</div>
+            </div>
         </div>
 
     </div>
