@@ -1,0 +1,152 @@
+--==================================================================
+Scenario 1: One Payment → Multiple Orders
+Customer pays ₹15,000 at checkout to clear multiple pending rentals:
+
+payments table:
+┌────────────┬────────┬──────────┐
+│ payment_id │ amount │ customer │
+├────────────┼────────┼──────────┤
+│ 1001       │ 15,000 │ John     │
+└────────────┴────────┴──────────┘
+
+payment_allocation table:
+┌────────────┬────────────────┬────────┐
+│ payment_id │ rental_order_id│ amount │
+├────────────┼────────────────┼────────┤
+│ 1001       │ R-001          │ 7,000  │
+│ 1001       │ R-002          │ 5,000  │
+│ 1001       │ R-003          │ 3,000  │
+└────────────┴────────────────┴────────┘
+
+Result: One payment clears THREE different rental orders
+
+
+--==================================================================
+Scenario 2: Multiple Payments → One Order
+Customer makes partial payments for a ₹20,000 rental:
+
+payments table:
+┌────────────┬────────┬─────────────┐
+│ payment_id │ amount │ paid_on     │
+├────────────┼────────┼─────────────┤
+│ 2001       │ 5,000  │ 2024-01-01  │
+│ 2002       │ 7,000  │ 2024-01-15  │
+│ 2003       │ 8,000  │ 2024-02-01  │
+└────────────┴────────┴─────────────┘
+
+payment_allocation table:
+┌────────────┬────────────────┬────────┐
+│ payment_id │ rental_order_id│ amount │
+├────────────┼────────────────┼────────┤
+│ 2001       │ R-100          │ 5,000  │
+│ 2002       │ R-100          │ 7,000  │
+│ 2003       │ R-100          │ 8,000  │
+└────────────┴────────────────┴────────┘
+
+Result: THREE payments to complete ONE rental order (₹20,000)
+
+
+
+--==================================================================
+Scenario 3: One Payment → Both Rental + Sales
+Customer pays ₹25,000 covering rental AND purchase:
+
+payments table:
+┌────────────┬────────┐
+│ payment_id │ amount │
+├────────────┼────────┤
+│ 3001       │ 25,000 │
+└────────────┴────────┘
+
+payment_allocation table:
+┌────────────┬────────────────┬────────────────┬────────┐
+│ payment_id │ rental_order_id│ sales_order_id │ amount │
+├────────────┼────────────────┼────────────────┼────────┤
+│ 3001       │ R-200          │ NULL           │ 10,000 │
+│ 3001       │ NULL           │ S-500          │ 15,000 │
+└────────────┴────────────────┴────────────────┴────────┘
+
+Result: One payment split between rental and sales orders
+
+
+
+--==================================================================
+Scenario 4: Overpayment with Credit Balance
+Customer overpays and wants to apply excess to future orders:
+
+payments table:
+┌────────────┬────────┐
+│ payment_id │ amount │
+├────────────┼────────┤
+│ 4001       │ 12,000 │ ← Customer paid this
+└────────────┴────────┘
+
+payment_allocation table:
+┌────────────┬────────────────┬────────┐
+│ payment_id │ rental_order_id│ amount │
+├────────────┼────────────────┼────────┤
+│ 4001       │ R-300          │ 10,000 │ ← Order was ₹10,000
+│ 4001       │ NULL           │ 2,000  │ ← Store as credit (future use)
+└────────────┴────────────────┴────────┘
+
+Later when placing new order:
+┌────────────┬────────────────┬────────┐
+│ payment_id │ rental_order_id│ amount │
+├────────────┼────────────────┼────────┤
+│ 4001       │ R-400          │ 2,000  │ ← Use stored credit
+└────────────┴────────────────┴────────┘
+
+
+
+
+--==================================================================
+--==================================================================
+1. Customer Statement
+-- Show all payments and how they were used
+SELECT 
+  p.payment_id,
+  p.paid_on,
+  p.amount AS payment_amount,
+  p.mode_of_payment_id,
+  pa.rental_order_id,
+  pa.sales_order_id,
+  pa.allocated_amount,
+  CASE 
+    WHEN pa.rental_order_id IS NOT NULL THEN 'Rental'
+    WHEN pa.sales_order_id IS NOT NULL THEN 'Sales'
+    ELSE 'Credit Balance'
+  END AS allocation_type
+FROM payments p
+LEFT JOIN payment_allocation pa ON p.payment_id = pa.payment_id
+WHERE p.payer_customer_id = 123
+ORDER BY p.paid_on DESC;
+
+--==================================================================
+2. Order Payment History
+-- Show all payments applied to a specific rental
+SELECT 
+  p.payment_id,
+  p.paid_on,
+  p.amount AS total_payment,
+  pa.allocated_amount AS applied_to_order,
+  pm.name AS payment_mode,
+  p.payment_reference
+FROM payment_allocation pa
+JOIN payments p ON pa.payment_id = p.payment_id
+JOIN payment_mode pm ON p.mode_of_payment_id = pm.payment_mode_id
+WHERE pa.rental_order_id = 100
+ORDER BY p.paid_on;
+
+--==================================================================
+3. Reconciliation Report
+-- Financial reconciliation
+SELECT 
+  DATE(p.paid_on) AS payment_date,
+  COUNT(DISTINCT p.payment_id) AS total_transactions,
+  SUM(p.amount) AS total_collected,
+  SUM(pa.allocated_amount) AS total_allocated,
+  SUM(p.amount) - COALESCE(SUM(pa.allocated_amount), 0) AS unallocated
+FROM payments p
+LEFT JOIN payment_allocation pa ON p.payment_id = pa.payment_id
+WHERE p.paid_on >= '2024-01-01'
+GROUP BY DATE(p.paid_on);
