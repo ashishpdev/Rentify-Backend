@@ -44,22 +44,32 @@ END;
 /* AFTER INSERT */
 -- when a new asset row is created we should record an 'ADD' movement and update stock 
 DROP TRIGGER IF EXISTS trg_asset_after_insert;
-
 CREATE TRIGGER trg_asset_after_insert
 AFTER INSERT ON asset
 FOR EACH ROW
 BEGIN
   DECLARE v_add_type INT DEFAULT NULL;
+  DECLARE v_seg INT;
+  DECLARE v_cat INT;
 
   SELECT inventory_movement_type_id
     INTO v_add_type
     FROM inventory_movement_type
-    WHERE code = 'ADD'
-    LIMIT 1;
+   WHERE code = 'ADD'
+   LIMIT 1;
 
-  -- only proceed if the ADD movement type exists
+  SELECT product_segment_id, product_category_id
+    INTO v_seg, v_cat
+    FROM product_model
+   WHERE product_model_id = NEW.product_model_id
+   LIMIT 1;
+
+  IF v_seg IS NULL OR v_cat IS NULL THEN
+    -- product_model missing or inconsistent
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'product_model missing or invalid for newly inserted asset';
+  END IF;
+
   IF v_add_type IS NOT NULL THEN
-
     INSERT INTO asset_movements (
       business_id,
       branch_id,
@@ -84,6 +94,7 @@ BEGIN
       JSON_OBJECT('origin','db-trigger','action','asset create')
     );
 
+    -- try update stock row (increment available). If none, insert with derived segment/category
     UPDATE stock s
     SET s.quantity_available = s.quantity_available + 1,
         s.last_updated_by = COALESCE(NEW.created_by, 'system')
@@ -97,7 +108,7 @@ BEGIN
         quantity_available, quantity_reserved, quantity_on_rent, quantity_in_maintenance, quantity_damaged, quantity_lost,
         created_by
       ) VALUES (
-        NEW.business_id, NEW.branch_id, NEW.product_segment_id, NEW.product_category_id, NEW.product_model_id,
+        NEW.business_id, NEW.branch_id, v_seg, v_cat, NEW.product_model_id,
         1, 0, 0, 0, 0, 0,
         COALESCE(NEW.created_by, 'system')
       );
@@ -118,7 +129,5 @@ BEGIN
       'Stock added for new asset',
       JSON_OBJECT('origin','db-trigger','asset_id', NEW.asset_id)
     );
-
   END IF;
-
 END;

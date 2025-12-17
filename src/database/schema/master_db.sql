@@ -105,6 +105,7 @@ CREATE TABLE master_user (
 
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) NOT NULL,
+    hash_password VARCHAR(255) NOT NULL,
     contact_number VARCHAR(50) NOT NULL,
 
     created_by VARCHAR(255) NOT NULL,
@@ -421,15 +422,14 @@ CREATE TABLE customer (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
--- Stores each specific item that was rented as part of that rental.
--- DROP TABLE IF EXISTS rental;
+-- Stores each specific item that was rented as part of that rental_order.
 DROP TABLE IF EXISTS rental_order;
 CREATE TABLE rental_order (
   rental_order_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   business_id INT NOT NULL,
   branch_id INT NOT NULL,
   customer_id INT NOT NULL,
-  user_id INT NOT NULL COMMENT 'Staff who created the rental',
+  user_id INT NOT NULL COMMENT 'Staff who created the rental_order',
 
   order_no VARCHAR(255) NOT NULL,     -- internal order number (unique per business)
   reference_no VARCHAR(255) NULL,     -- external reference (POS / merchant id / ext ref)
@@ -709,7 +709,6 @@ CREATE TABLE sales_order_item (
     ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
-
 DROP TABLE IF EXISTS invoices;
 CREATE TABLE invoices (
   invoice_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -767,34 +766,6 @@ CREATE TABLE invoices (
   )
 ) ENGINE=InnoDB;
 
-
--- DROP TABLE IF EXISTS invoice_photos;
--- CREATE TABLE invoice_photos (
---   invoice_photo_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
---   business_id INT NOT NULL,
---   branch_id INT NOT NULL,
---   customer_id INT NOT NULL,
---   invoice_url VARCHAR(2048) NOT NULL,
-
---   created_by VARCHAR(255) NOT NULL,
---   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
---   deleted_at TIMESTAMP(6) NULL,
---   is_deleted TINYINT(1) DEFAULT 0,
-
---   CONSTRAINT fk_invoice_photo_business FOREIGN KEY (business_id)
---     REFERENCES master_business(business_id)
---     ON DELETE RESTRICT ON UPDATE CASCADE,
-
---   CONSTRAINT fk_invoice_photo_branch FOREIGN KEY (branch_id)
---     REFERENCES master_branch(branch_id)
---     ON DELETE RESTRICT ON UPDATE CASCADE,
-
---   CONSTRAINT fk_invoice_photo_customer FOREIGN KEY (customer_id)
---     REFERENCES customer(customer_id)
---     ON DELETE RESTRICT ON UPDATE CASCADE
-
--- ) ENGINE=InnoDB;
-
 -- Central payments ledger
 DROP TABLE IF EXISTS payments;
 CREATE TABLE payments (
@@ -841,7 +812,7 @@ CREATE TABLE payment_allocation (
   INDEX idx_pa_sales (sales_order_id),
 
   CONSTRAINT fk_pa_payment FOREIGN KEY (payment_id) REFERENCES payments(payment_id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_pa_rental  FOREIGN KEY (rental_id)  REFERENCES rental(rental_id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_pa_rental  FOREIGN KEY (rental_id)  REFERENCES rental_order(rental_order_id) ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_pa_sales   FOREIGN KEY (sales_order_id) REFERENCES sales_order(sales_order_id) ON DELETE CASCADE ON UPDATE CASCADE,
   -- Enforce that either rental_id XOR sales_order_id is set
   CONSTRAINT chk_pa_one_target CHECK (
@@ -1239,7 +1210,7 @@ CREATE TABLE notification_log (
   delivered_on TIMESTAMP(6) NULL,  -- if provider reports final delivery
 
   external_reference VARCHAR(512) NULL, -- provider message id / external id
-  reference_entity VARCHAR(128) NULL,   -- e.g. 'rental','asset','customer' - helpful for quick queries
+  reference_entity VARCHAR(128) NULL,   -- e.g. 'rental_order','asset','customer' - helpful for quick queries
 
   created_by VARCHAR(255) NOT NULL,
   created_at TIMESTAMP(6) DEFAULT CURRENT_TIMESTAMP(6),
@@ -1269,7 +1240,7 @@ CREATE TABLE notification_log (
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_notification_log_rental FOREIGN KEY (rental_id)
-    REFERENCES rental(rental_id)
+    REFERENCES rental_order(rental_order_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_notification_log_contact_type FOREIGN KEY (contact_type_id)
@@ -1364,7 +1335,7 @@ CREATE TABLE stock_movements (
     ON DELETE RESTRICT ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_movements_rental FOREIGN KEY (related_rental_id)
-    REFERENCES rental(rental_id)
+    REFERENCES rental_order(rental_order_id)
     ON DELETE SET NULL ON UPDATE CASCADE,
 
   CONSTRAINT fk_stock_movements_reservation FOREIGN KEY (related_reservation_id)
@@ -1447,7 +1418,7 @@ CREATE TABLE asset_movements (
     ON DELETE SET NULL ON UPDATE CASCADE,
 
   CONSTRAINT fk_asset_movements_rental FOREIGN KEY (related_rental_id)
-    REFERENCES rental(rental_id)
+    REFERENCES rental_order(rental_order_id)
     ON DELETE SET NULL ON UPDATE CASCADE,
 
   CONSTRAINT fk_asset_movements_reservation FOREIGN KEY (related_reservation_id)
