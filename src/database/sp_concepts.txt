@@ -1,0 +1,363 @@
+# Stored Procedure (SP) — All-in-One Reference & Template
+
+Below is a single, tightly-organized reference you can keep beside you while authoring, reviewing, and deploying stored procedures in MySQL/InnoDB. It’s a checklist + patterns + copy-pasteable templates + deployment/test runbook — everything condensed so you *can* create production-safe SPs by following it.
+
+---
+
+# 1 — Quick philosophy (one line)
+
+Write short, set-based, idempotent procedures with explicit transactions, robust error-handling, least-privilege execution, and versioned DDL in migrations.
+
+---
+
+# 2 — Step-by-step authoring recipe (follow in order)
+
+1. **Decide purpose & signature**
+
+   * Name: `sp_<domain>_<action>` (e.g. `sp_order_create`).
+   * Parameters: use `IN`/`OUT`/`INOUT`. Keep parameters minimal. Add `p_idempotency_key` if retries possible.
+
+2. **Validate inputs**
+
+   * Fail fast with `SIGNAL` on invalid values; limit lengths.
+
+3. **Idempotency & dedupe**
+
+   * If retries possible, check a unique `idempotency_key` indexed column before writing.
+
+4. **Prepare error handling**
+
+   * `DECLARE EXIT HANDLER FOR SQLEXCEPTION` → `ROLLBACK` → `SIGNAL`/log.
+
+5. **Transaction block**
+
+   * `START TRANSACTION;` do only DB work (no long CPU work), commit/rollback.
+
+6. **Concurrency control**
+
+   * Use `SELECT ... FOR UPDATE` for needed serializable updates, or optimistic version checks (version column).
+
+7. **Set-based core**
+
+   * Prefer `INSERT ... SELECT`, `JSON_TABLE()` for JSON arrays, bulk operations — avoid cursors/loops when possible.
+
+8. **Return values**
+
+   * Return minimal outputs (IDs, status) via `SELECT` or `OUT` params.
+
+9. **Observability**
+
+   * Lightweight audit log insert or emit `OUT` status; instrument call latency in app metrics.
+
+10. **Security**
+
+    * `SQL SECURITY INVOKER` unless definer privileges required.
+    * Avoid dynamic SQL or sanitize carefully.
+    * Keep SP DDL in migration files; grant minimal privileges.
+
+11. **Test & deploy**
+
+    * Unit tests, concurrency tests, load tests, and restore from backups to validate.
+
+---
+
+# 3 — SP authoring checklist (tick before commit)
+
+* [ ] Clear name & minimal params
+* [ ] Input validation + length checks
+* [ ] Idempotency key handled & indexed
+* [ ] Explicit transaction and minimal scope
+* [ ] EXIT handler to rollback + meaningful SIGNALS
+* [ ] Concurrency: FOR UPDATE or optimistic logic where needed
+* [ ] No long-running loops/cursors (or justified)
+* [ ] No heavy external calls inside transaction
+* [ ] SQL SECURITY set & privileges limited
+* [ ] DDL in migrations & versioned in repo
+* [ ] Unit, concurrency & load tests written
+* [ ] Monitoring hooks / audit added
+
+---
+
+# 4 — Copy-pasteable robust template (fill variables)
+```
+DELIMITER //
+
+CREATE PROCEDURE sp_rental_create(
+  IN  p_business_id INT UNSIGNED,
+  IN  p_branch_id   INT UNSIGNED,
+  IN  p_customer_id INT UNSIGNED,
+  IN  p_user_id     INT UNSIGNED,  -- staff creating order
+  IN  p_order_no    VARCHAR(100),
+  IN  p_start_date  TIMESTAMP(6),
+  IN  p_due_date    TIMESTAMP(6),
+  IN  p_items_json  JSON,          -- array of { product_model_id, asset_id, rent_price, product_segment_id, product_category_id }
+  IN  p_idempotency_key VARCHAR(64) -- optional
+)
+SQL SECURITY INVOKER
+BEGIN
+  DECLARE v_existing_order INT DEFAULT NULL;
+  DECLARE v_order_id INT DEFAULT NULL;
+  DECLARE v_total_items INT DEFAULT 0;
+  DECLARE v_subtotal DECIMAL(14,2) DEFAULT 0.00;
+  DECLARE v_tax DECIMAL(14,2) DEFAULT 0.00;
+  DECLARE v_discount DECIMAL(14,2) DEFAULT 0.00;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    -- write a minimal audit row (optional): insert into proc_error_log(...)
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'sp_rental_create: unexpected error';
+  END;
+
+  -- Basic validations
+  IF p_business_id IS NULL OR p_branch_id IS NULL OR p_customer_id IS NULL OR p_user_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'missing required identifiers';
+  END IF;
+  IF p_start_date IS NULL OR p_due_date IS NULL OR p_due_date < p_start_date THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'invalid dates';
+  END IF;
+
+  -- Idempotency quick path
+  IF p_idempotency_key IS NOT NULL AND CHAR_LENGTH(p_idempotency_key) > 0 THEN
+    SELECT rental_order_id INTO v_existing_order
+      FROM rental_order
+     WHERE business_id = p_business_id
+       AND branch_id = p_branch_id
+       AND idempotency_key = p_idempotency_key
+     LIMIT 1;
+    IF v_existing_order IS NOT NULL THEN
+      -- return existing
+      SELECT v_existing_order AS rental_order_id;
+      LEAVE proc_end;
+    END IF;
+  END IF;
+
+  START TRANSACTION;
+
+  -- Calculate summary from JSON (simple aggregation)
+  SELECT COUNT(*) , COALESCE(SUM(jt.rent_price),0)
+    INTO v_total_items, v_subtotal
+  FROM JSON_TABLE(p_items_json, '$[*]'
+    COLUMNS (
+      rent_price DECIMAL(12,2) PATH '$.rent_price'
+    )
+  ) AS jt;
+
+  -- compute tax/discount as needed here (example placeholders)
+  SET v_tax = ROUND(v_subtotal * 0.18,2); -- example 18% GST
+  SET v_discount = 0.00;
+
+  INSERT INTO rental_order (
+    business_id, branch_id, customer_id, user_id,
+    order_no, reference_no, start_date, due_date,
+    total_items, security_deposit, subtotal_amount, tax_amount, discount_amount, total_amount,
+    rental_billing_period_id, currency, rental_order_status_id, created_by, created_at, idempotency_key
+  ) VALUES (
+    p_business_id, p_branch_id, p_customer_id, p_user_id,
+    p_order_no, NULL, p_start_date, p_due_date,
+    v_total_items, 0.00, v_subtotal, v_tax, v_discount,
+    (v_subtotal + v_tax - v_discount),
+    1, 'INR', 1, CONCAT('user:', p_user_id), UTC_TIMESTAMP(6), p_idempotency_key
+  );
+
+  SET v_order_id = LAST_INSERT_ID();
+
+  -- Insert items (expecting asset_id present). If you want auto-assignment logic, replace asset_id selection below.
+  INSERT INTO rental_order_item (
+    rental_order_id, business_id, branch_id,
+    product_segment_id, product_category_id, product_model_id,
+    asset_id, customer_id, rent_price, product_condition_at_rental, notes, created_by, created_at
+  )
+  SELECT
+    v_order_id AS rental_order_id,
+    p_business_id, p_branch_id,
+    jt.product_segment_id, jt.product_category_id, jt.product_model_id,
+    jt.asset_id, p_customer_id, jt.rent_price, NULL, NULL, CONCAT('user:', p_user_id), UTC_TIMESTAMP(6)
+  FROM JSON_TABLE(p_items_json, '$[*]'
+    COLUMNS (
+      product_segment_id INT PATH '$.product_segment_id',
+      product_category_id INT PATH '$.product_category_id',
+      product_model_id INT PATH '$.product_model_id',
+      asset_id INT PATH '$.asset_id',
+      rent_price DECIMAL(12,2) PATH '$.rent_price'
+    )
+  ) AS jt;
+
+  -- Update asset status -> mark assets as rented (replace RENTED_STATUS_ID with your value)
+  UPDATE asset a
+  JOIN (
+    SELECT DISTINCT jt.asset_id
+    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS ( asset_id INT PATH '$.asset_id' )) AS jt
+  ) AS to_rent ON a.asset_id = to_rent.asset_id
+  SET a.product_status_id = /*RENTED_STATUS_ID*/ 3,
+      a.updated_at = UTC_TIMESTAMP(6);
+
+  -- Update stock aggregates: decrement quantity_available, increment quantity_on_rent
+  -- This assumes stock rows exist per business+branch+model (uq_stock_business_branch_model)
+  UPDATE stock s
+  JOIN (
+    SELECT jt.product_model_id, COUNT(*) AS cnt
+    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS ( product_model_id INT PATH '$.product_model_id' )) AS jt
+    GROUP BY jt.product_model_id
+  ) AS m ON s.product_model_id = m.product_model_id AND s.business_id = p_business_id AND s.branch_id = p_branch_id
+  SET s.quantity_available = s.quantity_available - m.cnt,
+      s.quantity_on_rent = s.quantity_on_rent + m.cnt,
+      s.last_updated_by = CONCAT('user:', p_user_id),
+      s.last_updated_at = UTC_TIMESTAMP(6);
+
+  -- Insert stock_movements rows for audit (simple example)
+  INSERT INTO stock_movements (
+    business_id, branch_id, product_model_id, inventory_movement_type_id,
+    quantity, related_rental_id, note, created_by, created_at
+  )
+  SELECT
+    p_business_id, p_branch_id, jt.product_model_id, /*movement type e.g. RENT_OUT*/ 2,
+    1, v_order_id, CONCAT('rental create order_no=', p_order_no), CONCAT('user:', p_user_id), UTC_TIMESTAMP(6)
+  FROM JSON_TABLE(p_items_json, '$[*]'
+    COLUMNS ( product_model_id INT PATH '$.product_model_id' )
+  ) AS jt;
+
+  COMMIT;
+
+  SELECT v_order_id AS rental_order_id;
+
+proc_end:
+  NULL;
+END;
+//
+DELIMITER ;
+```
+
+**Important notes for template**
+
+* Replace `<target_table>` with the table that stores the main entity; ensure `idempotency_key` has a UNIQUE or at least an index.
+* Use `JSON_TABLE()` for MySQL 8+ to insert arrays; otherwise parse server-side or in app.
+* Prefer `SQL SECURITY INVOKER` unless you must run with definer privileges (and ensure definer exists and has limited rights across all environments).
+
+---
+
+# 5 — Error handling & signals (pattern)
+
+* Use `EXIT HANDLER FOR SQLEXCEPTION` to `ROLLBACK` and `SIGNAL SQLSTATE '45000'` with a short message.
+* For expected business errors (e.g., insufficient balance), use `SIGNAL SQLSTATE '45001'` with a code/message; app maps SQLSTATE/messages to domain errors.
+* Avoid leaking stack/DB internals in messages.
+
+---
+
+# 6 — Idempotency patterns
+
+* Add `idempotency_key VARCHAR(64)` column, indexed (unique if appropriate).
+* Before writes, `SELECT id FROM table WHERE idempotency_key = ?`.
+* If present -> return existing ID and **do not** perform writes.
+* Consider GC policy for idempotency keys (expiry or cleanup) if high cardinality.
+
+---
+
+# 7 — Concurrency & locking patterns
+
+* **Optimistic**: add `version INT` column, `UPDATE ... WHERE id = ? AND version = ?` then check rows affected. Good for low-conflict updates.
+* **Pessimistic**: `SELECT ... FOR UPDATE` inside transaction for rows you will modify.
+* For cross-table coordination, keep transactions short and order locks consistently to avoid deadlocks.
+
+---
+
+# 8 — Migration & deployment (expand–contract)
+
+1. **Add fields / parameters (EXPAND)**
+
+   * Add new columns/nullable fields and update SP to accept new optional param.
+2. **Deploy SP (backwards compatible)**
+
+   * New SP must support old callers.
+3. **Update callers**
+
+   * Roll client changes that optionally pass new param.
+4. **Contract**
+
+   * After all callers updated, remove deprecated params/columns.
+
+**Deployment tips**
+
+* Put SP DDL SQL into migration files (versioned).
+* Test migrations in staging with production snapshot.
+* Avoid changing DEFINER mid-deploy; coordinate across replicas.
+
+---
+
+# 9 — Testing matrix (must do)
+
+* Unit tests: happy path, validation failures, idempotency duplicate call.
+* Concurrency tests: run many concurrent creators to force races/deadlocks.
+* Load tests: simulate production QPS and average payload sizes.
+* Chaos tests: primary failover during SP execution, replica lag, binlog application.
+* Restore tests: verify PITR + binlog reapply works with SP side effects.
+
+---
+
+# 10 — Observability & runbooks
+
+* Record SP execution latency in app metrics; capture DB call times.
+* Optional: insert small audit row: `audit_sp_calls(sp_name, params_hash, outcome, latency_ms, created_at)`.
+* Set alerts: error rate spike, latency P95/P99, spike in deadlocks, replication lag.
+* Create runbook steps: how to identify/kill stuck SPs, rollback, and restore.
+
+---
+
+# 11 — Anti-patterns to avoid (short)
+
+* Heavy ETL/analytics inside SP (use ETL pipeline).
+* Building SQL by concatenation from untrusted input.
+* Long transactions spanning external network calls.
+* Over-indexing for every SP path — keep indexes focused.
+* Premature sharding due to SP complexity.
+
+---
+
+# 12 — Example — Fillable minimal order SP (practical)
+**Indexes required**
+
+* `orders (idempotency_key)` — UNIQUE or at least indexed.
+* `order_items(order_id)` — FK/indexed.
+
+---
+
+# 13 — Deploy checklist (pre-release)
+
+* [ ] SP SQL in migration file and reviewed
+* [ ] Index for idempotency/dedup created and tested
+* [ ] Backups + binlog retention verified for PITR
+* [ ] Staging run with production-sized data passed
+* [ ] Clients prepared for new signature (if changing)
+* [ ] Monitoring and alerting created or updated
+
+---
+
+# 14 — Short troubleshooting tips
+
+* Long-running SPs -> `SHOW PROCESSLIST;` then `KILL <id>` (with runbook).
+* Deadlocks -> check `SHOW ENGINE INNODB STATUS;` for deadlock info.
+* Unexpected SQL errors -> inspect error message from `SIGNAL` and audit table if present.
+* Replication weirdness -> confirm binlog format is ROW and GTIDs are healthy.
+
+---
+
+# 15 — Final one-page manifest (copy to PRs & reviews)
+
+* Name & params clear
+* Input validation & size limits
+* Idempotency/dedupe implemented & indexed
+* Minimized transaction window + EXIT handler
+* Concurrency handled (FOR UPDATE or optimistic)
+* No dynamic SQL (unless sanitized)
+* SQL SECURITY set & privileges limited
+* DDL in migrations (expand–contract)
+* Unit + concurrency + load tests + chaos tests present
+* Observability hooks & runbook done
+
+---
+
+If you’d like, I can now:
+
+* generate a **migration file** wrapping the SP and index creation for your repo format, or
+* **adapt the template** to your real DDL if you paste `CREATE TABLE` statements for the tables involved (I’ll produce the final SP, index DDL, and a small test SQL set).
+
+Which one should I produce now? (No need to paste if you want the migration template only.)
