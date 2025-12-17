@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Sidebar Invoice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --brand-color: #d97706;
+            /* Orange */
+            --brand-dark: #0f172a;
+            /* Navy */
+            --text-main: #334155;
+            --text-light: #64748b;
+            --bg: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #e2e8f0;
+            padding: 40px;
+            margin: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .invoice-box {
+            max-width: 850px;
+            margin: auto;
+            background: white;
+            display: flex;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+            min-height: 900px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            width: 32%;
+            background: var(--brand-dark);
+            color: white;
+            padding: 40px 30px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .logo-area img {
+            width: 100px;
+            margin-bottom: 20px;
+            background: white;
+            padding: 8px;
+            border-radius: 6px;
+        }
+
+        .side-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--brand-color);
+            margin-bottom: 5px;
+            font-weight: 700;
+        }
+
+        .side-text {
+            font-size: 13px;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 30px;
+        }
+
+        /* CONTENT */
+        .content {
+            width: 68%;
+            padding: 50px;
+        }
+
+        .header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--bg);
+            padding-bottom: 20px;
+        }
+
+        .page-title {
+            font-size: 32px;
+            font-weight: 800;
+            color: var(--brand-dark);
+            line-height: 1;
+        }
+
+        .status-badge {
+            background: #fff7ed;
+            color: var(--brand-color);
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            border: 1px solid #ffedd5;
+        }
+
+        /* TABLE */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+            font-size: 13px;
+        }
+
+        th {
+            text-align: left;
+            color: var(--text-light);
+            font-size: 11px;
+            text-transform: uppercase;
+            padding: 10px 0;
+            border-bottom: 2px solid var(--bg);
+        }
+
+        td {
+            padding: 15px 0;
+            border-bottom: 1px solid var(--bg);
+            color: var(--text-main);
+        }
+
+        .text-right {
+            text-align: right;
+        }
+
+        .font-bold {
+            font-weight: 700;
+            color: var(--brand-dark);
+        }
+
+        /* SUMMARY */
+        .summary-box {
+            background: var(--bg);
+            padding: 25px;
+            border-radius: 12px;
+            margin-top: 20px;
+            text-align: right;
+        }
+
+        .sum-row {
+            display: flex;
+            justify-content: flex-end;
+            gap: 40px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: var(--text-main);
+        }
+
+        .total-big {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--brand-dark);
+            margin-top: 10px;
+            border-top: 2px solid #cbd5e1;
+            padding-top: 10px;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+
+            .invoice-box {
+                box-shadow: none;
+                border-radius: 0;
+                width: 100%;
+            }
+
+            .sidebar {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="invoice-box">
+        <div class="sidebar">
+            <div>
+                <div class="logo-area">
+                    <img
+                        src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s">
+                </div>
+                <div class="side-label">Merchant</div>
+                <div class="side-text">
+                    <strong>The House of Vastra</strong><br>
+                    Mumbai, Maharashtra<br>
+                    GST: 26CORPP3939N1ZA
+                </div>
+
+                <div class="side-label">Billed To</div>
+                <div class="side-text">
+                    <strong>Ronak Panchal</strong><br>
+                    202, Sunrise Apts<br>
+                    Ahmedabad, Gujarat
+                </div>
+            </div>
+            <div style="font-size: 11px; opacity: 0.5;">© Rentify Platform</div>
+        </div>
+
+        <div class="content">
+            <div class="header-row">
+                <div>
+                    <div class="page-title">INVOICE</div>
+                    <div style="font-size:13px; color:#64748b; margin-top:5px;">#55 • 20 Mar 2024</div>
+                </div>
+                <span class="status-badge">Original</span>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Rate</th>
+                        <th class="text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="font-bold">Basic Knit Top SS</span><br><span
+                                style="font-size:11px; color:#94a3b8">Size: 5-6Y</span></td>
+                        <td class="text-right">1</td>
+                        <td class="text-right">189.52</td>
+                        <td class="text-right font-bold">189.52</td>
+                    </tr>
+                    <tr>
+                        <td><span class="font-bold">Premium Cotton Tee</span><br><span
+                                style="font-size:11px; color:#94a3b8">Size: 5-6Y</span></td>
+                        <td class="text-right">1</td>
+                        <td class="text-right">189.52</td>
+                        <td class="text-right font-bold">189.52</td>
+                    </tr>
+                    <tr>
+                        <td>IGST (5%)</td>
+                        <td class="text-right">-</td>
+                        <td class="text-right">-</td>
+                        <td class="text-right">18.96</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="summary-box">
+                <div class="sum-row"><span>Taxable Amount</span><span>379.04</span></div>
+                <div class="sum-row"><span>Total Tax</span><span>18.96</span></div>
+                <div class="sum-row total-big">
+                    <span>Total Due</span>
+                    <span style="color: var(--brand-color);">₹398.00</span>
+                </div>
+            </div>
+
+            <div
+                style="margin-top: 40px; border-top: 1px dashed #cbd5e1; padding-top: 20px; font-size: 11px; display: flex; justify-content: space-between;">
+                <div>
+                    <strong>Terms:</strong> Due on Receipt<br>
+                    Subject to Mumbai Jurisdiction
+                </div>
+                <div style="text-align: right;">
+                    <strong>Authorised Signatory</strong>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+
+</html>

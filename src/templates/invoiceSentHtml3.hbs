@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Invoice - Boxed</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --border: #cbd5e1;
+            --head-bg: #f1f5f9;
+            --dark: #0f172a;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #e2e8f0;
+            padding: 40px;
+            color: var(--dark);
+        }
+
+        .invoice-box {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            padding: 30px;
+            border: 1px solid var(--border);
+        }
+
+        /* Header */
+        .top-sec {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            height: 45px;
+        }
+
+        /* Box Styles */
+        .box {
+            border: 1px solid var(--border);
+            margin-bottom: 20px;
+        }
+
+        .box-head {
+            background: var(--head-bg);
+            padding: 8px 15px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .box-body {
+            padding: 15px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .flex-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .flex-half {
+            width: 50%;
+        }
+
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th {
+            background: var(--dark);
+            color: white;
+            padding: 8px;
+            text-align: center;
+        }
+
+        td {
+            border: 1px solid var(--border);
+            padding: 8px;
+            text-align: center;
+        }
+
+        td.left {
+            text-align: left;
+        }
+
+        /* Bottom */
+        .bottom-row {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .total-box {
+            border: 2px solid var(--dark);
+            padding: 10px 30px;
+            text-align: center;
+        }
+
+        .t-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .t-val {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .invoice-box {
+                border: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="invoice-box">
+        <div class="top-sec">
+            <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s"
+                class="logo">
+            <div style="text-align: right;">
+                <h2 style="margin:0;">TAX INVOICE</h2>
+                <div style="font-size: 12px;">Original for Recipient</div>
+            </div>
+        </div>
+
+        <div class="flex-row">
+            <div class="flex-half box">
+                <div class="box-head">Billed To</div>
+                <div class="box-body">
+                    <b>Ronak Panchal</b><br>
+                    Gujarat, India<br>
+                    Place of Supply: Gujarat (24)
+                </div>
+            </div>
+            <div class="flex-half box">
+                <div class="box-head">Invoice Details</div>
+                <div class="box-body">
+                    Invoice No: <b>55</b><br>
+                    Date: <b>20 Mar 2024</b><br>
+                    State Code: 24
+                </div>
+            </div>
+        </div>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Description</th>
+                    <th>HSN</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td class="left">Basic Knit Top SS</td>
+                    <td>6109</td>
+                    <td>1</td>
+                    <td>189.52</td>
+                    <td>189.52</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td class="left">Premium Cotton Tee</td>
+                    <td>6109</td>
+                    <td>1</td>
+                    <td>189.52</td>
+                    <td>189.52</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td class="left">IGST (5%)</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>-</td>
+                    <td>18.96</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="bottom-row" style="margin-top: 20px;">
+            <div class="total-box">
+                <div class="t-label">Grand Total</div>
+                <div class="t-val">₹398.00</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 10px; text-align: center;">Powered by Rentify Billing System</div>
+    </div>
+</body>
+
+</html>

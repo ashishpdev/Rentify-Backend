@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Enterprise Invoice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --dark: #0f172a;
+            --accent: #d97706;
+            --gray-row: #f1f5f9;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #cbd5e1;
+            padding: 40px;
+            margin: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .sheet {
+            max-width: 800px;
+            margin: auto;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Top Strip */
+        .brand-strip {
+            background: var(--dark);
+            padding: 40px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .brand-logo {
+            height: 45px;
+            background: white;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .inv-header {
+            text-align: right;
+        }
+
+        .inv-header h1 {
+            margin: 0;
+            font-size: 28px;
+            letter-spacing: 1px;
+        }
+
+        .inv-header span {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        /* Info Bar */
+        .info-bar {
+            background: var(--accent);
+            color: white;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        /* Content Padding */
+        .content {
+            padding: 40px;
+        }
+
+        /* Client Details Grid */
+        .client-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 30px;
+            gap: 40px;
+        }
+
+        .c-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            color: #64748b;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .c-data {
+            font-size: 14px;
+            color: var(--dark);
+            line-height: 1.4;
+        }
+
+        /* Tabular Data */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        th {
+            background: var(--dark);
+            color: white;
+            padding: 12px 10px;
+            text-align: left;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 12px 10px;
+            font-size: 13px;
+            color: #334155;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        /* Zebra Striping */
+        tbody tr:nth-child(even) {
+            background-color: var(--gray-row);
+        }
+
+        .num {
+            text-align: right;
+        }
+
+        /* Totals */
+        .total-area {
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .total-table {
+            width: 40%;
+            border-collapse: collapse;
+        }
+
+        .total-table td {
+            border: none;
+            padding: 8px 0;
+        }
+
+        .big-total {
+            font-size: 22px;
+            font-weight: 800;
+            color: var(--accent);
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .sheet {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sheet">
+        <div class="brand-strip">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s"
+                    class="brand-logo">
+                <div>
+                    <div style="font-weight: 700; font-size: 18px;">The House of Vastra</div>
+                    <div style="font-size: 11px; opacity: 0.7;">Mumbai, India</div>
+                </div>
+            </div>
+            <div class="inv-header">
+                <h1>INVOICE</h1>
+                <span>#0055</span>
+            </div>
+        </div>
+
+        <div class="info-bar">
+            <span>Date: 20 March 2024</span>
+            <span>Due: On Receipt</span>
+        </div>
+
+        <div class="content">
+            <div class="client-grid">
+                <div>
+                    <div class="c-label">Billing To</div>
+                    <div class="c-data">
+                        <strong>Ronak Panchal</strong><br>
+                        202, Sunrise Apartments<br>
+                        Gujarat, India (POS: 24)
+                    </div>
+                </div>
+                <div>
+                    <div class="c-label">Merchant Details</div>
+                    <div class="c-data">
+                        GSTIN: 26CORPP3939N1ZA<br>
+                        Email: billing@vastra.com<br>
+                        Phone: +91 98765 43210
+                    </div>
+                </div>
+            </div>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th style="border-radius: 4px 0 0 4px;">Description</th>
+                        <th>HSN</th>
+                        <th class="num">Qty</th>
+                        <th class="num">Rate</th>
+                        <th class="num" style="border-radius: 0 4px 4px 0;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Basic Knit Top SS</td>
+                        <td>6109</td>
+                        <td class="num">1</td>
+                        <td class="num">189.52</td>
+                        <td class="num">189.52</td>
+                    </tr>
+                    <tr>
+                        <td>Premium Cotton Tee</td>
+                        <td>6109</td>
+                        <td class="num">1</td>
+                        <td class="num">189.52</td>
+                        <td class="num">189.52</td>
+                    </tr>
+                    <tr>
+                        <td>IGST Output (5%)</td>
+                        <td>-</td>
+                        <td class="num">-</td>
+                        <td class="num">-</td>
+                        <td class="num">18.96</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="total-area">
+                <table class="total-table">
+                    <tr>
+                        <td>Taxable Amount</td>
+                        <td class="num">379.04</td>
+                    </tr>
+                    <tr>
+                        <td>Total Tax</td>
+                        <td class="num">18.96</td>
+                    </tr>
+                    <tr style="border-top: 2px solid var(--dark);">
+                        <td style="padding-top: 10px; font-weight: 700; color: var(--dark);">TOTAL PAYABLE</td>
+                        <td class="num big-total" style="padding-top: 10px;">₹398.00</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <div
+            style="background:#f8fafc; padding:20px 40px; text-align: center; border-top: 1px solid #e2e8f0; font-size: 11px; color: #64748b;">
+            This is a computer generated invoice powered by Rentify.
+        </div>
+    </div>
+</body>
+
+</html>

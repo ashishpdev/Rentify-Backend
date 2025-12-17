@@ -82,7 +82,7 @@ class DriveController {
             const data = req.body;
 
             /* -------- HBS → HTML -------- */
-            const html = await HbsUtil.renderHbs("invoiceSentHtml", data);
+            const html = await HbsUtil.renderHbs("invoiceSentHtml5", data);
 
             /* -------- HTML → PDF BUFFER -------- */
             const pdfBuffer = await PdfUtil.htmlToPdf(html);

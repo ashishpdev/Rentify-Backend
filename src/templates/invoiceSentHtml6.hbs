@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Compact Invoice</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --ink: #0f172a;
+            --paper: #ffffff;
+            --orange: #d97706;
+            --line: #e2e8f0;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #e5e5e5;
+            padding: 40px;
+            margin: 0;
+            -webkit-print-color-adjust: exact;
+        }
+
+        .doc {
+            max-width: 800px;
+            margin: auto;
+            background: var(--paper);
+            padding: 50px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Header Grid */
+        .head-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            margin-bottom: 40px;
+            border-bottom: 2px solid var(--ink);
+            padding-bottom: 20px;
+        }
+
+        .logo-con img {
+            height: 60px;
+            margin-bottom: 10px;
+        }
+
+        .company-h1 {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--ink);
+        }
+
+        .inv-meta {
+            text-align: right;
+        }
+
+        .meta-title {
+            font-size: 40px;
+            font-weight: 700;
+            color: var(--ink);
+            line-height: 0.8;
+            margin-bottom: 10px;
+        }
+
+        .meta-sub {
+            font-size: 13px;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        /* Addr Table */
+        .addr-table {
+            width: 100%;
+            margin-bottom: 30px;
+            border: 1px solid var(--line);
+        }
+
+        .addr-table td {
+            width: 50%;
+            padding: 15px;
+            vertical-align: top;
+            border: 1px solid var(--line);
+        }
+
+        .addr-head {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #94a3b8;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .addr-body {
+            font-size: 13px;
+            color: var(--ink);
+            line-height: 1.4;
+        }
+
+        /* Item Table */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        .data-table th {
+            background: #f1f5f9;
+            text-align: left;
+            padding: 10px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--line);
+            color: #475569;
+        }
+
+        .data-table td {
+            padding: 12px 10px;
+            font-size: 13px;
+            border-bottom: 1px solid var(--line);
+            color: var(--ink);
+        }
+
+        .tr {
+            text-align: right;
+        }
+
+        /* Bottom Section */
+        .bottom-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .words {
+            width: 50%;
+            font-size: 12px;
+            color: #64748b;
+            font-style: italic;
+            border: 1px dashed var(--line);
+            padding: 10px;
+        }
+
+        .total-card {
+            background: var(--ink);
+            color: white;
+            padding: 20px;
+            width: 40%;
+            border-radius: 4px;
+        }
+
+        .t-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .t-final {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 10px;
+            border-top: 1px solid #334155;
+            padding-top: 10px;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .highlight {
+            color: var(--orange);
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+
+            .doc {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="doc">
+        <div class="head-grid">
+            <div class="logo-con">
+                <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTLqNNWjHVl3zISVsJ_sWApwO9GtsR8MYPtJg&s">
+                <div class="company-h1">The House of Vastra</div>
+            </div>
+            <div class="inv-meta">
+                <div class="meta-title">INVOICE</div>
+                <div class="meta-sub">#55 &bull; 20 Mar 2024</div>
+                <div class="meta-sub" style="color: var(--orange); margin-top:5px;">Original for Recipient</div>
+            </div>
+        </div>
+
+        <table class="addr-table">
+            <tr>
+                <td>
+                    <div class="addr-head">Bill To</div>
+                    <div class="addr-body">
+                        <b>Ronak Panchal</b><br>
+                        202, Sunrise Apartments<br>
+                        Gujarat, India<br>
+                        State Code: 24
+                    </div>
+                </td>
+                <td>
+                    <div class="addr-head">Ship From</div>
+                    <div class="addr-body">
+                        <b>The House of Vastra</b><br>
+                        Mumbai, Maharashtra<br>
+                        400001, India<br>
+                        GST: 26CORPP3939N1ZA
+                    </div>
+                </td>
+            </tr>
+        </table>
+
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 50px;">#</th>
+                    <th>Description</th>
+                    <th>HSN</th>
+                    <th class="tr">Qty</th>
+                    <th class="tr">Rate</th>
+                    <th class="tr">Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>1</td>
+                    <td>Basic Knit Top SS</td>
+                    <td>6109</td>
+                    <td class="tr">1</td>
+                    <td class="tr">189.52</td>
+                    <td class="tr">189.52</td>
+                </tr>
+                <tr>
+                    <td>2</td>
+                    <td>Premium Cotton Tee</td>
+                    <td>6109</td>
+                    <td class="tr">1</td>
+                    <td class="tr">189.52</td>
+                    <td class="tr">189.52</td>
+                </tr>
+                <tr>
+                    <td></td>
+                    <td>IGST (5%)</td>
+                    <td>-</td>
+                    <td class="tr">-</td>
+                    <td class="tr">-</td>
+                    <td class="tr">18.96</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="bottom-flex">
+            <div class="words">
+                Amount in Words:<br>
+                <strong>Three Hundred and Ninety-Eight Rupees Only</strong>
+            </div>
+
+            <div class="total-card">
+                <div class="t-row">
+                    <span>Taxable</span>
+                    <span>379.04</span>
+                </div>
+                <div class="t-row">
+                    <span>Tax</span>
+                    <span>18.96</span>
+                </div>
+                <div class="t-final">
+                    <span>Payable</span>
+                    <span class="highlight">₹398.00</span>
+                </div>
+            </div>
+        </div>
+
+        <div
+            style="margin-top: 40px; display: flex; justify-content: space-between; align-items: flex-end; font-size: 11px; color: #94a3b8;">
+            <div>
+                Powered by Rentify<br>
+                System Generated
+            </div>
+            <div style="text-align: right;">
+                <div style="height: 1px; width: 120px; background: #0f172a; margin-bottom: 5px;"></div>
+                Authorised Signatory
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
