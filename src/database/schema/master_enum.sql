@@ -22,7 +22,7 @@
 SET time_zone = '+00:00';
 SET sql_mode = 'STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION';
 
-CREATE DATABASE IF NOT EXISTS master_db 
+-- CREATE DATABASE IF NOT EXISTS master_db 
 CHARACTER SET utf8mb4 
 COLLATE utf8mb4_unicode_ci;
 
@@ -347,6 +347,157 @@ CREATE TABLE sales_order_status (
   INDEX idx_sales_status_terminal (is_terminal, is_active),
   INDEX idx_sales_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
+
+DROP TABLE IF EXISTS master_device_type;
+CREATE TABLE master_device_type (
+  master_device_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS product_model_image_category;
+CREATE TABLE product_model_image_category (
+  product_model_image_category_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS master_customer_tier;
+CREATE TABLE master_customer_tier (
+  master_customer_tier_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS master_invoice_type;
+CREATE TABLE master_invoice_type (
+  master_invoice_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS master_payment_direction;
+CREATE TABLE  master_payment_direction (
+  master_payment_direction_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS master_payment_status;
+CREATE TABLE master_payment_status (
+  master_payment_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  is_terminal BOOLEAN NOT NULL DEFAULT FALSE,
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS damage_severity;
+CREATE TABLE damage_severity (
+  damage_severity_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  severity_rank TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS master_gender;
+CREATE TABLE master_gender (
+  master_gender_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS clothing_season;
+CREATE TABLE clothing_season (
+  clothing_season_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS clothing_size_system;
+CREATE TABLE clothing_size_system (
+  clothing_size_system_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description VARCHAR(255),
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+-- canonical sizes (one row per canonical size label)
+DROP TABLE IF EXISTS clothing_size;
+CREATE TABLE clothing_size (
+  clothing_size_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  clothing_size_system_id TINYINT UNSIGNED NOT NULL,     -- FK -> size_system
+  code VARCHAR(50) NOT NULL,                    -- e.g. 'M' or '30' (system-specific code)
+  name VARCHAR(100) NULL,                       -- human-friendly name (e.g. 'Medium')
+  gender_id TINYINT UNSIGNED NULL,              -- FK -> clothing_gender (nullable = unisex/unknown)
+  -- optional measured dims (store when available)
+  waist_cm DECIMAL(6,2) NULL,
+  chest_cm DECIMAL(6,2) NULL,
+  hip_cm DECIMAL(6,2) NULL,
+  notes VARCHAR(255) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+
+  UNIQUE KEY uq_clothing_size_system_code (clothing_size_system_id, code),
+
+  INDEX idx_clothing_size_gender (gender_id),
+
+  CONSTRAINT fk_clothing_size_system FOREIGN KEY (clothing_size_system_id) 
+    REFERENCES clothing_size_system(clothing_size_system_id) 
+    ON UPDATE CASCADE ON DELETE RESTRICT,
+  CONSTRAINT fk_clothing_size_gender FOREIGN KEY (gender_id) 
+    REFERENCES master_gender(master_gender_id) 
+    ON UPDATE CASCADE ON DELETE SET NULL
+) ENGINE=InnoDB;
+
+DROP TABLE IF EXISTS clothing_colour;
+CREATE TABLE clothing_colour (
+  clothing_colour_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,     -- system-friendly (used in APIs, filters)
+  name VARCHAR(100) NOT NULL,           -- display name
+  hex_code CHAR(7) NULL,                -- optional UI usage (#FFFFFF)
+  display_order TINYINT UNSIGNED DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB;
+
+
 -- =========================================================
  /* SEED MASTER ENUM */
 -- =========================================================
@@ -572,3 +723,173 @@ INSERT INTO sales_order_status (code, name, description, allows_modification, is
 ('CANCELLED', 'Cancelled', 'Order cancelled', FALSE, TRUE, 80, CURRENT_TIMESTAMP(6)),
 ('REFUNDED', 'Refunded', 'Payment refunded', FALSE, TRUE, 90, CURRENT_TIMESTAMP(6))
 ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Master Device Types
+INSERT INTO master_device_type(code,name,display_order) VALUES
+ ('WEB','Web',10),
+ ('MOBILE_IOS','Mobile iOS',20),
+ ('MOBILE_ANDROID','Mobile Android',30),
+ ('TABLET','Tablet',40),
+ ('DESKTOP','Desktop',50),
+ ('OTHER','Other',99)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Product Image Categories
+INSERT INTO product_model_image_category(code,name,display_order) VALUES
+ ('MAIN','Main',10),
+ ('DETAIL','Detail',20),
+ ('LIFESTYLE','Lifestyle',30),
+ ('OTHER','Other',99)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Master Customer Tiers
+INSERT INTO master_customer_tier(code,name,display_order) VALUES
+ ('BRONZE','Bronze',10),
+ ('SILVER','Silver',20),
+ ('GOLD','Gold',30),
+ ('PLATINUM','Platinum',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Master Invoice Types
+INSERT INTO master_invoice_type(code,name,display_order) VALUES
+ ('FINAL','Final',10),
+ ('PROFORMA','Proforma',20),
+ ('CREDIT_NOTE','Credit Note',30),
+ ('DEBIT_NOTE','Debit Note',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Master Payment Directions
+INSERT INTO master_payment_direction(code,name,display_order) VALUES
+ ('IN','In',10),
+ ('OUT','Out',20)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Master Payment Statuses
+INSERT INTO master_payment_status(code,name,display_order) VALUES
+ ('PENDING','Pending',10),
+ ('COMPLETED','Completed',20),
+ ('FAILED','Failed',30),
+ ('REFUNDED','Refunded',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Damage Severities
+INSERT INTO damage_severity(code,name,severity_rank) VALUES
+ ('MINOR','Minor',10),
+ ('MODERATE','Moderate',20),
+ ('SEVERE','Severe',30),
+ ('TOTAL_LOSS','Total Loss',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Clothing
+INSERT INTO master_gender(code,name,display_order) VALUES
+ ('MEN','Men',10),
+ ('WOMEN','Women',20),
+ ('UNISEX','Unisex',30),
+ ('KIDS','Kids',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Clothing Seasons
+INSERT INTO clothing_season(code,name,display_order) VALUES
+ ('SUMMER','Summer',10),
+ ('WINTER','Winter',20),
+ ('MONSOON','Monsoon',30),
+ ('ALL_SEASON','All Season',40)
+ON DUPLICATE KEY UPDATE name=VALUES(name);
+
+-- Clothing Size Systems
+INSERT INTO clothing_size_system (code, name, description, display_order, created_at) VALUES
+('ALPHA',    'Alpha (XS,S,M,L...)',    'Alphabetic garment sizes',      10, CURRENT_TIMESTAMP(6)),
+('NUMERIC',  'Numeric (28,30,32...)',  'Numeric sizes (waist/chest)',   20, CURRENT_TIMESTAMP(6)),
+('US',       'US Standard',            'US regional sizing',            30, CURRENT_TIMESTAMP(6)),
+('EU',       'EU Standard',            'EU regional sizing',            31, CURRENT_TIMESTAMP(6)),
+('UK',       'UK Standard',            'UK regional sizing',            32, CURRENT_TIMESTAMP(6)),
+('WAIST_IN', 'Waist (inches)',         'Waist measurement (inches)',    40, CURRENT_TIMESTAMP(6)),
+('WAIST_CM', 'Waist (cm)',             'Waist measurement (cm)',        41, CURRENT_TIMESTAMP(6)),
+('CHEST_CM', 'Chest (cm)',             'Chest measurement (cm)',        42, CURRENT_TIMESTAMP(6))
+ON DUPLICATE KEY UPDATE name = VALUES(name), description = VALUES(description);
+
+-- Clothing Sizes
+INSERT INTO clothing_size ( clothing_size_system_id, code, name, gender_id, waist_cm, chest_cm, hip_cm, notes, is_active, created_at ) VALUES
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'XS', 'Extra Small', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'S', 'Small', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'M', 'Medium', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'L', 'Large', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'XL', 'Extra Large', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='ALPHA'),
+  'XXL', 'Double Extra Large', NULL, NULL, NULL, NULL, 'Alpha size', TRUE, CURRENT_TIMESTAMP(6)
+),
+-- Numeric waist sizes (common men's waist sizes)
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '28', '28', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '30', '30', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '32', '32', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '34', '34', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '36', '36', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+),
+(
+  (SELECT clothing_size_system_id FROM clothing_size_system WHERE code='NUMERIC'),
+  '38', '38', NULL, NULL, NULL, NULL, 'Numeric waist', TRUE, CURRENT_TIMESTAMP(6)
+)
+ON DUPLICATE KEY UPDATE name = VALUES(name), notes = VALUES(notes);
+
+-- Clothing Colours
+INSERT INTO clothing_colour (code, name, hex_code, display_order) VALUES
+('BLACK',        'Black',        '#000000',  10),
+('WHITE',        'White',        '#FFFFFF',  20),
+('GREY',         'Grey',         '#808080',  30),
+('CHARCOAL',     'Charcoal',     '#36454F',  40),
+('NAVY',         'Navy Blue',    '#000080',  50),
+('BLUE',         'Blue',         '#0000FF',  60),
+('LIGHT_BLUE',   'Light Blue',   '#ADD8E6',  70),
+('GREEN',        'Green',        '#008000',  80),
+('OLIVE',        'Olive',        '#808000',  90),
+('RED',          'Red',          '#FF0000', 100),
+('MAROON',       'Maroon',       '#800000', 110),
+('BURGUNDY',     'Burgundy',     '#800020', 120),
+('YELLOW',       'Yellow',       '#FFFF00', 130),
+('MUSTARD',      'Mustard',      '#FFDB58', 140),
+('ORANGE',       'Orange',       '#FFA500', 150),
+('PINK',         'Pink',         '#FFC0CB', 160),
+('PURPLE',       'Purple',       '#800080', 170),
+('LAVENDER',     'Lavender',     '#E6E6FA', 180),
+('BROWN',        'Brown',        '#8B4513', 190),
+('BEIGE',        'Beige',        '#F5F5DC', 200),
+('CREAM',        'Cream',        '#FFFDD0', 210),
+('OFF_WHITE',    'Off White',    '#FAF9F6', 220),
+('GOLD',         'Gold',         '#D4AF37', 230),
+('SILVER',       'Silver',       '#C0C0C0', 240),
+('MULTICOLOR',   'Multicolor',   NULL,      250),
+('PRINTED',      'Printed',      NULL,      260),
+('TRANSPARENT',  'Transparent',  NULL,      270)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name),
+  hex_code = VALUES(hex_code);

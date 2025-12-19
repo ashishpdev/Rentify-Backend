@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS tool_model_spec;
 CREATE TABLE tool_model_spec (
   tool_model_spec_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   product_model_id INT UNSIGNED NOT NULL UNIQUE,
+  -- Remove this ENUM from filed definitions and put in ENUM table
   power_source ENUM('ELECTRIC','BATTERY','MANUAL','PNEUMATIC','HYDRAULIC') NOT NULL,
   rated_power_watts SMALLINT UNSIGNED,
   weight_kg DECIMAL(6,2) UNSIGNED,

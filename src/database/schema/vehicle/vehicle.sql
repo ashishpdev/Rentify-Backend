@@ -2,6 +2,7 @@ DROP TABLE IF EXISTS vehicle_model_detail;
 CREATE TABLE vehicle_model_detail (
   vehicle_model_detail_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   product_model_id INT UNSIGNED NOT NULL UNIQUE,
+  -- Remove this ENUM from filed definitions and put in ENUM table
   fuel_type ENUM('PETROL','DIESEL','EV','HYBRID','CNG','LPG') NOT NULL,
   transmission ENUM('MANUAL','AUTOMATIC','CVT','DCT') NOT NULL,
   seating_capacity TINYINT UNSIGNED NOT NULL,

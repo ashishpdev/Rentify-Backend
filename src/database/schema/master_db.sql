@@ -183,7 +183,7 @@ CREATE TABLE master_user_session (
     session_token_hash CHAR(64) NOT NULL COMMENT 'SHA256 hash of token',
     device_id VARCHAR(255) NOT NULL,
     device_name VARCHAR(255),
-    device_type ENUM('WEB','MOBILE_IOS','MOBILE_ANDROID','TABLET','DESKTOP','OTHER') DEFAULT 'WEB',
+    device_type_id TINYINT UNSIGNED NOT NULL,
     ip_address VARCHAR(45) COMMENT 'IPv4 or IPv6',
         
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -195,12 +195,16 @@ CREATE TABLE master_user_session (
     INDEX idx_session_expiry (expiry_at, is_active),
     INDEX idx_session_token (session_token_hash),
     INDEX idx_session_cleanup (is_active, expiry_at),
-        
+    INDEX idx_user_device_type_id (device_type_id),
     INDEX idx_session_validate_cover (session_token_hash, is_active, expiry_at, user_id),
     
     CONSTRAINT fk_session_user FOREIGN KEY (user_id)
         REFERENCES master_user(master_user_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
+
+    CONSTRAINT fk_session_device_type FOREIGN KEY (device_type_id)
+        REFERENCES master_device_type(master_device_type_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
         
     CONSTRAINT chk_session_expiry CHECK (expiry_at > created_at)
 ) ENGINE=InnoDB 
@@ -403,6 +407,58 @@ CREATE TABLE product_model (
   ROW_FORMAT=DYNAMIC
   COMMENT='Product models with optimized indexing for catalog queries';
 
+-- images for products models (Ex: Canon EOS 5D Mark IV, iPhone 13 Pro)
+DROP TABLE IF EXISTS product_model_images;
+CREATE TABLE product_model_images (
+  product_model_image_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  business_id INT UNSIGNED NOT NULL,
+  branch_id INT UNSIGNED NOT NULL,
+  product_model_id INT UNSIGNED NOT NULL,
+  
+  url VARCHAR(1024) NOT NULL, -- canonical/original image (high-res) for zoom, downloads or print
+  thumbnail_url VARCHAR(1024), -- pre-generated small/optimized version used in lists, cards and anywhere you want fast load and lower bandwidth.
+  alt_text VARCHAR(512),
+  file_size_bytes INT UNSIGNED,
+  width_px SMALLINT UNSIGNED,
+  height_px SMALLINT UNSIGNED,
+  
+  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
+  image_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
+  product_model_image_category_id TINYINT UNSIGNED NOT NULL,
+
+  created_by VARCHAR(100),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(100),
+  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  
+  INDEX idx_img_model_order (product_model_id, is_active, image_order),
+  INDEX idx_img_model_primary (product_model_id, is_primary, is_active),
+  INDEX idx_img_business (business_id, branch_id),
+  INDEX idx_img_image_category_id (product_model_image_category_id),
+  INDEX idx_img_cover ( product_model_id, is_active, is_primary, image_order, url, thumbnail_url, product_model_image_id ),
+  
+  CONSTRAINT fk_img_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_img_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  
+  CONSTRAINT fk_img_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_img_category FOREIGN KEY (product_model_image_category_id)
+    REFERENCES product_model_image_category(product_model_image_category_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+) ENGINE=InnoDB 
+  ROW_FORMAT=DYNAMIC
+  COMMENT='Product model images with ordering and categorization';
+  
 
 -- asset (physical serialized item)
 -- Ex: Canon EOS 5D Mark IV with serial no XYZ12345
@@ -517,8 +573,7 @@ CREATE TABLE customer (
   total_spent DECIMAL(14,2) UNSIGNED NOT NULL DEFAULT 0,
   last_rental_date DATE,
   last_sale_date DATE,
-  
-  customer_tier ENUM('BRONZE','SILVER','GOLD','PLATINUM') DEFAULT 'BRONZE',
+  customer_tier_id TINYINT UNSIGNED NOT NULL,
   
   created_by VARCHAR(100) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -533,7 +588,8 @@ CREATE TABLE customer (
   INDEX idx_customer_email (email, is_active),
   INDEX idx_customer_contact (contact_number, business_id),
   INDEX idx_customer_name_search (full_name, is_active),
-  INDEX idx_customer_tier (customer_tier, business_id),
+  INDEX idx_customer_tier (customer_tier_id, business_id),
+  INDEX idx_customer_customer_tier_id (customer_tier_id)
   INDEX idx_customer_last_activity (last_rental_date DESC, last_sale_date DESC), 
   INDEX idx_customer_list_cover (business_id, branch_id, is_active, full_name, email, customer_id), -- Covering index for customer listing
   INDEX idx_customer_metrics (business_id, total_spent DESC, total_rentals DESC), -- Index for customer segmentation queries
@@ -544,6 +600,10 @@ CREATE TABLE customer (
   
   CONSTRAINT fk_customer_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
+  CONSTRAINT fk_customer_tier FOREIGN KEY (customer_tier_id)
+    REFERENCES master_customer_tier(master_customer_tier_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
     
   CONSTRAINT chk_customer_metrics CHECK (
@@ -856,7 +916,7 @@ CREATE TABLE invoices (
   sales_order_id INT UNSIGNED NULL,
   invoice_no VARCHAR(100) NOT NULL,
   invoice_date TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  invoice_type ENUM('FINAL','PROFORMA','CREDIT_NOTE','DEBIT_NOTE') NOT NULL DEFAULT 'FINAL',
+  invoice_type_id TINYINT UNSIGNED NOT NULL,
   
   storage_provider VARCHAR(100) NOT NULL, -- e.g., aws_s3, google_cloud_
   storage_bucket VARCHAR(255) NOT NULL, -- bucket name
@@ -875,25 +935,30 @@ CREATE TABLE invoices (
   INDEX idx_invoice_customer (customer_id, invoice_date DESC),
   INDEX idx_invoice_rental (rental_order_id),
   INDEX idx_invoice_sales (sales_order_id),
-  INDEX idx_invoice_date_type (invoice_date DESC, invoice_type),
+  INDEX idx_invoice_date_type (invoice_date DESC, invoice_type_id),
+  INDEX idx_invoices_invoice_type_id (invoice_type_id),
   INDEX idx_invoice_business_date (business_id, branch_id, invoice_date DESC),
   INDEX idx_invoice_list_cover (business_id, branch_id, invoice_date DESC, invoice_no, invoice_id),
 
   CONSTRAINT fk_invoice_business FOREIGN KEY (business_id)
-  REFERENCES master_business(business_id)
-  ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_invoice_branch FOREIGN KEY (branch_id)
-  REFERENCES master_branch(branch_id)
-  ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_invoice_customer FOREIGN KEY (customer_id)
-  REFERENCES customer(customer_id)
-  ON DELETE SET NULL ON UPDATE CASCADE,
+    REFERENCES customer(customer_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_invoice_rental FOREIGN KEY (rental_order_id)
-  REFERENCES rental_order(rental_order_id)
-  ON DELETE CASCADE ON UPDATE CASCADE,
+    REFERENCES rental_order(rental_order_id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_invoice_sales FOREIGN KEY (sales_order_id)
-  REFERENCES sales_order(sales_order_id)
-  ON DELETE CASCADE ON UPDATE CASCADE,
+    REFERENCES sales_order(sales_order_id)
+    ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT fk_invoice_type FOREIGN KEY (invoice_type_id)
+    REFERENCES master_invoice_type(master_invoice_type_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
   CONSTRAINT chk_invoice_order_link CHECK (
   (rental_order_id IS NOT NULL AND sales_order_id IS NULL) OR
   (rental_order_id IS NULL AND sales_order_id IS NOT NULL)
@@ -915,8 +980,8 @@ CREATE TABLE payments (
   mode_of_payment_id TINYINT UNSIGNED NULL,
   payer_customer_id INT UNSIGNED NULL,
   received_by_user_id INT UNSIGNED NULL,
-  direction ENUM('IN','OUT') NOT NULL DEFAULT 'IN',
-  status ENUM('PENDING','COMPLETED','FAILED','REFUNDED') NOT NULL DEFAULT 'COMPLETED',
+  payment_direction_id TINYINT UNSIGNED NOT NULL COMMENT 'INCOMING or OUTGOING',
+  payment_status_id TINYINT UNSIGNED NOT NULL,
   external_response JSON COMMENT 'Raw gateway response',
   notes TEXT,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -928,25 +993,34 @@ CREATE TABLE payments (
   INDEX idx_payment_business_date (business_id, branch_id, paid_on DESC),
   INDEX idx_payment_customer (payer_customer_id, paid_on DESC),
   INDEX idx_payment_user (received_by_user_id, paid_on DESC),
-  INDEX idx_payment_status_date (status, paid_on DESC),
-  INDEX idx_payment_direction (direction, status, paid_on DESC),
-  INDEX idx_payment_recon_cover (business_id, paid_on DESC, amount, status, payment_id),
+  INDEX idx_payment_status_date (payment_status_id, paid_on DESC),
+  INDEX idx_pay_direction_id (payment_direction_id),
+  INDEX idx_pay_status_id (payment_status_id),
+  INDEX idx_payment_direction (payment_direction_id, payment_status_id, paid_on DESC),
+  INDEX idx_payment_recon_cover (business_id, paid_on DESC, amount, payment_status_id, payment_id),
 
   CONSTRAINT fk_payment_business FOREIGN KEY (business_id)
-  REFERENCES master_business(business_id)
-  ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_payment_branch FOREIGN KEY (branch_id)
-  REFERENCES master_branch(branch_id)
-  ON DELETE RESTRICT ON UPDATE CASCADE,
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT fk_payment_mode FOREIGN KEY (mode_of_payment_id)
-  REFERENCES payment_mode(payment_mode_id)
-  ON DELETE SET NULL ON UPDATE CASCADE,
+    REFERENCES payment_mode(payment_mode_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_payment_customer FOREIGN KEY (payer_customer_id)
-  REFERENCES customer(customer_id)
-  ON DELETE SET NULL ON UPDATE CASCADE,
+    REFERENCES customer(customer_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
   CONSTRAINT fk_payment_user FOREIGN KEY (received_by_user_id)
-  REFERENCES master_user(master_user_id)
-  ON DELETE SET NULL ON UPDATE CASCADE,
+    REFERENCES master_user(master_user_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_payment_direction FOREIGN KEY (payment_direction_id)
+    REFERENCES master_payment_direction(master_payment_direction_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_payment_status FOREIGN KEY (payment_status_id)
+    REFERENCES master_payment_status(master_payment_status_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+
   CONSTRAINT chk_payment_amount CHECK (amount > 0)
 ) ENGINE=InnoDB
 ROW_FORMAT=DYNAMIC
@@ -1082,7 +1156,7 @@ CREATE TABLE damage_reports (
   reported_on TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   
   description TEXT NOT NULL,
-  severity ENUM('MINOR','MODERATE','SEVERE','TOTAL_LOSS') NOT NULL,
+  severity_id TINYINT UNSIGNED NOT NULL,
   damage_images JSON COMMENT 'Array of image URLs',
   
   estimated_cost DECIMAL(12,2) UNSIGNED,
@@ -1105,8 +1179,9 @@ CREATE TABLE damage_reports (
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   
+  INDEX idx_damage_severity_id (severity_id),
   INDEX idx_damage_asset_date (asset_id, reported_on DESC),
-  INDEX idx_damage_branch_severity (branch_id, severity, resolved),
+  INDEX idx_damage_branch_severity (branch_id, severity_id, resolved),
   INDEX idx_damage_reported_by (reported_by, reported_on DESC),
   INDEX idx_damage_unresolved (resolved, business_id, branch_id),
   INDEX idx_damage_customer (customer_id, resolved),
@@ -1114,7 +1189,7 @@ CREATE TABLE damage_reports (
   
   INDEX idx_damage_list_cover ( -- Covering index for damage reports
     business_id, branch_id, resolved, reported_on DESC, 
-    severity, asset_id, damage_report_id
+    severity_id, asset_id, damage_report_id
   ),
   
   CONSTRAINT fk_damage_business FOREIGN KEY (business_id)
@@ -1136,6 +1211,10 @@ CREATE TABLE damage_reports (
   CONSTRAINT fk_damage_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
     ON DELETE SET NULL ON UPDATE CASCADE,
+
+  CONSTRAINT fk_damage_severity FOREIGN KEY (severity_id)
+    REFERENCES damage_severity(damage_severity_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
     
   CONSTRAINT chk_damage_costs CHECK (
     (estimated_cost IS NULL OR estimated_cost >= 0) AND
@@ -1213,6 +1292,7 @@ CREATE TABLE reservations (
   ROW_FORMAT=DYNAMIC
   COMMENT='Product reservations with availability tracking';
 
+
 DROP TABLE IF EXISTS reservation_item;
 CREATE TABLE reservation_item (
   reservation_item_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1251,59 +1331,67 @@ CREATE TABLE reservation_item (
   ROW_FORMAT=DYNAMIC
   COMMENT='Individual items in reservations';
 
--- -- =========================================================
--- -- images for products like
--- -- Ex: Canon EOS 5D Mark IV, iPhone 13 Pro
-DROP TABLE IF EXISTS product_model_images;
-CREATE TABLE product_model_images (
-  product_model_image_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+-- ========================================================
+-- DEPOSITS TABLE
+DROP TABLE IF EXISTS deposit;
+CREATE TABLE deposit (
+  deposit_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   business_id INT UNSIGNED NOT NULL,
   branch_id INT UNSIGNED NOT NULL,
-  product_model_id INT UNSIGNED NOT NULL,
+  customer_id INT UNSIGNED NOT NULL,
   
-  url VARCHAR(1024) NOT NULL, -- canonical/original image (high-res) for zoom, downloads or print
-  thumbnail_url VARCHAR(1024), -- pre-generated small/optimized version used in lists, cards and anywhere you want fast load and lower bandwidth.
-  alt_text VARCHAR(512),
-  file_size_bytes INT UNSIGNED,
-  width_px SMALLINT UNSIGNED,
-  height_px SMALLINT UNSIGNED,
+  rental_order_id INT UNSIGNED NULL,
   
-  is_primary BOOLEAN NOT NULL DEFAULT FALSE,
-  image_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
-  image_category ENUM('MAIN','DETAIL','LIFESTYLE','DAMAGE','OTHER') DEFAULT 'MAIN',
+  amount DECIMAL(12,2) UNSIGNED NOT NULL,
+  held_since TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   
-  created_by VARCHAR(100),
+  released_on TIMESTAMP(6) NULL,
+  released_amount DECIMAL(12,2) UNSIGNED,
+  deduction_amount DECIMAL(12,2) UNSIGNED DEFAULT 0,
+  deduction_reason TEXT,
+  
+  is_released BOOLEAN NOT NULL DEFAULT FALSE,
+  
+  notes TEXT,
+  
+  created_by VARCHAR(100) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(100),
   updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   
-  INDEX idx_img_model_order (product_model_id, is_active, image_order),
-  INDEX idx_img_model_primary (product_model_id, is_primary, is_active),
-  INDEX idx_img_business (business_id, branch_id),
+  INDEX idx_deposit_customer (customer_id, held_since DESC),
+  INDEX idx_deposit_rental (rental_order_id),
+  INDEX idx_deposit_unreleased (is_released, business_id, branch_id),
+  INDEX idx_deposit_branch_date (branch_id, held_since DESC),  
+  INDEX idx_deposit_cover ( business_id, branch_id, is_released, amount, held_since DESC, customer_id ), -- Covering index for deposit tracking
   
-  INDEX idx_img_cover ( -- Covering index for image retrieval
-    product_model_id, is_active, is_primary, image_order, 
-    url, thumbnail_url, product_model_image_id
-  ),
-  
-  CONSTRAINT fk_img_business FOREIGN KEY (business_id)
+  CONSTRAINT fk_deposit_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  
-  CONSTRAINT fk_img_branch FOREIGN KEY (branch_id)
+  CONSTRAINT fk_deposit_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  
-  CONSTRAINT fk_img_model FOREIGN KEY (product_model_id)
-    REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+  CONSTRAINT fk_deposit_customer FOREIGN KEY (customer_id)
+    REFERENCES customer(customer_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_deposit_rental FOREIGN KEY (rental_order_id)
+    REFERENCES rental_order(rental_order_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+    
+  CONSTRAINT chk_deposit_amounts CHECK (
+    amount >= 0 AND
+    (released_amount IS NULL OR released_amount >= 0) AND
+    (deduction_amount IS NULL OR deduction_amount >= 0) AND
+    (released_amount IS NULL OR (released_amount + deduction_amount) = amount)
+  )
 ) ENGINE=InnoDB 
   ROW_FORMAT=DYNAMIC
-  COMMENT='Product model images with ordering and categorization';
+  COMMENT='Security deposit tracking with release management';
 
--- ========================================================
+
 -- STOCK TABLE
 DROP TABLE IF EXISTS stock;
 CREATE TABLE stock (
@@ -1373,125 +1461,178 @@ CREATE TABLE stock (
 ROW_FORMAT=DYNAMIC
 COMMENT='Aggregate stock levels per model per branch';
 
--- =========================================================
-DROP TABLE IF EXISTS location_history;
-CREATE TABLE location_history (
-  location_history_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+
+-- STOCK MOVEMENTS TABLE
+DROP TABLE IF EXISTS stock_movements;
+CREATE TABLE stock_movements (
+  stock_movement_id INT UNSIGNED AUTO_INCREMENT,
   business_id INT UNSIGNED NOT NULL,
   branch_id INT UNSIGNED NOT NULL,
-  asset_id INT UNSIGNED NOT NULL,
-  
-  source ENUM('GPS','MANUAL','GEOFENCE','RFID','NFC') NOT NULL,
-  
-  latitude DECIMAL(10,8),
-  longitude DECIMAL(11,8),
-  accuracy_meters SMALLINT UNSIGNED COMMENT 'GPS accuracy',
-  
-  road VARCHAR(255),
-  city VARCHAR(100),
-  district VARCHAR(100),
-  state VARCHAR(100),
-  country CHAR(2),
-  pincode VARCHAR(20),
-  
-  recorded_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  device_battery_percent TINYINT UNSIGNED,
-  
+  product_model_id INT UNSIGNED NOT NULL,
+  inventory_movement_type_id TINYINT UNSIGNED NOT NULL,
+  quantity SMALLINT NOT NULL COMMENT 'Positive or negative',
+  -- Branch transfer
+  from_branch_id INT UNSIGNED NULL,
+  to_branch_id INT UNSIGNED NULL,
+  -- Status change
+  from_product_status_id TINYINT UNSIGNED NULL,
+  to_product_status_id TINYINT UNSIGNED NULL,
+  -- Order linkage
+  related_rental_id INT UNSIGNED NULL,
+  related_reservation_id INT UNSIGNED NULL,
+  related_maintenance_id INT UNSIGNED NULL,
+  reference_no VARCHAR(100),
+  note TEXT,
+  metadata JSON COMMENT 'Additional structured data',
+  -- Audit
   created_by VARCHAR(100) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(100),
   updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (stock_movement_id, created_at),
+  -- Optimized indexes
+  INDEX idx_stock_mov_model_date (product_model_id, created_at DESC),
+  INDEX idx_stock_mov_branch_date (branch_id, created_at DESC),
+  INDEX idx_stock_mov_type (inventory_movement_type_id, created_at DESC),
+  INDEX idx_stock_mov_rental (related_rental_id),
+  INDEX idx_stock_mov_history_cover ( business_id, branch_id, product_model_id, created_at DESC, quantity, inventory_movement_type_id), -- Covering index for movement history
   
-  INDEX idx_loc_asset_time (asset_id, recorded_at DESC),
-  INDEX idx_loc_business_time (business_id, recorded_at DESC),
-  INDEX idx_loc_coordinates (latitude, longitude),
-  INDEX idx_loc_city (city, recorded_at DESC),
-  
-  SPATIAL INDEX idx_loc_spatial (latitude, longitude) COMMENT 'Requires POINT type in MySQL 8.0+',
-  
-  CONSTRAINT fk_loc_business FOREIGN KEY (business_id)
+  CONSTRAINT fk_stock_mov_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_loc_branch FOREIGN KEY (branch_id)
+  CONSTRAINT fk_stock_mov_branch FOREIGN KEY (branch_id)
     REFERENCES master_branch(branch_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_loc_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
+  CONSTRAINT fk_stock_mov_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-
-  CONSTRAINT chk_loc_coordinates CHECK (
-    (latitude IS NULL AND longitude IS NULL) OR
-    (latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180)
-  ),
-  CONSTRAINT chk_loc_battery CHECK (device_battery_percent IS NULL OR device_battery_percent <= 100)
-) ENGINE=InnoDB 
-  ROW_FORMAT=DYNAMIC
-  COMMENT='GPS and location tracking history';
-
-
-DROP TABLE IF EXISTS deposit;
-CREATE TABLE deposit (
-  deposit_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  business_id INT UNSIGNED NOT NULL,
-  branch_id INT UNSIGNED NOT NULL,
-  customer_id INT UNSIGNED NOT NULL,
-  
-  rental_order_id INT UNSIGNED NULL,
-  
-  amount DECIMAL(12,2) UNSIGNED NOT NULL,
-  held_since TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  
-  released_on TIMESTAMP(6) NULL,
-  released_amount DECIMAL(12,2) UNSIGNED,
-  deduction_amount DECIMAL(12,2) UNSIGNED DEFAULT 0,
-  deduction_reason TEXT,
-  
-  is_released BOOLEAN NOT NULL DEFAULT FALSE,
-  
-  notes TEXT,
-  
-  created_by VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(100),
-  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  
-  INDEX idx_deposit_customer (customer_id, held_since DESC),
-  INDEX idx_deposit_rental (rental_order_id),
-  INDEX idx_deposit_unreleased (is_released, business_id, branch_id),
-  INDEX idx_deposit_branch_date (branch_id, held_since DESC),  
-  INDEX idx_deposit_cover ( business_id, branch_id, is_released, amount, held_since DESC, customer_id ), -- Covering index for deposit tracking
-  
-  CONSTRAINT fk_deposit_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
+  CONSTRAINT fk_stock_mov_type FOREIGN KEY (inventory_movement_type_id)
+    REFERENCES inventory_movement_type(inventory_movement_type_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_deposit_branch FOREIGN KEY (branch_id)
+  CONSTRAINT fk_stock_mov_from_branch FOREIGN KEY (from_branch_id)
     REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_stock_mov_to_branch FOREIGN KEY (to_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_stock_mov_from_status FOREIGN KEY (from_product_status_id)
+    REFERENCES product_status(product_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_deposit_customer FOREIGN KEY (customer_id)
-    REFERENCES customer(customer_id)
+  CONSTRAINT fk_stock_mov_to_status FOREIGN KEY (to_product_status_id)
+    REFERENCES product_status(product_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_deposit_rental FOREIGN KEY (rental_order_id)
+  CONSTRAINT fk_stock_mov_rental FOREIGN KEY (related_rental_id)
     REFERENCES rental_order(rental_order_id)
     ON DELETE SET NULL ON UPDATE CASCADE,
-    
-  CONSTRAINT chk_deposit_amounts CHECK (
-    amount >= 0 AND
-    (released_amount IS NULL OR released_amount >= 0) AND
-    (deduction_amount IS NULL OR deduction_amount >= 0) AND
-    (released_amount IS NULL OR (released_amount + deduction_amount) = amount)
-  )
-) ENGINE=InnoDB 
-  ROW_FORMAT=DYNAMIC
-  COMMENT='Security deposit tracking with release management';
+  CONSTRAINT fk_stock_mov_reservation FOREIGN KEY (related_reservation_id)
+    REFERENCES reservations(reservation_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_stock_mov_maintenance FOREIGN KEY (related_maintenance_id)
+    REFERENCES maintenance_records(maintenance_id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB
+ROW_FORMAT=DYNAMIC
+COMMENT='Stock movement audit trail with time-based partitioning'
+PARTITION BY RANGE (YEAR(created_at)) (
+PARTITION p2023 VALUES LESS THAN (2024),
+PARTITION p2024 VALUES LESS THAN (2025),
+PARTITION p2025 VALUES LESS THAN (2026),
+PARTITION p2026 VALUES LESS THAN (2027),
+PARTITION p_future VALUES LESS THAN MAXVALUE
+);
+
+
+-- ASSET MOVEMENT TABLE
+DROP TABLE IF EXISTS asset_movements;
+CREATE TABLE asset_movements (
+  asset_movement_id INT UNSIGNED AUTO_INCREMENT,
+  business_id INT UNSIGNED NOT NULL,
+  branch_id INT UNSIGNED NOT NULL,
+  product_model_id INT UNSIGNED NULL,
+  asset_id INT UNSIGNED NOT NULL,
+  inventory_movement_type_id TINYINT UNSIGNED NOT NULL,
+  -- Branch transfer
+  from_branch_id INT UNSIGNED NULL,
+  to_branch_id INT UNSIGNED NULL,
+  -- Status change
+  from_product_status_id TINYINT UNSIGNED NULL,
+  to_product_status_id TINYINT UNSIGNED NULL,
+  -- Order linkage
+  related_rental_id INT UNSIGNED NULL,
+  related_reservation_id INT UNSIGNED NULL,
+  related_maintenance_id INT UNSIGNED NULL,
+  reference_no VARCHAR(100),
+  note TEXT,
+  metadata JSON,
+  -- Audit
+  created_by VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(100),
+  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+
+  PRIMARY KEY (asset_movement_id, created_at),
+
+  INDEX idx_asset_mov_asset_date (asset_id, created_at DESC),
+  INDEX idx_asset_mov_model_date (product_model_id, created_at DESC),
+  INDEX idx_asset_mov_type (inventory_movement_type_id, created_at DESC),
+  INDEX idx_asset_mov_rental (related_rental_id),
+  INDEX idx_asset_mov_history_cover ( asset_id, created_at DESC, inventory_movement_type_id, from_product_status_id, to_product_status_id), -- Covering index for asset history
+
+  CONSTRAINT fk_asset_mov_business FOREIGN KEY (business_id)
+    REFERENCES master_business(business_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_branch FOREIGN KEY (branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_model FOREIGN KEY (product_model_id)
+    REFERENCES product_model(product_model_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_asset FOREIGN KEY (asset_id)
+    REFERENCES asset(asset_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_type FOREIGN KEY (inventory_movement_type_id)
+    REFERENCES inventory_movement_type(inventory_movement_type_id)
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_from_branch FOREIGN KEY (from_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_to_branch FOREIGN KEY (to_branch_id)
+    REFERENCES master_branch(branch_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_from_status FOREIGN KEY (from_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_to_status FOREIGN KEY (to_product_status_id)
+    REFERENCES product_status(product_status_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_rental FOREIGN KEY (related_rental_id)
+    REFERENCES rental_order(rental_order_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_reservation FOREIGN KEY (related_reservation_id)
+    REFERENCES reservations(reservation_id)
+    ON DELETE SET NULL ON UPDATE CASCADE,
+  CONSTRAINT fk_asset_mov_maintenance FOREIGN KEY (related_maintenance_id)
+    REFERENCES maintenance_records(maintenance_id)
+    ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB
+ROW_FORMAT=DYNAMIC
+COMMENT='Individual asset movement tracking with time-based partitioning'
+PARTITION BY RANGE (YEAR(created_at)) (
+PARTITION p2023 VALUES LESS THAN (2024),
+PARTITION p2024 VALUES LESS THAN (2025),
+PARTITION p2025 VALUES LESS THAN (2026),
+PARTITION p2026 VALUES LESS THAN (2027),
+PARTITION p_future VALUES LESS THAN MAXVALUE
+);
+
 
 -- =========================================================
 -- LOGGING TABLES (UTC timestamps)
 -- =========================================================  
-
 
 DROP TABLE IF EXISTS notification_log;
 CREATE TABLE notification_log (
@@ -1578,6 +1719,7 @@ CREATE TABLE notification_log (
     PARTITION p_future VALUES LESS THAN MAXVALUE
   );
 
+
 -- ========================================================
 -- ERROR LOGGING (Optimized)
 -- ========================================================
@@ -1600,167 +1742,5 @@ CREATE TABLE proc_error_log (
   ROW_FORMAT=DYNAMIC
   COMMENT='Stored procedure and trigger error logging';
 
+
 -- =========================================================
-DROP TABLE IF EXISTS stock_movements;
-CREATE TABLE stock_movements (
-  stock_movement_id INT UNSIGNED AUTO_INCREMENT,
-  business_id INT UNSIGNED NOT NULL,
-  branch_id INT UNSIGNED NOT NULL,
-  product_model_id INT UNSIGNED NOT NULL,
-  inventory_movement_type_id TINYINT UNSIGNED NOT NULL,
-  quantity SMALLINT NOT NULL COMMENT 'Positive or negative',
-  -- Branch transfer
-  from_branch_id INT UNSIGNED NULL,
-  to_branch_id INT UNSIGNED NULL,
-  -- Status change
-  from_product_status_id TINYINT UNSIGNED NULL,
-  to_product_status_id TINYINT UNSIGNED NULL,
-  -- Order linkage
-  related_rental_id INT UNSIGNED NULL,
-  related_reservation_id INT UNSIGNED NULL,
-  related_maintenance_id INT UNSIGNED NULL,
-  reference_no VARCHAR(100),
-  note TEXT,
-  metadata JSON COMMENT 'Additional structured data',
-  -- Audit
-  created_by VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(100),
-  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  PRIMARY KEY (stock_movement_id, created_at),
-  -- Optimized indexes
-  INDEX idx_stock_mov_model_date (product_model_id, created_at DESC),
-  INDEX idx_stock_mov_branch_date (branch_id, created_at DESC),
-  INDEX idx_stock_mov_type (inventory_movement_type_id, created_at DESC),
-  INDEX idx_stock_mov_rental (related_rental_id),
-  INDEX idx_stock_mov_history_cover ( business_id, branch_id, product_model_id, created_at DESC, quantity, inventory_movement_type_id), -- Covering index for movement history
-  
-  CONSTRAINT fk_stock_mov_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_model FOREIGN KEY (product_model_id)
-    REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_type FOREIGN KEY (inventory_movement_type_id)
-    REFERENCES inventory_movement_type(inventory_movement_type_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_from_branch FOREIGN KEY (from_branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_to_branch FOREIGN KEY (to_branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_from_status FOREIGN KEY (from_product_status_id)
-    REFERENCES product_status(product_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_to_status FOREIGN KEY (to_product_status_id)
-    REFERENCES product_status(product_status_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_rental FOREIGN KEY (related_rental_id)
-    REFERENCES rental_order(rental_order_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_reservation FOREIGN KEY (related_reservation_id)
-    REFERENCES reservations(reservation_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_stock_mov_maintenance FOREIGN KEY (related_maintenance_id)
-    REFERENCES maintenance_records(maintenance_id)
-    ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB
-ROW_FORMAT=DYNAMIC
-COMMENT='Stock movement audit trail with time-based partitioning'
-PARTITION BY RANGE (YEAR(created_at)) (
-PARTITION p2023 VALUES LESS THAN (2024),
-PARTITION p2024 VALUES LESS THAN (2025),
-PARTITION p2025 VALUES LESS THAN (2026),
-PARTITION p2026 VALUES LESS THAN (2027),
-PARTITION p_future VALUES LESS THAN MAXVALUE
-);
-
-DROP TABLE IF EXISTS asset_movements;
-CREATE TABLE asset_movements (
-  asset_movement_id INT UNSIGNED AUTO_INCREMENT,
-  business_id INT UNSIGNED NOT NULL,
-  branch_id INT UNSIGNED NOT NULL,
-  product_model_id INT UNSIGNED NULL,
-  asset_id INT UNSIGNED NOT NULL,
-  inventory_movement_type_id TINYINT UNSIGNED NOT NULL,
-  -- Branch transfer
-  from_branch_id INT UNSIGNED NULL,
-  to_branch_id INT UNSIGNED NULL,
-  -- Status change
-  from_product_status_id TINYINT UNSIGNED NULL,
-  to_product_status_id TINYINT UNSIGNED NULL,
-  -- Order linkage
-  related_rental_id INT UNSIGNED NULL,
-  related_reservation_id INT UNSIGNED NULL,
-  related_maintenance_id INT UNSIGNED NULL,
-  reference_no VARCHAR(100),
-  note TEXT,
-  metadata JSON,
-  -- Audit
-  created_by VARCHAR(100) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(100),
-  updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-
-  PRIMARY KEY (asset_movement_id, created_at),
-
-  INDEX idx_asset_mov_asset_date (asset_id, created_at DESC),
-  INDEX idx_asset_mov_model_date (product_model_id, created_at DESC),
-  INDEX idx_asset_mov_type (inventory_movement_type_id, created_at DESC),
-  INDEX idx_asset_mov_rental (related_rental_id),
-  INDEX idx_asset_mov_history_cover ( asset_id, created_at DESC, inventory_movement_type_id, from_product_status_id, to_product_status_id), -- Covering index for asset history
-
-  CONSTRAINT fk_asset_mov_business FOREIGN KEY (business_id)
-    REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_branch FOREIGN KEY (branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_model FOREIGN KEY (product_model_id)
-    REFERENCES product_model(product_model_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_asset FOREIGN KEY (asset_id)
-    REFERENCES asset(asset_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_type FOREIGN KEY (inventory_movement_type_id)
-    REFERENCES inventory_movement_type(inventory_movement_type_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_from_branch FOREIGN KEY (from_branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_to_branch FOREIGN KEY (to_branch_id)
-    REFERENCES master_branch(branch_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_from_status FOREIGN KEY (from_product_status_id)
-    REFERENCES product_status(product_status_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_to_status FOREIGN KEY (to_product_status_id)
-    REFERENCES product_status(product_status_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_rental FOREIGN KEY (related_rental_id)
-    REFERENCES rental_order(rental_order_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_reservation FOREIGN KEY (related_reservation_id)
-    REFERENCES reservations(reservation_id)
-    ON DELETE SET NULL ON UPDATE CASCADE,
-  CONSTRAINT fk_asset_mov_maintenance FOREIGN KEY (related_maintenance_id)
-    REFERENCES maintenance_records(maintenance_id)
-    ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB
-ROW_FORMAT=DYNAMIC
-COMMENT='Individual asset movement tracking with time-based partitioning'
-PARTITION BY RANGE (YEAR(created_at)) (
-PARTITION p2023 VALUES LESS THAN (2024),
-PARTITION p2024 VALUES LESS THAN (2025),
-PARTITION p2025 VALUES LESS THAN (2026),
-PARTITION p2026 VALUES LESS THAN (2027),
-PARTITION p_future VALUES LESS THAN MAXVALUE
-);
