@@ -28,10 +28,9 @@ COLLATE utf8mb4_unicode_ci;
 
 USE master_db;
 
--- ========================================================
+-- =========================================================
 -- SCHEMA VERSION MANAGEMENT
--- ========================================================
-DROP TABLE IF EXISTS schema_version;
+-- =========================================================
 CREATE TABLE schema_version (
   version_id INT AUTO_INCREMENT PRIMARY KEY,
   version_number VARCHAR(20) NOT NULL UNIQUE,
@@ -43,14 +42,12 @@ CREATE TABLE schema_version (
 ) ENGINE=InnoDB;
 
 INSERT INTO schema_version (version_number, description, applied_by, checksum) 
-VALUES ('2.0.0', 'Initial optimized schema', 'system', SHA2('initial', 256));
+VALUES ('1.0.0', 'Initial version with basic rental management features', 'system', SHA2('v1.0', 256));
 
--- ========================================================
--- MASTER ENUM TABLES (Optimized)
--- ========================================================
+-- =========================================================
+-- MASTER ENUM TABLES
+-- =========================================================
 
--- Business Status
-DROP TABLE IF EXISTS master_business_status;
 CREATE TABLE master_business_status (
     master_business_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -63,14 +60,12 @@ CREATE TABLE master_business_status (
     INDEX idx_status_active (is_active, display_order)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- Role Types
-DROP TABLE IF EXISTS master_role_type;
 CREATE TABLE master_role_type (
     master_role_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
     description VARCHAR(500),
-    permission_level TINYINT UNSIGNED NOT NULL DEFAULT 0 COMMENT '0=lowest, 100=highest',
+    permission_level TINYINT UNSIGNED NOT NULL DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
@@ -78,8 +73,6 @@ CREATE TABLE master_role_type (
     INDEX idx_role_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- Subscription Types
-DROP TABLE IF EXISTS master_subscription_type;
 CREATE TABLE master_subscription_type (
     master_subscription_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -90,15 +83,13 @@ CREATE TABLE master_subscription_type (
     max_items MEDIUMINT UNSIGNED DEFAULT 20,
     price_monthly DECIMAL(10,2) UNSIGNED DEFAULT 0,
     price_yearly DECIMAL(10,2) UNSIGNED DEFAULT 0,
-    features JSON COMMENT 'Array of feature flags',
+    features JSON,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
     INDEX idx_subscription_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- Subscription Status
-DROP TABLE IF EXISTS master_subscription_status;
 CREATE TABLE master_subscription_status (
     master_subscription_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -111,13 +102,11 @@ CREATE TABLE master_subscription_status (
     INDEX idx_sub_status_access (allows_access, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- Billing Cycles
-DROP TABLE IF EXISTS master_billing_cycle;
 CREATE TABLE master_billing_cycle (
     master_billing_cycle_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
-    months TINYINT UNSIGNED NOT NULL DEFAULT 1 COMMENT 'Billing period in months',
+    months TINYINT UNSIGNED NOT NULL DEFAULT 1,
     discount_percent DECIMAL(5,2) UNSIGNED DEFAULT 0,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -125,8 +114,6 @@ CREATE TABLE master_billing_cycle (
     INDEX idx_billing_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- OTP Types
-DROP TABLE IF EXISTS master_otp_type;
 CREATE TABLE master_otp_type (
     master_otp_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
@@ -139,27 +126,23 @@ CREATE TABLE master_otp_type (
     INDEX idx_otp_type_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- OTP Status
-DROP TABLE IF EXISTS master_otp_status;
 CREATE TABLE master_otp_status (
     master_otp_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(50) NOT NULL UNIQUE,
     name VARCHAR(100) NOT NULL,
-    is_terminal BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Cannot transition from this state',
+    is_terminal BOOLEAN NOT NULL DEFAULT FALSE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
     INDEX idx_otp_status_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
--- Product/Asset Enum Tables
-DROP TABLE IF EXISTS product_status;
 CREATE TABLE product_status (
   product_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   description VARCHAR(500),
-  is_available BOOLEAN NOT NULL DEFAULT FALSE COMMENT 'Can be rented in this status',
+  is_available BOOLEAN NOT NULL DEFAULT FALSE,
   display_order TINYINT UNSIGNED DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -168,13 +151,12 @@ CREATE TABLE product_status (
   INDEX idx_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS product_condition;
 CREATE TABLE product_condition (
   product_condition_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   description VARCHAR(500),
-  condition_score TINYINT UNSIGNED DEFAULT 50 COMMENT '0-100, higher is better',
+  condition_score TINYINT UNSIGNED DEFAULT 50,
   display_order TINYINT UNSIGNED DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -183,13 +165,12 @@ CREATE TABLE product_condition (
   INDEX idx_condition_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS inventory_movement_type;
 CREATE TABLE inventory_movement_type (
   inventory_movement_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   description VARCHAR(500),
-  affects_available TINYINT NOT NULL DEFAULT 0 COMMENT '-1=decrease, 0=no change, 1=increase',
+  affects_available TINYINT NOT NULL DEFAULT 0,
   affects_reserved TINYINT NOT NULL DEFAULT 0,
   affects_on_rent TINYINT NOT NULL DEFAULT 0,
   affects_maintenance TINYINT NOT NULL DEFAULT 0,
@@ -201,13 +182,12 @@ CREATE TABLE inventory_movement_type (
   INDEX idx_movement_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS rental_billing_period;
 CREATE TABLE rental_billing_period (
   rental_billing_period_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
   description VARCHAR(500),
-  hours DECIMAL(10,2) UNSIGNED NOT NULL COMMENT 'Period length in hours',
+  hours DECIMAL(10,2) UNSIGNED NOT NULL,
   display_order TINYINT UNSIGNED DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -216,7 +196,6 @@ CREATE TABLE rental_billing_period (
   INDEX idx_billing_period_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS payment_mode;
 CREATE TABLE payment_mode (
   payment_mode_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -232,7 +211,6 @@ CREATE TABLE payment_mode (
   INDEX idx_payment_mode_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS maintenance_status;
 CREATE TABLE maintenance_status (
   maintenance_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -247,7 +225,6 @@ CREATE TABLE maintenance_status (
   INDEX idx_maint_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS reservation_status;
 CREATE TABLE reservation_status (
   reservation_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -263,7 +240,6 @@ CREATE TABLE reservation_status (
   INDEX idx_res_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS source_type;
 CREATE TABLE source_type (
   source_type_id TINYINT UNSIGNED PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -276,7 +252,6 @@ CREATE TABLE source_type (
   INDEX idx_source_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS contact_type;
 CREATE TABLE contact_type (
   contact_type_id TINYINT UNSIGNED PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -288,7 +263,6 @@ CREATE TABLE contact_type (
   INDEX idx_contact_type_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS notification_channel;
 CREATE TABLE notification_channel (
   notification_channel_id TINYINT UNSIGNED PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -302,7 +276,6 @@ CREATE TABLE notification_channel (
   INDEX idx_channel_active (is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS notification_status;
 CREATE TABLE notification_status (
   notification_status_id TINYINT UNSIGNED PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -316,7 +289,6 @@ CREATE TABLE notification_status (
   INDEX idx_notif_status_terminal (is_terminal, is_success)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS rental_order_status;
 CREATE TABLE rental_order_status (
   rental_order_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -332,7 +304,6 @@ CREATE TABLE rental_order_status (
   INDEX idx_rental_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS sales_order_status;
 CREATE TABLE sales_order_status (
   sales_order_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -348,7 +319,6 @@ CREATE TABLE sales_order_status (
   INDEX idx_sales_status_order (display_order, is_active)
 ) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
-DROP TABLE IF EXISTS master_device_type;
 CREATE TABLE master_device_type (
   master_device_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -360,7 +330,6 @@ CREATE TABLE master_device_type (
   updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS product_model_image_category;
 CREATE TABLE product_model_image_category (
   product_model_image_category_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -371,7 +340,6 @@ CREATE TABLE product_model_image_category (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_customer_tier;
 CREATE TABLE master_customer_tier (
   master_customer_tier_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -382,7 +350,6 @@ CREATE TABLE master_customer_tier (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_invoice_type;
 CREATE TABLE master_invoice_type (
   master_invoice_type_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -393,8 +360,7 @@ CREATE TABLE master_invoice_type (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_payment_direction;
-CREATE TABLE  master_payment_direction (
+CREATE TABLE master_payment_direction (
   master_payment_direction_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
   name VARCHAR(100) NOT NULL,
@@ -404,7 +370,6 @@ CREATE TABLE  master_payment_direction (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_payment_status;
 CREATE TABLE master_payment_status (
   master_payment_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -416,7 +381,6 @@ CREATE TABLE master_payment_status (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS damage_severity;
 CREATE TABLE damage_severity (
   damage_severity_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -427,7 +391,6 @@ CREATE TABLE damage_severity (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS master_gender;
 CREATE TABLE master_gender (
   master_gender_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -437,7 +400,6 @@ CREATE TABLE master_gender (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS clothing_season;
 CREATE TABLE clothing_season (
   clothing_season_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -447,7 +409,6 @@ CREATE TABLE clothing_season (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS clothing_size_system;
 CREATE TABLE clothing_size_system (
   clothing_size_system_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(50) NOT NULL UNIQUE,
@@ -458,15 +419,12 @@ CREATE TABLE clothing_size_system (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
 
--- canonical sizes (one row per canonical size label)
-DROP TABLE IF EXISTS clothing_size;
 CREATE TABLE clothing_size (
   clothing_size_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  clothing_size_system_id TINYINT UNSIGNED NOT NULL,     -- FK -> size_system
-  code VARCHAR(50) NOT NULL,                    -- e.g. 'M' or '30' (system-specific code)
-  name VARCHAR(100) NULL,                       -- human-friendly name (e.g. 'Medium')
-  gender_id TINYINT UNSIGNED NULL,              -- FK -> clothing_gender (nullable = unisex/unknown)
-  -- optional measured dims (store when available)
+  clothing_size_system_id TINYINT UNSIGNED NOT NULL,
+  code VARCHAR(50) NOT NULL,
+  name VARCHAR(100) NULL,
+  gender_id TINYINT UNSIGNED NULL,
   waist_cm DECIMAL(6,2) NULL,
   chest_cm DECIMAL(6,2) NULL,
   hip_cm DECIMAL(6,2) NULL,
@@ -475,7 +433,6 @@ CREATE TABLE clothing_size (
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
 
   UNIQUE KEY uq_clothing_size_system_code (clothing_size_system_id, code),
-
   INDEX idx_clothing_size_gender (gender_id),
 
   CONSTRAINT fk_clothing_size_system FOREIGN KEY (clothing_size_system_id) 
@@ -486,16 +443,25 @@ CREATE TABLE clothing_size (
     ON UPDATE CASCADE ON DELETE SET NULL
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS clothing_colour;
 CREATE TABLE clothing_colour (
   clothing_colour_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(50) NOT NULL UNIQUE,     -- system-friendly (used in APIs, filters)
-  name VARCHAR(100) NOT NULL,           -- display name
-  hex_code CHAR(7) NULL,                -- optional UI usage (#FFFFFF)
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  hex_code CHAR(7) NULL,
   display_order TINYINT UNSIGNED DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
 ) ENGINE=InnoDB;
+
+CREATE TABLE order_progress_stage (
+  stage_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(100) NOT NULL,
+  description TEXT,
+  sequence_order TINYINT UNSIGNED NOT NULL,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
+) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
 
 
 -- =========================================================
@@ -893,3 +859,15 @@ INSERT INTO clothing_colour (code, name, hex_code, display_order) VALUES
 ON DUPLICATE KEY UPDATE
   name = VALUES(name),
   hex_code = VALUES(hex_code);
+
+INSERT INTO order_progress_stage (code, name, description, sequence_order) VALUES
+('ORDER_PLACED',        'Order Placed',         'Customer has placed the order',               10),
+('PROCESSING',          'Processing',           'Order is being processed',                     20),
+('PICKED',              'Picked',               'Items have been picked from inventory',       30),
+('PACKED',              'Packed',               'Items have been packed for shipment',         40),
+('SHIPPED',             'Shipped',              'Order has been shipped',                       50),
+('OUT_FOR_DELIVERY',    'Out for Delivery',     'Order is out for delivery to customer',       60),
+('DELIVERED',           'Delivered',            'Order has been delivered to customer',        70),
+('COMPLETED',           'Completed',            'Order process completed successfully',        80),
+('CANCELLED',           'Cancelled',            'Order has been cancelled',                     90)
+ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), sequence_order=VALUES(sequence_order);
