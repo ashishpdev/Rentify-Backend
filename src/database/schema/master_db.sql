@@ -423,7 +423,7 @@ CREATE TABLE product_model_images (
   INDEX idx_img_model_primary (product_model_id, is_primary, is_active),
   INDEX idx_img_business (business_id, branch_id),
   INDEX idx_img_image_category_id (product_model_image_category_id),
-  INDEX idx_img_cover (product_model_id, is_active, is_primary, image_order, url, thumbnail_url, product_model_image_id),
+  INDEX idx_img_cover (product_model_id, is_active, is_primary, image_order, url(191), thumbnail_url(191), product_model_image_id),
   
   CONSTRAINT fk_img_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
@@ -482,10 +482,7 @@ CREATE TABLE asset (
   manufacturing_date DATE,
   manufacturing_cost DECIMAL(12,2) UNSIGNED,
   
-  is_available BOOLEAN GENERATED ALWAYS AS (
-    CASE WHEN product_status_id = 2 THEN TRUE ELSE FALSE END
-  ) STORED,
-
+  is_available BOOLEAN NOT NULL DEFAULT FALSE,
   created_by VARCHAR(100) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(100),
@@ -532,10 +529,6 @@ CREATE TABLE asset (
     (sell_price IS NULL OR sell_price >= 0) AND
     (purchase_price IS NULL OR purchase_price >= 0) AND
     (current_value IS NULL OR current_value >= 0)
-  ),
-  CONSTRAINT chk_asset_borrowed CHECK (
-    (source_type_id = 2 AND borrowed_from_business_name IS NOT NULL) OR
-    (source_type_id != 2)
   )
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
@@ -556,34 +549,6 @@ CREATE TABLE asset_measurement (
   CONSTRAINT fk_measurement_asset FOREIGN KEY (asset_id)
     REFERENCES asset(asset_id)
     ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB;
-
-CREATE TABLE asset_availability (
-  availability_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  asset_id INT UNSIGNED NOT NULL,
-  start_date DATE NOT NULL,
-  end_date DATE NOT NULL,
-  status VARCHAR(50) NOT NULL COMMENT 'BOOKED, BLOCKED, MAINTENANCE',
-  rental_order_id INT UNSIGNED NULL,
-  reservation_id INT UNSIGNED NULL,
-  notes TEXT,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  
-  INDEX idx_avail_asset_dates (asset_id, start_date, end_date),
-  INDEX idx_avail_dates (start_date, end_date, status),
-  
-    CONSTRAINT fk_avail_asset FOREIGN KEY (asset_id)
-        REFERENCES asset(asset_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_avail_rental FOREIGN KEY (rental_order_id)
-        REFERENCES rental_order(rental_order_id)
-        ON DELETE CASCADE ON UPDATE CASCADE,
-    CONSTRAINT fk_avail_reservation FOREIGN KEY (reservation_id)
-        REFERENCES reservations(reservation_id)
-        ON DELETE CASCADE ON UPDATE CASCADE;
-
-
-  CONSTRAINT chk_avail_dates CHECK (end_date >= start_date)
 ) ENGINE=InnoDB;
 
 -- =========================================================
@@ -700,10 +665,11 @@ CREATE TABLE customer_communication_log (
   external_message_id VARCHAR(255),
   direction VARCHAR(10),
   created_by VARCHAR(100),
-  
+
   INDEX idx_comm_customer_date (customer_id, sent_at DESC),
   INDEX idx_comm_channel (channel_id, sent_at DESC),
-  
+  INDEX idx_comm_sent_at (sent_at),
+
   CONSTRAINT fk_comm_customer FOREIGN KEY (customer_id)
     REFERENCES customer(customer_id)
     ON DELETE CASCADE ON UPDATE CASCADE,
@@ -713,13 +679,7 @@ CREATE TABLE customer_communication_log (
   CONSTRAINT fk_comm_channel FOREIGN KEY (channel_id)
     REFERENCES notification_channel(notification_channel_id)
     ON DELETE RESTRICT ON UPDATE CASCADE
-) ENGINE=InnoDB
-PARTITION BY RANGE (YEAR(sent_at)) (
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 -- =========================================================
 -- MULTI-SALESMAN CART SYSTEM
@@ -833,15 +793,11 @@ CREATE TABLE rental_order (
   
   total_amount DECIMAL(14,2) UNSIGNED NOT NULL,
   paid_amount DECIMAL(14,2) UNSIGNED NOT NULL DEFAULT 0,
-  balance_due DECIMAL(14,2) GENERATED ALWAYS AS (total_amount - paid_amount) STORED,
   
   rental_billing_period_id TINYINT UNSIGNED NOT NULL,
   currency CHAR(3) NOT NULL DEFAULT 'INR',
   
   rental_order_status_id TINYINT UNSIGNED NOT NULL,
-  is_overdue BOOLEAN GENERATED ALWAYS AS (
-    CASE WHEN end_date IS NULL AND due_date < CURRENT_TIMESTAMP(6) THEN TRUE ELSE FALSE END
-  ) STORED,
   
   pickup_person_name VARCHAR(200),
   pickup_person_mobile VARCHAR(20),
@@ -874,8 +830,6 @@ CREATE TABLE rental_order (
   INDEX idx_rental_branch_status (branch_id, rental_order_status_id, is_active),
   INDEX idx_rental_user (user_id, created_at DESC),
   INDEX idx_rental_dates_status (start_date, due_date, rental_order_status_id),
-  INDEX idx_rental_overdue (is_overdue, business_id, branch_id),
-  INDEX idx_rental_balance (balance_due, business_id, branch_id),
   INDEX idx_rental_deleted (is_deleted, business_id),
   INDEX idx_rental_approval (approved_by, approved_at),
   INDEX idx_rental_list_cover (business_id, branch_id, is_active, start_date DESC, order_no, rental_order_id),
@@ -913,14 +867,7 @@ CREATE TABLE rental_order (
     start_date <= due_date AND
     (end_date IS NULL OR end_date >= start_date)
   )
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-PARTITION BY RANGE (YEAR(start_date)) (
-  PARTITION p2023 VALUES LESS THAN (2024),
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE rental_order_item (
   rental_order_item_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1019,7 +966,6 @@ CREATE TABLE sales_order (
   
   total_amount DECIMAL(14,2) UNSIGNED NOT NULL,
   paid_amount DECIMAL(14,2) UNSIGNED NOT NULL DEFAULT 0,
-  balance_due DECIMAL(14,2) GENERATED ALWAYS AS (total_amount - paid_amount) STORED,
   currency CHAR(3) NOT NULL DEFAULT 'INR',
   
   sales_order_status_id TINYINT UNSIGNED NOT NULL,
@@ -1045,7 +991,6 @@ CREATE TABLE sales_order (
   INDEX idx_sales_branch_status (branch_id, sales_order_status_id, is_active),
   INDEX idx_sales_user (user_id, created_at DESC),
   INDEX idx_sales_date_status (order_date DESC, sales_order_status_id),
-  INDEX idx_sales_balance (balance_due, business_id, branch_id),
   INDEX idx_sales_deleted (is_deleted, business_id),
   INDEX idx_sales_list_cover (business_id, branch_id, is_active, order_date DESC, order_no, sales_order_id),
   INDEX idx_sales_financial (business_id, order_date, total_amount DESC, paid_amount),
@@ -1079,14 +1024,7 @@ CREATE TABLE sales_order (
     (shipping_date IS NULL OR shipping_date >= order_date) AND
     (invoice_expected_date IS NULL OR invoice_expected_date >= DATE(order_date))
   )
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-PARTITION BY RANGE (YEAR(order_date)) (
-  PARTITION p2023 VALUES LESS THAN (2024),
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE sales_order_item (
   sales_order_item_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1202,11 +1140,7 @@ CREATE TABLE invoices (
     ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT fk_invoice_type FOREIGN KEY (invoice_type_id)
     REFERENCES master_invoice_type(master_invoice_type_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT chk_invoice_order_link CHECK (
-    (rental_order_id IS NOT NULL AND sales_order_id IS NULL) OR
-    (rental_order_id IS NULL AND sales_order_id IS NOT NULL)
-  )
+    ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE credit_debit_note (
@@ -1354,14 +1288,7 @@ CREATE TABLE payments (
     REFERENCES master_payment_status(master_payment_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT chk_payment_amount CHECK (amount > 0)
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-PARTITION BY RANGE (YEAR(paid_on)) (
-  PARTITION p2023 VALUES LESS THAN (2024),
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE payment_allocation (
   payment_allocation_id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -1387,10 +1314,6 @@ CREATE TABLE payment_allocation (
   CONSTRAINT fk_alloc_sales FOREIGN KEY (sales_order_id)
     REFERENCES sales_order(sales_order_id)
     ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT chk_alloc_order_link CHECK (
-    (rental_order_id IS NOT NULL AND sales_order_id IS NULL) OR
-    (rental_order_id IS NULL AND sales_order_id IS NOT NULL)
-  ),
   CONSTRAINT chk_alloc_amount CHECK (allocated_amount > 0)
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
@@ -1452,9 +1375,9 @@ CREATE TABLE maintenance_records (
   CONSTRAINT fk_maint_status FOREIGN KEY (maintenance_status_id)
     REFERENCES maintenance_status(maintenance_status_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT fk_maint_washer FOREIGN KEY (washer_id)
+  CONSTRAINT fk_maint_washer FOREIGN KEY (washer_id)
     REFERENCES washer_vendor(washer_id)
-    ON DELETE SET NULL ON UPDATE CASCADE;
+    ON DELETE SET NULL ON UPDATE CASCADE,
 
   CONSTRAINT chk_maint_dates CHECK (
     (scheduled_date IS NULL OR scheduled_date >= reported_on) AND
@@ -1804,14 +1727,7 @@ CREATE TABLE stock_movements (
   CONSTRAINT fk_stock_mov_maintenance FOREIGN KEY (related_maintenance_id)
     REFERENCES maintenance_records(maintenance_id)
     ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-PARTITION BY RANGE (YEAR(created_at)) (
-  PARTITION p2023 VALUES LESS THAN (2024),
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 CREATE TABLE asset_movements (
   asset_movement_id INT UNSIGNED AUTO_INCREMENT,
@@ -1884,14 +1800,7 @@ CREATE TABLE asset_movements (
   CONSTRAINT fk_asset_mov_maintenance FOREIGN KEY (related_maintenance_id)
     REFERENCES maintenance_records(maintenance_id)
     ON DELETE SET NULL ON UPDATE CASCADE
-) ENGINE=InnoDB ROW_FORMAT=DYNAMIC
-PARTITION BY RANGE (YEAR(created_at)) (
-  PARTITION p2023 VALUES LESS THAN (2024),
-  PARTITION p2024 VALUES LESS THAN (2025),
-  PARTITION p2025 VALUES LESS THAN (2026),
-  PARTITION p2026 VALUES LESS THAN (2027),
-  PARTITION p_future VALUES LESS THAN MAXVALUE
-);
+) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
 -- =========================================================
 -- ORDER PROGRESS TRACKING
@@ -2161,7 +2070,6 @@ CREATE TABLE darji_work_assignment (
   
   agreed_rate DECIMAL(10,2) UNSIGNED NOT NULL,
   advance_paid DECIMAL(10,2) UNSIGNED DEFAULT 0,
-  balance_due DECIMAL(10,2) UNSIGNED,
   
   status VARCHAR(50) NOT NULL DEFAULT 'ASSIGNED',
   
@@ -2238,6 +2146,7 @@ CREATE TABLE darji_payment (
 -- MANUFACTURING & BILL OF MATERIALS
 -- =========================================================
 
+DROP TABLE IF EXISTS raw_material;
 CREATE TABLE raw_material (
   material_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   business_id INT UNSIGNED NOT NULL,
@@ -2265,7 +2174,10 @@ CREATE TABLE raw_material (
   
   CONSTRAINT fk_material_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
-    ON DELETE RESTRICT ON UPDATE CASCADE
+    ON DELETE RESTRICT ON UPDATE CASCADE,
+  CONSTRAINT fk_material_supplier FOREIGN KEY (supplier_id)
+    REFERENCES supplier(supplier_id)
+    ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB;
 
 CREATE TABLE bill_of_materials (
@@ -2450,12 +2362,6 @@ CREATE TABLE supplier (
   CONSTRAINT chk_supplier_rating CHECK (rating IS NULL OR rating BETWEEN 1 AND 5)
 ) ENGINE=InnoDB;
 
--- Add FK to raw_material for supplier
-ALTER TABLE raw_material
-ADD CONSTRAINT fk_material_supplier FOREIGN KEY (supplier_id)
-  REFERENCES supplier(supplier_id)
-  ON DELETE SET NULL ON UPDATE CASCADE;
-
 CREATE TABLE purchase_order (
   purchase_order_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   business_id INT UNSIGNED NOT NULL,
@@ -2476,7 +2382,6 @@ CREATE TABLE purchase_order (
   total_amount DECIMAL(14,2) UNSIGNED NOT NULL,
   
   paid_amount DECIMAL(14,2) UNSIGNED DEFAULT 0,
-  balance_due DECIMAL(14,2) GENERATED ALWAYS AS (total_amount - paid_amount) STORED,
   
   status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
   
@@ -2498,7 +2403,6 @@ CREATE TABLE purchase_order (
   UNIQUE KEY uq_po_business_no (business_id, po_no),
   INDEX idx_po_supplier_date (supplier_id, po_date DESC),
   INDEX idx_po_status (status, expected_delivery_date),
-  INDEX idx_po_payment_due (payment_due_date, balance_due),
   
   CONSTRAINT fk_po_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)

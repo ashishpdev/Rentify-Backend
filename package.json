@@ -40,10 +40,12 @@
     "coverage:report": "open coverage/index.html"
   },
   "dependencies": {
+    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
+    "express-rate-limit": "^8.2.1",
     "express-winston": "^4.2.0",
     "googleapis": "^168.0.0",
     "handlebars": "^4.7.8",
