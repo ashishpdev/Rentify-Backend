@@ -4,12 +4,6 @@ const db = require("../../database/connection");
 
 class AuthRepository {
   // ========================= OTP MANAGEMENT =========================
-
-  /**
-   * Save OTP to database
-   * @param {Object} otpData - OTP data
-   * @returns {Promise<Object>} Success status with OTP ID and expiry
-   */
   async saveOTP(otpData) {
     try {
       await db.executeSP(
@@ -44,13 +38,6 @@ class AuthRepository {
     }
   }
 
-  /**
-   * Verify OTP code
-   * @param {string} email - User email
-   * @param {string} otpCodeHash - Hashed OTP code
-   * @param {number} otp_type_id - OTP type (1=LOGIN, 2=REGISTRATION, 3=RESET)
-   * @returns {Promise<Object>} Verification result
-   */
   async verifyOTP(email, otpCodeHash, otp_type_id) {
     try {
       await db.executeSP(
@@ -75,11 +62,6 @@ class AuthRepository {
 
   // ========================= REGISTRATION =========================
 
-  /**
-   * Register business with owner
-   * @param {Object} registrationData - Business and owner details
-   * @returns {Promise<Object>} Created business, branch, and owner IDs
-   */
   async registerBusinessWithOwner(registrationData) {
     try {
       await db.executeSP(
@@ -120,17 +102,9 @@ class AuthRepository {
 
   // ========================= LOGIN =========================
 
-  /**
-   * Login with OTP
-   * @param {string} email - User email
-   * @param {string} otpHash - Hashed OTP
-   * @param {string} ipAddress - Client IP address
-   * @returns {Promise<Object>} User details
-   */
   async loginWithOTP(email, otpHash, ipAddress = null) {
     try {
       await db.executeSP(
-<<<<<<< HEAD
         `CALL sp_action_login_with_otp(?, ?, ?, 
          @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, 
          @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, 
@@ -145,20 +119,6 @@ class AuthRepository {
                @p_business_name AS business_name, @p_branch_name AS branch_name,
                @p_role_name AS role_name, @p_is_owner AS is_owner,
                @p_error_code AS error_code, @p_error_message AS error_message
-=======
-        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, @p_error_code, @p_error_message)`,
-        [email, otpHash, ip]
-      );
-
-      const out = await db.executeSelect(`
-        SELECT @p_user_id user_id, @p_business_id business_id,
-               @p_branch_id branch_id, @p_role_id role_id,
-               @p_contact_number contact_number, @p_user_name user_name,
-               @p_business_name business_name, @p_branch_name branch_name,
-               @p_role_name role_name, @p_is_owner is_owner,
-               @p_error_code error_code,
-               @p_error_message error_message
->>>>>>> beaea288166c5d67be67d8010f50f821376257fc
       `);
 
       if (!output.user_id) {
@@ -182,20 +142,53 @@ class AuthRepository {
       throw new Error(`Failed to login: ${error.message}`);
     }
   }
-// ======================== CREATE SESSION ========================
-async createSession(userId, token, expiry, ip = null, deviceId = null, deviceName = null, deviceTypeId = 1) {
-  try {
-    // Ensure deviceTypeId is provided (stored proc expects not-null for action=1)
-    if (!deviceTypeId) deviceTypeId = 1;
+  // ======================== CREATE SESSION ========================
+  async createSession(
+    userId,
+    token,
+    expiry,
+    ip = null,
+    deviceId = null,
+    deviceName = null,
+    deviceTypeId = 1
+  ) {
+    try {
+      // Ensure deviceTypeId is provided (stored proc expects not-null for action=1)
+      if (!deviceTypeId) deviceTypeId = 1;
 
-<<<<<<< HEAD
-  /**
-   * Login with password
-   * @param {string} email - User email
-   * @param {string} passwordHash - Hashed password
-   * @param {string} ipAddress - Client IP address
-   * @returns {Promise<Object>} User details
-   */
+      await db.executeSP(
+        `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
+         @p_success, @p_session_id, @p_error_code, @p_error_message)`,
+        [
+          1, // action: 1=Create
+          userId,
+          token,
+          deviceId,
+          deviceName,
+          deviceTypeId,
+          ip,
+          expiry,
+        ]
+      );
+
+      const output = await db.executeSelect(`
+        SELECT @p_success AS success, @p_session_id AS session_id,
+               @p_error_code AS error_code, @p_error_message AS error_message
+      `);
+
+      return {
+        isSuccess: output.success == 1,
+        sessionId: output.session_id,
+        sessionToken: token,
+        expiryAt: expiry,
+        errorCode: output.error_code,
+        errorMessage: output.error_message,
+      };
+    } catch (error) {
+      throw new Error(`Failed to create session: ${error.message}`);
+    }
+  }
+
   async loginWithPassword(email, passwordHash, ipAddress = null) {
     try {
       await db.executeSP(
@@ -239,17 +232,6 @@ async createSession(userId, token, expiry, ip = null, deviceId = null, deviceNam
 
   // ========================= SESSION MANAGEMENT =========================
 
-  /**
-   * Create new session
-   * @param {number} userId - User ID
-   * @param {string} sessionToken - Encrypted session token
-   * @param {string} expiryAt - Session expiry timestamp
-   * @param {string} ipAddress - Client IP
-   * @param {string} deviceId - Device identifier
-   * @param {string} deviceName - Device name
-   * @param {number} deviceTypeId - Device type ID
-   * @returns {Promise<Object>} Session creation result
-   */
   async createSession(
     userId,
     sessionToken,
@@ -291,41 +273,8 @@ async createSession(userId, token, expiry, ip = null, deviceId = null, deviceNam
     } catch (error) {
       throw new Error(`Failed to create session: ${error.message}`);
     }
-=======
-    await db.executeSP(
-      `CALL sp_manage_session(1, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_session_id, @p_error_code, @p_error_message)`,
-      [userId, token, deviceId, deviceName, deviceTypeId, ip, expiry]
-    );
-
-    const out = await db.executeSelect(`
-      SELECT @p_success success, @p_session_id session_id,
-             @p_error_code error_code, @p_error_message error_message
-    `);
-
-    // return a predictable shape: echo the token and expiry we attempted to store
-    return {
-      isSuccess: out.success == 1,
-      sessionId: out.session_id || null,
-      sessionToken: token,
-      expiryAt: expiry,
-      errorCode: out.error_code || null,
-      errorMessage: out.error_message || null,
-    };
-  } catch (e) {
-    throw new Error(`Failed to create session: ${e.message}`);
->>>>>>> beaea288166c5d67be67d8010f50f821376257fc
   }
-}
 
-
-  /**
-   * Update existing session
-   * @param {number} userId - User ID
-   * @param {string} oldSessionToken - Current session token
-   * @param {string} newSessionToken - New session token
-   * @param {string} newExpiryAt - New expiry timestamp
-   * @returns {Promise<Object>} Session update result
-   */
   async extendSession(userId, oldSessionToken, newSessionToken, newExpiryAt) {
     try {
       await db.executeSP(
@@ -363,12 +312,6 @@ async createSession(userId, token, expiry, ip = null, deviceId = null, deviceNam
     }
   }
 
-  /**
-   * Delete user session(s)
-   * @param {number} userId - User ID
-   * @param {string} sessionToken - Optional specific session token to delete
-   * @returns {Promise<Object>} Deletion result
-   */
   async deleteSession(userId, sessionToken = null) {
     try {
       await db.executeSP(
@@ -401,25 +344,12 @@ async createSession(userId, token, expiry, ip = null, deviceId = null, deviceNam
     }
   }
 
-  /**
-   * Logout - alias for deleteSession for all user sessions
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>} Logout result
-   */
   async logout(userId) {
     return this.deleteSession(userId, null);
   }
 
   // ========================= PASSWORD MANAGEMENT =========================
 
-  /**
-   * Change user password
-   * @param {number} userId - User ID
-   * @param {string} oldPasswordHash - Current password hash
-   * @param {string} newPasswordHash - New password hash
-   * @param {string} updatedBy - User performing the update
-   * @returns {Promise<Object>} Password change result
-   */
   async changePassword(userId, oldPasswordHash, newPasswordHash, updatedBy) {
     try {
       await db.executeSP(
@@ -446,14 +376,6 @@ async createSession(userId, token, expiry, ip = null, deviceId = null, deviceNam
     }
   }
 
-  /**
-   * Reset password using OTP
-   * @param {string} email - User email
-   * @param {string} otpCodeHash - Hashed OTP code
-   * @param {string} newPasswordHash - New password hash
-   * @param {string} updatedBy - User performing the update
-   * @returns {Promise<Object>} Password reset result
-   */
   async resetPassword(email, otpCodeHash, newPasswordHash, updatedBy) {
     try {
       await db.executeSP(
