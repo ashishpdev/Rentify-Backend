@@ -6,7 +6,7 @@ class AuthRepository {
   async saveOTP(otpData) {
     try {
       await db.executeSP(
-        `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_expires_at, @p_otp_code_hash_out, @p_error_code, @p_error_message)`,
+        `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_expires_at, @p_error_code, @p_error_message)`,
         [
           1,
           otpData.targetIdentifier,
@@ -99,7 +99,7 @@ class AuthRepository {
   async loginWithOTP(email, otpHash, ip = null) {
     try {
       await db.executeSP(
-        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, @p_error_message)`,
+        `CALL sp_action_login_with_otp(?, ?, ?, @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, @p_error_code, @p_error_message)`,
         [email, otpHash, ip]
       );
 
@@ -109,6 +109,7 @@ class AuthRepository {
                @p_contact_number contact_number, @p_user_name user_name,
                @p_business_name business_name, @p_branch_name branch_name,
                @p_role_name role_name, @p_is_owner is_owner,
+               @p_error_code error_code,
                @p_error_message error_message
       `);
 
@@ -131,29 +132,36 @@ class AuthRepository {
       throw new Error(`Failed to login: ${e.message}`);
     }
   }
+// ======================== CREATE SESSION ========================
+async createSession(userId, token, expiry, ip = null, deviceId = null, deviceName = null, deviceTypeId = 1) {
+  try {
+    // Ensure deviceTypeId is provided (stored proc expects not-null for action=1)
+    if (!deviceTypeId) deviceTypeId = 1;
 
-  // ======================== CREATE SESSION ========================
-  async createSession(userId, token, expiry, ip = null) {
-    try {
-      await db.executeSP(
-        `CALL sp_manage_session(1, ?, ?, ?, ?, ?, @p_success, @p_session_token_out, @p_expiry_at, @p_error_code, @p_error_message)`,
-        [userId, token, ip, expiry, null]
-      );
+    await db.executeSP(
+      `CALL sp_manage_session(1, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_session_id, @p_error_code, @p_error_message)`,
+      [userId, token, deviceId, deviceName, deviceTypeId, ip, expiry]
+    );
 
-      const out = await db.executeSelect(`
-        SELECT @p_success success, @p_session_token_out session_token,
-               @p_expiry_at expiry_at, @p_error_code error_code, @p_error_message error_message
-      `);
+    const out = await db.executeSelect(`
+      SELECT @p_success success, @p_session_id session_id,
+             @p_error_code error_code, @p_error_message error_message
+    `);
 
-      return {
-        isSuccess: out.success == 1,
-        sessionToken: out.session_token,
-        expiryAt: out.expiry_at,
-      };
-    } catch (e) {
-      throw new Error(`Failed to create session: ${e.message}`);
-    }
+    // return a predictable shape: echo the token and expiry we attempted to store
+    return {
+      isSuccess: out.success == 1,
+      sessionId: out.session_id || null,
+      sessionToken: token,
+      expiryAt: expiry,
+      errorCode: out.error_code || null,
+      errorMessage: out.error_message || null,
+    };
+  } catch (e) {
+    throw new Error(`Failed to create session: ${e.message}`);
   }
+}
+
 
   // ======================== EXTEND SESSION ========================
   async extendSession(userId, oldSessionToken, newSessionToken, newExpiryAt) {

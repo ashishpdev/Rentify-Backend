@@ -1,10 +1,9 @@
 DROP PROCEDURE IF EXISTS sp_action_login_with_otp;
-
 CREATE PROCEDURE sp_action_login_with_otp(
     IN  p_email           VARCHAR(255),
     IN  p_otp_code_hash   VARCHAR(255),
     IN  p_ip_address      VARCHAR(45),
-    
+
     OUT p_user_id         INT,
     OUT p_business_id     INT,
     OUT p_branch_id       INT,
@@ -18,8 +17,9 @@ CREATE PROCEDURE sp_action_login_with_otp(
     OUT p_error_code      VARCHAR(50),
     OUT p_error_message   VARCHAR(500)
 )
-proc_label: BEGIN
+BEGIN
 
+    -- variable declarations (must come before handler declarations)
     DECLARE v_otp_record_id      CHAR(36) DEFAULT NULL;
     DECLARE v_otp_status_id      INT DEFAULT NULL;
     DECLARE v_expires_at         DATETIME(6) DEFAULT NULL;
@@ -34,11 +34,13 @@ proc_label: BEGIN
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
+    -- EXIT handlers: they terminate the compound statement in which they are declared
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
         SET p_error_code = 'ERR_FOREIGN_KEY_VIOLATION';
         SET p_error_message = 'Database integrity error.';
+        -- no RETURN; handler is EXIT so it will leave the procedure
     END;
 
     DECLARE EXIT HANDLER FOR 1062
@@ -50,6 +52,7 @@ proc_label: BEGIN
 
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
+        -- gather diagnostics (MySQL/MariaDB GET DIAGNOSTICS)
         GET DIAGNOSTICS v_cno = NUMBER;
         IF v_cno > 0 THEN
             GET DIAGNOSTICS CONDITION 1
@@ -57,33 +60,43 @@ proc_label: BEGIN
                 v_sql_state = RETURNED_SQLSTATE,
                 v_error_msg = MESSAGE_TEXT;
         END IF;
+
         ROLLBACK;
-        INSERT INTO proc_error_log(proc_name, proc_args, mysql_errno, sql_state, error_message)
+
+        -- write to error log table (ensure error_logs has these columns)
+        INSERT INTO error_logs (procedure_name, input_params, error_code, sql_state, error_message)
         VALUES ('sp_action_login_with_otp', CONCAT('email=', LEFT(p_email, 100)), v_errno, v_sql_state, LEFT(v_error_msg, 2000));
+
         SET p_error_code = 'ERR_SQL_EXCEPTION';
         SET p_error_message = 'An unexpected error occurred.';
+        -- do not RETURN; handler is EXIT and will exit the procedure
     END;
 
-    SET p_user_id = NULL;
-    SET p_business_id = NULL;
-    SET p_branch_id = NULL;
-    SET p_role_id = NULL;
-    SET p_error_code = NULL;
-    SET p_error_message = NULL;
+    -- Main logic in a labeled block so we can LEAVE it on validation / normal early-exits
+    main_logic: BEGIN
 
-    IF p_email IS NULL OR p_email = '' THEN
-        SET p_error_code = 'ERR_INVALID_INPUT';
-        SET p_error_message = 'Email is required.';
-        LEAVE proc_label;
-    END IF;
+        -- initialize OUTs
+        SET p_user_id = NULL;
+        SET p_business_id = NULL;
+        SET p_branch_id = NULL;
+        SET p_role_id = NULL;
+        SET p_error_code = NULL;
+        SET p_error_message = NULL;
 
-    IF p_otp_code_hash IS NULL OR p_otp_code_hash = '' THEN
-        SET p_error_code = 'ERR_INVALID_INPUT';
-        SET p_error_message = 'OTP is required.';
-        LEAVE proc_label;
-    END IF;
+        -- validation
+        IF p_email IS NULL OR p_email = '' THEN
+            SET p_error_code = 'ERR_INVALID_INPUT';
+            SET p_error_message = 'Email is required.';
+            LEAVE main_logic;
+        END IF;
 
-    START TRANSACTION;
+        IF p_otp_code_hash IS NULL OR p_otp_code_hash = '' THEN
+            SET p_error_code = 'ERR_INVALID_INPUT';
+            SET p_error_message = 'OTP is required.';
+            LEAVE main_logic;
+        END IF;
+
+        START TRANSACTION;
 
         SELECT master_otp_status_id
         INTO v_verified_status_id
@@ -104,14 +117,14 @@ proc_label: BEGIN
             ROLLBACK;
             SET p_error_code = 'ERR_OTP_NOT_FOUND';
             SET p_error_message = 'No OTP found for this email.';
-            LEAVE proc_label;
+            LEAVE main_logic;
         END IF;
 
         IF v_attempts >= v_max_attempts THEN
             ROLLBACK;
             SET p_error_code = 'ERR_MAX_ATTEMPTS';
             SET p_error_message = 'Maximum OTP attempts exceeded.';
-            LEAVE proc_label;
+            LEAVE main_logic;
         END IF;
 
         UPDATE master_otp
@@ -122,14 +135,14 @@ proc_label: BEGIN
             ROLLBACK;
             SET p_error_code = 'ERR_OTP_EXPIRED';
             SET p_error_message = 'OTP has expired.';
-            LEAVE proc_label;
+            LEAVE main_logic;
         END IF;
 
         IF v_stored_otp_hash != p_otp_code_hash THEN
-            COMMIT;
+            COMMIT; -- keep the incremented attempt count
             SET p_error_code = 'ERR_INVALID_OTP';
             SET p_error_message = 'Invalid OTP code.';
-            LEAVE proc_label;
+            LEAVE main_logic;
         END IF;
 
         SELECT
@@ -150,7 +163,7 @@ proc_label: BEGIN
             ROLLBACK;
             SET p_error_code = 'ERR_USER_NOT_FOUND';
             SET p_error_message = 'User not found or inactive.';
-            LEAVE proc_label;
+            LEAVE main_logic;
         END IF;
 
         IF v_otp_status_id != v_verified_status_id THEN
@@ -166,10 +179,11 @@ proc_label: BEGIN
         SET last_login_at = UTC_TIMESTAMP(6)
         WHERE master_user_id = p_user_id;
 
-    COMMIT;
-    
-    SET p_error_code = 'SUCCESS';
-    SET p_error_message = 'Login successful.';
+        COMMIT;
+
+        SET p_error_code = 'SUCCESS';
+        SET p_error_message = 'Login successful.';
+
+    END main_logic;
 
 END;
-

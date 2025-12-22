@@ -150,17 +150,26 @@ class AuthService {
         ip_address: ipAddress,
         device_id: `device_${user.user_id}_${Date.now()}`,
       };
+      
+      const tokenResult = SessionTokenUtil.generateSessionToken(sessionTokenData);
 
-      const tokenResult =
-        SessionTokenUtil.generateSessionToken(sessionTokenData);
+      // device info
+      const deviceId = sessionTokenData.device_id; // e.g. "device_123_1612345678901"
+      const deviceName = sessionTokenData.device_name || null;
+      // pick a default device type id (1 = web/mobile etc - adjust to your domain)
+      const deviceTypeId = parseInt(process.env.DEFAULT_DEVICE_TYPE_ID || '1', 10);
 
-      // Create session in database with encrypted token
+      // Create session in database with encrypted token and device info
       const sessionResult = await authRepository.createSession(
         user.user_id,
         tokenResult.sessionToken,
         tokenResult.expiresAt,
-        ipAddress
+        ipAddress,
+        deviceId,
+        deviceName,
+        deviceTypeId
       );
+
 
       if (!sessionResult.isSuccess) {
         throw new Error(
