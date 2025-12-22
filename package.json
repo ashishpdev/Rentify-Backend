@@ -40,31 +40,22 @@
     "coverage:report": "open coverage/index.html"
   },
   "dependencies": {
-    "compression": "^1.8.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "express-winston": "^4.2.0",
     "googleapis": "^168.0.0",
     "handlebars": "^4.7.8",
     "helmet": "^8.1.0",
     "joi": "^18.0.2",
-    "joi-to-swagger": "^6.2.0",
     "jsonwebtoken": "^9.0.3",
     "k6": "^0.0.0",
-    "mongoose": "^8.19.0",
     "morgan": "^1.10.1",
     "multer": "^2.0.2",
     "nodemailer": "^7.0.10",
-    "qrcode": "^1.5.4",
-    "qrcode-terminal": "^0.12.0",
-    "swagger-ui-express": "^5.0.1",
     "twilio": "^5.10.7",
     "winston": "^3.18.3",
-    "winston-daily-rotate-file": "^5.0.0",
-    "ws": "^8.18.3"
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@babel/parser": "^7.28.5",
