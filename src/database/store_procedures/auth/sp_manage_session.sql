@@ -1,5 +1,4 @@
 DROP PROCEDURE IF EXISTS sp_manage_session;
-
 CREATE PROCEDURE sp_manage_session(
     IN p_action INT,
     IN p_user_id INT,
@@ -21,6 +20,7 @@ proc_label: BEGIN
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
+    DECLARE v_old_token CHAR(64);
 
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
@@ -61,7 +61,7 @@ proc_label: BEGIN
     SET p_error_message = NULL;
 
     IF p_action = 1 THEN
-        
+        -- Action 1: Create new session
         IF p_user_id IS NULL OR p_user_id <= 0 THEN
             SET p_error_code = 'ERR_INVALID_INPUT';
             SET p_error_message = 'Invalid user ID.';
@@ -99,29 +99,46 @@ proc_label: BEGIN
         SET p_error_message = 'Session created successfully.';
 
     ELSEIF p_action = 2 THEN
-        
+        -- Action 2: Extend/Rotate session (update token and expiry)
         START TRANSACTION;
 
-            UPDATE master_user_session
-            SET last_active = UTC_TIMESTAMP(6)
+            -- Find the most recent active session for this user
+            SELECT id, session_token_hash
+            INTO p_session_id, v_old_token
+            FROM master_user_session
             WHERE user_id = p_user_id
-              AND session_token_hash = p_session_token_hash
               AND is_active = TRUE
-              AND expiry_at > UTC_TIMESTAMP(6);
+              AND expiry_at > UTC_TIMESTAMP(6)
+            ORDER BY last_active DESC
+            LIMIT 1;
+
+            IF p_session_id IS NULL THEN
+                SET p_error_code = 'ERR_SESSION_NOT_FOUND';
+                SET p_error_message = 'No active session found for this user.';
+                ROLLBACK;
+                LEAVE proc_label;
+            END IF;
+
+            -- Update the session with new token and expiry
+            UPDATE master_user_session
+            SET session_token_hash = p_session_token_hash,
+                expiry_at = p_expiry_at,
+                last_active = UTC_TIMESTAMP(6)
+            WHERE id = p_session_id;
 
             IF ROW_COUNT() > 0 THEN
                 SET p_success = TRUE;
                 SET p_error_code = 'SUCCESS';
-                SET p_error_message = 'Session updated.';
+                SET p_error_message = 'Session extended successfully.';
             ELSE
-                SET p_error_code = 'ERR_SESSION_NOT_FOUND';
-                SET p_error_message = 'Session not found or expired.';
+                SET p_error_code = 'ERR_UPDATE_FAILED';
+                SET p_error_message = 'Failed to update session.';
             END IF;
 
         COMMIT;
 
     ELSEIF p_action = 3 THEN
-        
+        -- Action 3: Delete session(s)
         START TRANSACTION;
 
             DELETE FROM master_user_session
@@ -135,7 +152,7 @@ proc_label: BEGIN
         SET p_error_message = 'Session(s) deleted successfully.';
 
     ELSEIF p_action = 4 THEN
-        
+        -- Action 4: Get active session
         SELECT id, session_token_hash
         INTO p_session_id, p_session_token_hash
         FROM master_user_session
