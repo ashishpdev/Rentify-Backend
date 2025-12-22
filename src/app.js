@@ -22,6 +22,7 @@ const allowedOrigins = [
   'https://rentzfy.com', // Production frontend
   'https://test.rentzfy.com', // Test frontend
   'http://localhost:4200', // Local development
+  'http://localhost:8100', // Local development
 ];
 
 app.use(
