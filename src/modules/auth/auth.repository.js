@@ -1,5 +1,4 @@
 // src/modules/auth/auth.repository.js
-// Data access layer - Database operations via stored procedures
 const db = require("../../database/connection");
 
 class AuthRepository {
@@ -61,7 +60,6 @@ class AuthRepository {
   }
 
   // ========================= REGISTRATION =========================
-
   async registerBusinessWithOwner(registrationData) {
     try {
       await db.executeSP(
@@ -72,10 +70,10 @@ class AuthRepository {
           registrationData.businessEmail,
           registrationData.ownerName,
           registrationData.ownerContactNumber,
-          registrationData.ownerName, // created_by
+          registrationData.ownerName,
           registrationData.ownerEmail,
           registrationData.ownerContactNumber,
-          registrationData.ownerName, // updated_by
+          registrationData.ownerName,
         ]
       );
 
@@ -101,7 +99,6 @@ class AuthRepository {
   }
 
   // ========================= LOGIN =========================
-
   async loginWithOTP(email, otpHash, ipAddress = null) {
     try {
       await db.executeSP(
@@ -142,74 +139,34 @@ class AuthRepository {
       throw new Error(`Failed to login: ${error.message}`);
     }
   }
-  // ======================== CREATE SESSION ========================
-  async createSession(
-    userId,
-    token,
-    expiry,
-    ip = null,
-    deviceId = null,
-    deviceName = null,
-    deviceTypeId = 1
-  ) {
-    try {
-      // Ensure deviceTypeId is provided (stored proc expects not-null for action=1)
-      if (!deviceTypeId) deviceTypeId = 1;
 
-      await db.executeSP(
-        `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
-         @p_success, @p_session_id, @p_error_code, @p_error_message)`,
-        [
-          1, // action: 1=Create
-          userId,
-          token,
-          deviceId,
-          deviceName,
-          deviceTypeId,
-          ip,
-          expiry,
-        ]
-      );
-
-      const output = await db.executeSelect(`
-        SELECT @p_success AS success, @p_session_id AS session_id,
-               @p_error_code AS error_code, @p_error_message AS error_message
-      `);
-
-      return {
-        isSuccess: output.success == 1,
-        sessionId: output.session_id,
-        sessionToken: token,
-        expiryAt: expiry,
-        errorCode: output.error_code,
-        errorMessage: output.error_message,
-      };
-    } catch (error) {
-      throw new Error(`Failed to create session: ${error.message}`);
-    }
-  }
-
-  async loginWithPassword(email, passwordHash, ipAddress = null) {
+  /**
+   * FIXED: Get user credentials using stored procedure
+   */
+  async getUserCredentials(email) {
     try {
       await db.executeSP(
-        `CALL sp_action_login_with_password(?, ?, ?, 
-         @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_contact_number, 
-         @p_user_name, @p_business_name, @p_branch_name, @p_role_name, @p_is_owner, 
+        `CALL sp_get_user_credentials(?, 
+         @p_user_id, @p_business_id, @p_branch_id, @p_role_id, @p_hash_password,
+         @p_contact_number, @p_user_name, @p_locked_until, @p_user_active, @p_is_owner,
+         @p_business_name, @p_business_active, @p_branch_name, @p_role_name,
          @p_error_code, @p_error_message)`,
-        [email, passwordHash, ipAddress]
+        [email]
       );
 
       const output = await db.executeSelect(`
         SELECT @p_user_id AS user_id, @p_business_id AS business_id,
                @p_branch_id AS branch_id, @p_role_id AS role_id,
-               @p_contact_number AS contact_number, @p_user_name AS user_name,
-               @p_business_name AS business_name, @p_branch_name AS branch_name,
-               @p_role_name AS role_name, @p_is_owner AS is_owner,
+               @p_hash_password AS hash_password, @p_contact_number AS contact_number,
+               @p_user_name AS user_name, @p_locked_until AS locked_until,
+               @p_user_active AS user_active, @p_is_owner AS is_owner,
+               @p_business_name AS business_name, @p_business_active AS business_active,
+               @p_branch_name AS branch_name, @p_role_name AS role_name,
                @p_error_code AS error_code, @p_error_message AS error_message
       `);
 
       if (!output.user_id) {
-        throw new Error(output.error_message || "Login failed");
+        return null;
       }
 
       return {
@@ -218,20 +175,48 @@ class AuthRepository {
         branch_id: output.branch_id,
         role_id: output.role_id,
         email: email,
+        hash_password: output.hash_password,
         contact_number: output.contact_number,
         user_name: output.user_name,
+        locked_until: output.locked_until,
+        user_active: !!output.user_active,
+        is_owner: !!output.is_owner,
         business_name: output.business_name,
+        business_active: !!output.business_active,
         branch_name: output.branch_name,
         role_name: output.role_name,
-        is_owner: !!output.is_owner,
       };
     } catch (error) {
-      throw new Error(`Failed to login: ${error.message}`);
+      throw new Error(`Failed to get user credentials: ${error.message}`);
+    }
+  }
+
+  /**
+   * FIXED: Update last login using stored procedure
+   */
+  async updateLastLogin(userId, ipAddress = null) {
+    try {
+      await db.executeSP(
+        `CALL sp_update_last_login(?, ?, @p_success, @p_error_code, @p_error_message)`,
+        [userId, ipAddress]
+      );
+
+      const output = await db.executeSelect(`
+        SELECT @p_success AS success, @p_error_code AS error_code,
+               @p_error_message AS error_message
+      `);
+
+      if (!(output.success == 1)) {
+        throw new Error(`${output.error_code}: ${output.error_message}`);
+      }
+
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to update last login: ${error.message}`);
     }
   }
 
   // ========================= SESSION MANAGEMENT =========================
-
   async createSession(
     userId,
     sessionToken,
@@ -284,10 +269,10 @@ class AuthRepository {
           2, // action: 2=Update
           userId,
           newSessionToken,
-          null, // device_id
-          null, // device_name
-          null, // device_type_id
-          null, // ip_address
+          null,
+          null,
+          null,
+          null,
           newExpiryAt,
         ]
       );
@@ -321,11 +306,11 @@ class AuthRepository {
           3, // action: 3=Delete
           userId,
           sessionToken,
-          null, // device_id
-          null, // device_name
-          null, // device_type_id
-          null, // ip_address
-          null, // expiry_at
+          null,
+          null,
+          null,
+          null,
+          null,
         ]
       );
 
@@ -349,43 +334,47 @@ class AuthRepository {
   }
 
   // ========================= PASSWORD MANAGEMENT =========================
-
-  async changePassword(userId, oldPasswordHash, newPasswordHash, updatedBy) {
+  
+  /**
+   * FIXED: Get stored password hash using stored procedure
+   */
+  async getStoredPasswordHash(userId) {
     try {
       await db.executeSP(
-        `CALL sp_action_change_password(?, ?, ?, ?, 
-         @p_success, @p_error_code, @p_error_message)`,
-        [userId, oldPasswordHash, newPasswordHash, updatedBy]
+        `CALL sp_get_password_hash(?, @p_hash_password, @p_is_active, @p_error_code, @p_error_message)`,
+        [userId]
       );
 
       const output = await db.executeSelect(`
-        SELECT @p_success AS success, @p_error_code AS error_code, 
-               @p_error_message AS error_message
+        SELECT @p_hash_password AS hash_password, @p_is_active AS is_active,
+               @p_error_code AS error_code, @p_error_message AS error_message
       `);
 
-      if (!(output.success == 1)) {
-        throw new Error(`${output.error_code}: ${output.error_message}`);
+      if (!output.hash_password) {
+        return null;
       }
 
       return {
-        success: true,
-        message: output.error_message,
+        hash_password: output.hash_password,
+        is_active: !!output.is_active,
       };
     } catch (error) {
-      throw new Error(`Failed to change password: ${error.message}`);
+      throw new Error(`Failed to get password hash: ${error.message}`);
     }
   }
 
-  async resetPassword(email, otpCodeHash, newPasswordHash, updatedBy) {
+  /**
+   * FIXED: Update password hash using stored procedure
+   */
+  async updatePasswordHash(userId, newPasswordHash, updatedBy) {
     try {
       await db.executeSP(
-        `CALL sp_action_reset_password(?, ?, ?, ?, 
-         @p_success, @p_error_code, @p_error_message)`,
-        [email, otpCodeHash, newPasswordHash, updatedBy]
+        `CALL sp_update_password_hash(?, ?, ?, @p_success, @p_error_code, @p_error_message)`,
+        [userId, newPasswordHash, updatedBy]
       );
 
       const output = await db.executeSelect(`
-        SELECT @p_success AS success, @p_error_code AS error_code, 
+        SELECT @p_success AS success, @p_error_code AS error_code,
                @p_error_message AS error_message
       `);
 
@@ -393,10 +382,52 @@ class AuthRepository {
         throw new Error(`${output.error_code}: ${output.error_message}`);
       }
 
-      return {
-        success: true,
-        message: output.error_message,
-      };
+      return { success: true };
+    } catch (error) {
+      throw new Error(`Failed to update password: ${error.message}`);
+    }
+  }
+
+  /**
+   * FIXED: Reset password with OTP using stored procedures
+   */
+  async resetPasswordWithOTP(email, newPasswordHash, updatedBy) {
+    try {
+      // Step 1: Get user by email
+      await db.executeSP(
+        `CALL sp_get_user_by_email(?, @p_user_id, @p_is_active, @p_error_code, @p_error_message)`,
+        [email]
+      );
+
+      const userOutput = await db.executeSelect(`
+        SELECT @p_user_id AS user_id, @p_is_active AS is_active,
+               @p_error_code AS error_code, @p_error_message AS error_message
+      `);
+
+      if (!userOutput.user_id) {
+        throw new Error(userOutput.error_message || 'User not found');
+      }
+
+      if (!userOutput.is_active) {
+        throw new Error('Account is inactive');
+      }
+
+      // Step 2: Update password
+      await db.executeSP(
+        `CALL sp_update_password_hash(?, ?, ?, @p_success, @p_error_code, @p_error_message)`,
+        [userOutput.user_id, newPasswordHash, updatedBy]
+      );
+
+      const updateOutput = await db.executeSelect(`
+        SELECT @p_success AS success, @p_error_code AS error_code,
+               @p_error_message AS error_message
+      `);
+
+      if (!(updateOutput.success == 1)) {
+        throw new Error(`${updateOutput.error_code}: ${updateOutput.error_message}`);
+      }
+
+      return { success: true, userId: userOutput.user_id };
     } catch (error) {
       throw new Error(`Failed to reset password: ${error.message}`);
     }
