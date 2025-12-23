@@ -1,12 +1,13 @@
+// src/modules/products/category/category.repository.js
 const db = require("../../../database/connection");
 const logger = require("../../../config/logger.config");
 
 class CategoryRepository {
   async manageProductCategory(params) {
     try {
-      // Execute Stored Procedure
+      // Execute Stored Procedure with OUT variables
       await db.executeSP(
-        `CALL sp_manage_product_category(?, ?, ?, ?, ?, ?, ?, ?, ?, 
+        `CALL sp_manage_product_category(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
           @p_success, @p_id, @p_data, @p_error_code, @p_error_message)`,
         [
           params.action,
@@ -17,12 +18,13 @@ class CategoryRepository {
           params.code,
           params.name,
           params.description,
-          params.user
+          params.userId,
+          params.roleId,
         ]
       );
 
       // Fetch output variables
-      const output = await db.executeSelect(
+      const outputRows = await db.executeSelect(
         `SELECT 
           @p_success AS success,
           @p_id AS product_category_id,
@@ -31,41 +33,50 @@ class CategoryRepository {
           @p_error_message AS error_message`
       );
 
-      const success = (output.success == 1);
+      // outputRows is expected to be a single-row result object
+      const output =
+        Array.isArray(outputRows) && outputRows.length
+          ? outputRows[0]
+          : outputRows;
+
+      const success =
+        output && (output.success == 1 || output.success === true);
 
       // JSON parse if data exists
       let parsedData = null;
-      if (output.data) {
+      if (output && output.data) {
         try {
-          parsedData = typeof output.data === "string"
-            ? JSON.parse(output.data)
-            : output.data;
+          parsedData =
+            typeof output.data === "string"
+              ? JSON.parse(output.data)
+              : output.data;
         } catch (err) {
-          logger.warn("Failed to parse product category JSON", { error: err.message });
-          parsedData = [];
+          logger.warn("Failed to parse product category JSON", {
+            error: err.message,
+          });
+          parsedData = null;
         }
       }
 
       if (!success) {
         logger.warn("Stored procedure returned error", {
           action: params.action,
-          errorCode: output.error_code,
-          errorMessage: output.error_message
+          errorCode: output ? output.error_code : null,
+          errorMessage: output ? output.error_message : null,
         });
       }
 
       return {
         success,
-        productCategoryId: output.product_category_id,
+        productCategoryId: output ? output.product_category_id : null,
         data: parsedData,
-        errorCode: output.error_code,
-        message: output.error_message || "Operation completed"
+        errorCode: output ? output.error_code : null,
+        message: output ? output.error_message : null,
       };
-
     } catch (error) {
       logger.error("CategoryRepository.manageProductCategory error", {
         action: params.action,
-        error: error.message
+        error: error.message,
       });
 
       return {
@@ -73,7 +84,7 @@ class CategoryRepository {
         productCategoryId: null,
         data: null,
         errorCode: "ERR_DATABASE_ERROR",
-        message: error.message || "Unexpected database error occurred."
+        message: error.message || "Unexpected database error occurred.",
       };
     }
   }
