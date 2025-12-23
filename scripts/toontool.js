@@ -47,7 +47,9 @@ function stripCommentsSimple(code, lang) {
 }
 
 async function collectFiles(rootDir, patterns = ['**/*.js', '**/*.sql']) {
-  const opts = { cwd: rootDir, nodir: true, absolute: true, dot: true };
+  // Restrict rootDir to the 'src' folder
+  const srcDir = path.join(rootDir, 'src');
+  const opts = { cwd: srcDir, nodir: true, absolute: true, dot: true };
   const found = new Set();
   for (const p of patterns) {
     const matches = glob.sync(p, opts);
