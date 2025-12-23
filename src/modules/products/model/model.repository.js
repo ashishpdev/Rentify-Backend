@@ -1,16 +1,26 @@
+// src/modules/products/model/model.repository.js
 const db = require("../../../database/connection");
 const logger = require("../../../config/logger.config");
 
 class ModelRepository {
   async manageProductModel(params) {
     try {
-      // Execute Stored Procedure - need to convert JSON array to string
-      const productImagesJson = params.productModelImages
+      const imagesJson = params.productModelImages
         ? JSON.stringify(params.productModelImages)
         : null;
 
+      logger.info("ModelRepository.manageProductModel", {
+        action: params.action,
+        hasImages: !!params.productModelImages,
+        imageCount: Array.isArray(params.productModelImages)
+          ? params.productModelImages.length
+          : 0,
+        imagesJsonLength: imagesJson?.length || 0,
+      });
+
+      // Call stored procedure
       await db.executeSP(
-        "CALL sp_action_manage_product_model(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_data, @p_error_code, @p_error_message)",
+        "CALL sp_manage_product_model(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_data, @p_error_code, @p_error_message)",
         [
           params.action,
           params.productModelId,
@@ -20,70 +30,65 @@ class ModelRepository {
           params.productCategoryId,
           params.modelName,
           params.description,
-          productImagesJson,
+          imagesJson,
           params.defaultRent,
           params.defaultDeposit,
+          params.defaultSell,
           params.defaultWarrantyDays,
           params.userId,
           params.roleId,
         ]
       );
 
-      // Read OUT parameters
+      // Fetch OUT vars
       const output = await db.executeSelect(
-        `SELECT 
-          @p_success AS success,
-          @p_id AS product_model_id,
-          @p_data AS data,
-          @p_error_code AS error_code,
-          @p_error_message AS error_message`
+        "SELECT @p_success AS success, @p_id AS product_model_id, @p_data AS data, @p_error_code AS error_code, @p_error_message AS error_message"
       );
 
-      const success = output.success == 1;
+      const success =
+        output && (output.success == 1 || output.success === true);
 
-      // JSON parsing if data returned
       let parsedData = null;
-      if (output.data) {
+      if (output && output.data) {
         try {
           parsedData =
             typeof output.data === "string"
               ? JSON.parse(output.data)
               : output.data;
         } catch (err) {
-          logger.warn("Failed to parse product model JSON", {
-            error: err.message,
+          logger.warn("Failed to parse model p_data JSON", {
+            err: err.message,
           });
-          parsedData = [];
+          parsedData = output.data;
         }
       }
 
       if (!success) {
-        logger.warn("Stored procedure returned error", {
+        logger.warn("sp_manage_product_model returned error", {
           action: params.action,
-          errorCode: output.error_code,
-          errorMessage: output.error_message,
+          errorCode: output ? output.error_code : null,
+          errorMessage: output ? output.error_message : null,
         });
       }
 
       return {
         success,
-        productModelId: output.product_model_id,
+        productModelId: output ? output.product_model_id : null,
         data: parsedData,
-        errorCode: output.error_code,
-        message: output.error_message || "Operation completed",
+        errorCode: output ? output.error_code : null,
+        message: output ? output.error_message : null,
       };
-    } catch (error) {
+    } catch (err) {
       logger.error("ModelRepository.manageProductModel error", {
+        error: err.message,
         action: params.action,
-        error: error.message,
       });
-
       return {
         success: false,
         productModelId: null,
         data: null,
-        errorCode: "ERR_DATABASE_ERROR",
-        message: error.message || "Unexpected database error occurred.",
+        errorCode: "ERR_DATABASE",
+        message: err.message || "Database error",
       };
     }
   }

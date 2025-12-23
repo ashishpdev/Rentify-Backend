@@ -342,37 +342,35 @@ CREATE TABLE product_model (
 
   model_name VARCHAR(200) NOT NULL,
   description TEXT,
-  sku VARCHAR(100),
-  
+
   default_rent_price DECIMAL(12,2) UNSIGNED,
   default_deposit DECIMAL(12,2) UNSIGNED NOT NULL,
   default_sell_price DECIMAL(12,2) UNSIGNED,
   default_warranty_days SMALLINT UNSIGNED,
-  
+
   supports_rent BOOLEAN NOT NULL DEFAULT TRUE,
   supports_sell BOOLEAN NOT NULL DEFAULT FALSE,
-  
+
   primary_image_url VARCHAR(1024),
-  
+
   created_by VARCHAR(100) NOT NULL,
   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
   updated_by VARCHAR(100),
   updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  
+
   UNIQUE KEY uq_model_business_branch_seg_cat_name (business_id, branch_id, product_segment_id, product_category_id, model_name),
   INDEX idx_model_category_active (product_category_id, is_active),
   INDEX idx_model_segment_active (product_segment_id, is_active),
   INDEX idx_model_business_active (business_id, is_active),
   INDEX idx_model_branch_active (branch_id, is_active),
-  INDEX idx_model_sku (sku),
   INDEX idx_model_rent_support (supports_rent, is_active),
   INDEX idx_model_sell_support (supports_sell, is_active),
   INDEX idx_model_name_search (model_name, is_active),
   INDEX idx_model_list_cover (business_id, branch_id, is_active, model_name, default_rent_price, product_model_id),
   INDEX idx_model_availability (product_category_id, is_active, supports_rent, product_model_id),
-  
+
   CONSTRAINT fk_model_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -400,14 +398,14 @@ CREATE TABLE product_model_images (
   business_id INT UNSIGNED NOT NULL,
   branch_id INT UNSIGNED NOT NULL,
   product_model_id INT UNSIGNED NOT NULL,
-  
+
   url VARCHAR(1024) NOT NULL,
   thumbnail_url VARCHAR(1024),
   alt_text VARCHAR(512),
   file_size_bytes INT UNSIGNED,
   width_px SMALLINT UNSIGNED,
   height_px SMALLINT UNSIGNED,
-  
+
   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
   image_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
   product_model_image_category_id TINYINT UNSIGNED NOT NULL,
@@ -418,13 +416,13 @@ CREATE TABLE product_model_images (
   updated_at TIMESTAMP(6) NULL ON UPDATE CURRENT_TIMESTAMP(6),
   deleted_at TIMESTAMP(6) NULL,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  
+
   INDEX idx_img_model_order (product_model_id, is_active, image_order),
   INDEX idx_img_model_primary (product_model_id, is_primary, is_active),
   INDEX idx_img_business (business_id, branch_id),
   INDEX idx_img_image_category_id (product_model_image_category_id),
   INDEX idx_img_cover (product_model_id, is_active, is_primary, image_order, url(191), thumbnail_url(191), product_model_image_id),
-  
+
   CONSTRAINT fk_img_business FOREIGN KEY (business_id)
     REFERENCES master_business(business_id)
     ON DELETE RESTRICT ON UPDATE CASCADE,
