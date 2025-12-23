@@ -2,7 +2,7 @@ node_modules/
 logs/
 .env
 merge
-docs/logger
+docs/toon
 sessions/
 .wwebjs_auth/
 .wwebjs_cache/service-account.json 
