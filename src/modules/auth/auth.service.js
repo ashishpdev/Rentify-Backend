@@ -1,11 +1,10 @@
 // src/modules/auth/auth.service.js
-// Business logic & orchestration layer
 const authRepository = require("./auth.repository");
 const EmailService = require("../../services/email.service");
 const AccessTokenUtil = require("../../utils/access_token.util");
 const SessionTokenUtil = require("../../utils/session_token.util");
 const OTPUtil = require("../../utils/otp.util");
-const PasswordUtil = require("../../utils/password.utils"); // bcrypt wrapper
+const PasswordUtil = require("../../utils/password.utils");
 const logger = require("../../config/logger.config");
 const {
   AuthenticationError,
@@ -17,11 +16,6 @@ const handlebars = require("handlebars");
 
 class AuthService {
   // ========================= TEMPLATE RENDERING =========================
-
-  /**
-   * Render OTP email template
-   * @private
-   */
   async _renderOtpTemplate({
     otpCode,
     email,
@@ -39,10 +33,6 @@ class AuthService {
     });
   }
 
-  /**
-   * Send OTP via email
-   * @private
-   */
   async _sendOTPEmail(
     email,
     otp,
@@ -73,23 +63,13 @@ class AuthService {
   }
 
   // ========================= OTP OPERATIONS =========================
-
-  /**
-   * Send OTP to user email
-   * @param {string} email - User email
-   * @param {number} otp_type_id - OTP type (1=LOGIN, 2=REGISTRATION, 3=RESET)
-   * @param {Object} options - Additional options (ipAddress)
-   * @returns {Promise<Object>} OTP sent result
-   */
   async sendOTP(email, otp_type_id, options = {}) {
     const { ipAddress = null } = options;
 
     try {
-      // Generate OTP
       const otpCode = OTPUtil.generateOTP();
       const otpCodeHash = OTPUtil.hashOTP(otpCode);
 
-      // Save OTP to database
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
         otpCodeHash,
@@ -99,7 +79,6 @@ class AuthService {
         createdBy: "system",
       });
 
-      // Determine purpose for email
       const purposes = {
         1: "login",
         2: "verification",
@@ -107,10 +86,8 @@ class AuthService {
       };
       const purpose = purposes[otp_type_id] || "verification";
 
-      // Send OTP email
       await this._sendOTPEmail(email, otpCode, 10, purpose);
 
-      // Log OTP (remove in production, only for development)
       if (process.env.NODE_ENV === "development") {
         logger.debug(
           `[OTP] Email: ${email}, Type: ${otp_type_id}, Code: ${otpCode}, ID: ${otpRecord.id}`
@@ -132,13 +109,6 @@ class AuthService {
     }
   }
 
-  /**
-   * Verify OTP code
-   * @param {string} email - User email
-   * @param {string} otpCode - OTP code to verify
-   * @param {number} otp_type_id - OTP type
-   * @returns {Promise<boolean>} Verification success
-   */
   async verifyOTP(email, otpCode, otp_type_id) {
     try {
       const hash = OTPUtil.hashOTP(otpCode);
@@ -161,22 +131,14 @@ class AuthService {
   }
 
   // ========================= REGISTRATION =========================
-
-  /**
-   * Complete business registration
-   * @param {Object} registrationData - Business and owner details
-   * @returns {Promise<Object>} Registration result
-   */
   async completeRegistration(registrationData) {
     try {
-      // Validate business email != owner email
       if (registrationData.businessEmail === registrationData.ownerEmail) {
         throw new ValidationError(
           "Business email and owner email must be different"
         );
       }
 
-      // Register business with owner
       const created =
         await authRepository.registerBusinessWithOwner(registrationData);
 
@@ -208,28 +170,15 @@ class AuthService {
   }
 
   // ========================= LOGIN =========================
-
-  /**
-   * Login with OTP
-   * @param {string} email - User email
-   * @param {string} otpCode - OTP code
-   * @param {string} ipAddress - Client IP
-   * @param {string} userAgent - Client user agent
-   * @returns {Promise<Object>} User data with session token
-   */
   async loginWithOTP(email, otpCode, ipAddress = null, userAgent = null) {
     try {
-      // Hash OTP
       const hash = OTPUtil.hashOTP(otpCode);
-
-      // Login with OTP (verifies OTP in SP)
       const user = await authRepository.loginWithOTP(email, hash, ipAddress);
 
       if (!user || !user.user_id) {
         throw new AuthenticationError("Failed to retrieve user information");
       }
 
-      // Generate session token
       const sessionTokenData = {
         user_id: user.user_id,
         business_id: user.business_id,
@@ -249,19 +198,8 @@ class AuthService {
       const tokenResult =
         SessionTokenUtil.generateSessionToken(sessionTokenData);
 
-      // device info
-      const deviceId = sessionTokenData.device_id; // e.g. "device_123_1612345678901"
-      const deviceName = sessionTokenData.device_name || null;
-      // pick a default device type id (1 = web/mobile etc - adjust to your domain)
-      const deviceTypeId = parseInt(
-        process.env.DEFAULT_DEVICE_TYPE_ID || "1",
-        10
-      );
-
-      // Parse device info from userAgent
       const deviceInfo = this._parseUserAgent(userAgent);
 
-      // Create session in database
       const sessionResult = await authRepository.createSession(
         user.user_id,
         tokenResult.sessionToken,
@@ -297,55 +235,81 @@ class AuthService {
   }
 
   /**
-   * Login with password
-   * @param {string} email - User email
-   * @param {string} password - Plain text password
-   * @param {string} ipAddress - Client IP
-   * @param {string} userAgent - Client user agent
-   * @returns {Promise<Object>} User data with session token
+   * FIXED: Login with password using bcrypt verification
    */
   async loginWithPassword(email, password, ipAddress = null, userAgent = null) {
     try {
-      // Hash password
-      const passwordHash = PasswordUtil.hashPassword(password);
+      // Step 1: Get user credentials
+      const userCredentials = await authRepository.getUserCredentials(email);
 
-      // Login with password
-      const user = await authRepository.loginWithPassword(
-        email,
-        passwordHash,
-        ipAddress
-      );
-
-      if (!user || !user.user_id) {
+      if (!userCredentials || !userCredentials.user_id) {
+        logger.warn("Login attempt for non-existent user", { email });
         throw new AuthenticationError("Invalid email or password");
       }
 
-      // Generate session token
+      // Step 2: Check account locks and status
+      if (userCredentials.locked_until) {
+        const lockedUntil = new Date(userCredentials.locked_until);
+        if (lockedUntil > new Date()) {
+          throw new AuthenticationError(
+            `Account locked until ${lockedUntil.toISOString()}. Please try again later.`
+          );
+        }
+      }
+
+      if (!userCredentials.user_active) {
+        throw new AuthenticationError("Account is inactive");
+      }
+
+      if (!userCredentials.business_active) {
+        throw new AuthenticationError("Business account is inactive");
+      }
+
+      // Step 3: CRITICAL - Verify password using bcrypt
+      const isPasswordValid = await PasswordUtil.verifyPassword(
+        password,
+        userCredentials.hash_password
+      );
+
+      if (!isPasswordValid) {
+        logger.warn("Invalid password attempt", {
+          email,
+          userId: userCredentials.user_id,
+        });
+        throw new AuthenticationError("Invalid email or password");
+      }
+
+      // Step 4: Update last login
+      await authRepository.updateLastLogin(
+        userCredentials.user_id,
+        ipAddress
+      );
+
+      // Step 5: Generate session token
       const sessionTokenData = {
-        user_id: user.user_id,
-        business_id: user.business_id,
-        branch_id: user.branch_id,
-        role_id: user.role_id,
-        email: user.email,
-        contact_number: user.contact_number,
-        user_name: user.user_name,
-        business_name: user.business_name,
-        branch_name: user.branch_name,
-        role_name: user.role_name,
-        is_owner: user.is_owner,
+        user_id: userCredentials.user_id,
+        business_id: userCredentials.business_id,
+        branch_id: userCredentials.branch_id,
+        role_id: userCredentials.role_id,
+        email: userCredentials.email,
+        contact_number: userCredentials.contact_number,
+        user_name: userCredentials.user_name,
+        business_name: userCredentials.business_name,
+        branch_name: userCredentials.branch_name,
+        role_name: userCredentials.role_name,
+        is_owner: userCredentials.is_owner,
         ip_address: ipAddress,
-        device_id: `device_${user.user_id}_${Date.now()}`,
+        device_id: `device_${userCredentials.user_id}_${Date.now()}`,
       };
 
       const tokenResult =
         SessionTokenUtil.generateSessionToken(sessionTokenData);
 
-      // Parse device info
       const deviceInfo = this._parseUserAgent(userAgent);
 
-      // Create session
+      // Step 6: Create session
       const sessionResult = await authRepository.createSession(
-        user.user_id,
+        userCredentials.user_id,
         tokenResult.sessionToken,
         tokenResult.expiresAt,
         ipAddress,
@@ -361,12 +325,22 @@ class AuthService {
       }
 
       logger.info("Login with password successful", {
-        userId: user.user_id,
-        email: user.email,
+        userId: userCredentials.user_id,
+        email: userCredentials.email,
       });
 
       return {
-        ...user,
+        user_id: userCredentials.user_id,
+        business_id: userCredentials.business_id,
+        branch_id: userCredentials.branch_id,
+        role_id: userCredentials.role_id,
+        email: userCredentials.email,
+        contact_number: userCredentials.contact_number,
+        user_name: userCredentials.user_name,
+        business_name: userCredentials.business_name,
+        branch_name: userCredentials.branch_name,
+        role_name: userCredentials.role_name,
+        is_owner: userCredentials.is_owner,
         session_token: sessionResult.sessionToken,
       };
     } catch (error) {
@@ -379,15 +353,8 @@ class AuthService {
   }
 
   // ========================= TOKEN REFRESH =========================
-
-  /**
-   * Refresh access and session tokens
-   * @param {string} currentSessionToken - Current session token
-   * @returns {Promise<Object>} New tokens
-   */
   async refreshTokens(currentSessionToken) {
     try {
-      // Decrypt current session token
       const currentSessionData =
         SessionTokenUtil.decryptSessionToken(currentSessionToken);
 
@@ -395,7 +362,6 @@ class AuthService {
         throw new AuthenticationError("Invalid session token");
       }
 
-      // Generate new access token
       const accessTokenData = {
         user_id: currentSessionData.user_id,
         business_id: currentSessionData.business_id,
@@ -413,11 +379,9 @@ class AuthService {
       const accessTokenResult =
         AccessTokenUtil.generateAccessToken(accessTokenData);
 
-      // Generate rotated session token
       const extendedSessionTokenObj =
         SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
 
-      // Persist rotation in DB
       const repoResult = await authRepository.extendSession(
         currentSessionData.user_id,
         currentSessionToken,
@@ -453,32 +417,70 @@ class AuthService {
   }
 
   // ========================= PASSWORD MANAGEMENT =========================
-
+  
   /**
-   * Change user password
-   * @param {number} userId - User ID
-   * @param {string} oldPassword - Current password
-   * @param {string} newPassword - New password
-   * @param {string} updatedBy - User performing update
-   * @returns {Promise<Object>} Password change result
+   * FIXED: Change password with bcrypt verification
    */
   async changePassword(userId, oldPassword, newPassword, updatedBy) {
     try {
-      // Hash passwords
-      const oldPasswordHash = PasswordUtil.hashPassword(oldPassword);
-      const newPasswordHash = PasswordUtil.hashPassword(newPassword);
+      // Step 1: Validate new password strength
+      const validation = PasswordUtil.validatePasswordStrength(newPassword);
+      if (!validation.isValid) {
+        throw new ValidationError(validation.errors.join(', '));
+      }
 
-      // Change password
-      const result = await authRepository.changePassword(
+      // Step 2: Get stored password hash
+      const userRecord = await authRepository.getStoredPasswordHash(userId);
+
+      if (!userRecord || !userRecord.hash_password) {
+        throw new AuthenticationError("User not found");
+      }
+
+      if (!userRecord.is_active) {
+        throw new AuthenticationError("Account is inactive");
+      }
+
+      // Step 3: CRITICAL - Verify old password using bcrypt
+      const isOldPasswordValid = await PasswordUtil.verifyPassword(
+        oldPassword,
+        userRecord.hash_password
+      );
+
+      if (!isOldPasswordValid) {
+        logger.warn("Change password failed - incorrect old password", {
+          userId,
+        });
+        throw new AuthenticationError("Current password is incorrect");
+      }
+
+      // Step 4: Check if new password is same as old
+      const isSamePassword = await PasswordUtil.verifyPassword(
+        newPassword,
+        userRecord.hash_password
+      );
+
+      if (isSamePassword) {
+        throw new ValidationError(
+          "New password must be different from current password"
+        );
+      }
+
+      // Step 5: Hash new password with bcrypt
+      const newPasswordHash = await PasswordUtil.hashPassword(newPassword);
+
+      // Step 6: Update password
+      await authRepository.updatePasswordHash(
         userId,
-        oldPasswordHash,
         newPasswordHash,
         updatedBy
       );
 
       logger.info("Password changed successfully", { userId });
 
-      return result;
+      return {
+        success: true,
+        message: "Password changed successfully. Please login again.",
+      };
     } catch (error) {
       logger.error("AuthService.changePassword error", {
         userId,
@@ -489,29 +491,40 @@ class AuthService {
   }
 
   /**
-   * Reset password using OTP
-   * @param {string} email - User email
-   * @param {string} otpCode - OTP code
-   * @param {string} newPassword - New password
-   * @returns {Promise<Object>} Password reset result
+   * FIXED: Reset password with OTP verification
    */
   async resetPassword(email, otpCode, newPassword) {
     try {
-      // Hash OTP and password
-      const otpCodeHash = OTPUtil.hashOTP(otpCode);
-      const newPasswordHash = PasswordUtil.hashPassword(newPassword);
+      // Step 1: Validate password strength
+      const validation = PasswordUtil.validatePasswordStrength(newPassword);
+      if (!validation.isValid) {
+        throw new ValidationError(validation.errors.join(', '));
+      }
 
-      // Reset password
-      const result = await authRepository.resetPassword(
+      // Step 2: Verify OTP (this consumes the OTP)
+      const otpHash = OTPUtil.hashOTP(otpCode);
+      const otpResult = await authRepository.verifyOTP(email, otpHash, 3); // 3 = RESET_PASSWORD
+
+      if (!otpResult || !otpResult.success) {
+        throw new AuthenticationError("Invalid or expired OTP");
+      }
+
+      // Step 3: Hash new password with bcrypt
+      const newPasswordHash = await PasswordUtil.hashPassword(newPassword);
+
+      // Step 4: Update password
+      await authRepository.resetPasswordWithOTP(
         email,
-        otpCodeHash,
         newPasswordHash,
-        email // updatedBy = email for self-service reset
+        email
       );
 
       logger.info("Password reset successfully", { email });
 
-      return result;
+      return {
+        success: true,
+        message: "Password reset successfully. Please login with your new password.",
+      };
     } catch (error) {
       logger.error("AuthService.resetPassword error", {
         email,
@@ -522,12 +535,6 @@ class AuthService {
   }
 
   // ========================= LOGOUT =========================
-
-  /**
-   * Logout user
-   * @param {number} userId - User ID
-   * @returns {Promise<Object>} Logout result
-   */
   async logout(userId) {
     try {
       const result = await authRepository.logout(userId);
@@ -548,40 +555,33 @@ class AuthService {
   }
 
   // ========================= HELPER METHODS =========================
-
-  /**
-   * Parse user agent string
-   * @private
-   */
   _parseUserAgent(userAgent) {
     if (!userAgent) {
       return {
         deviceName: "Unknown Device",
-        deviceTypeId: 1, // 1 = Unknown/Other
+        deviceTypeId: 1,
       };
     }
 
-    // Simple device type detection
     const ua = userAgent.toLowerCase();
-    let deviceTypeId = 1; // Default: Unknown
+    let deviceTypeId = 1;
     let deviceName = "Unknown Device";
 
     if (ua.includes("mobile")) {
-      deviceTypeId = 2; // Mobile
+      deviceTypeId = 2;
       deviceName = "Mobile Device";
     } else if (ua.includes("tablet") || ua.includes("ipad")) {
-      deviceTypeId = 3; // Tablet
+      deviceTypeId = 3;
       deviceName = "Tablet";
     } else if (
       ua.includes("windows") ||
       ua.includes("macintosh") ||
       ua.includes("linux")
     ) {
-      deviceTypeId = 4; // Desktop
+      deviceTypeId = 4;
       deviceName = "Desktop Computer";
     }
 
-    // Extract browser name
     if (ua.includes("chrome")) {
       deviceName += " (Chrome)";
     } else if (ua.includes("firefox")) {
