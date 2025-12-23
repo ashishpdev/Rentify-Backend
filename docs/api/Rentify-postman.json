@@ -927,7 +927,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_sell\": null,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -937,7 +937,7 @@
             "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_sell: number (optional) — example: null\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/update",
@@ -963,7 +963,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"product_model_image_id\": null,\n      \"url\": null,\n      \"thumbnail_url\": null,\n      \"alt_text\": null,\n      \"file_size_bytes\": null,\n      \"width_px\": null,\n      \"height_px\": null,\n      \"is_primary\": null,\n      \"image_order\": null,\n      \"product_model_image_category_id\": null,\n      \"is_deleted\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_sell\": null,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -973,7 +973,7 @@
             "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_sell: number (optional) — example: null\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/get",

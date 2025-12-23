@@ -7,7 +7,7 @@ class CategoryService {
   async createCategory(categoryData, userData) {
     try {
       const result = await categoryRepository.manageProductCategory({
-        action: 1, // Create
+        action: 1,
         productCategoryId: null,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -15,7 +15,8 @@ class CategoryService {
         code: categoryData.code,
         name: categoryData.name,
         description: categoryData.description || null,
-        user: userData.user_id,
+        userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
       return {
@@ -37,7 +38,7 @@ class CategoryService {
   async updateCategory(categoryData, userData) {
     try {
       const result = await categoryRepository.manageProductCategory({
-        action: 2, // Update
+        action: 2,
         productCategoryId: categoryData.product_category_id,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -45,7 +46,8 @@ class CategoryService {
         code: categoryData.code,
         name: categoryData.name,
         description: categoryData.description || null,
-        user: userData.user_id,
+        userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
       return {
@@ -67,7 +69,7 @@ class CategoryService {
   async getCategory(productCategoryId, userData) {
     try {
       const result = await categoryRepository.manageProductCategory({
-        action: 4, // Get Single
+        action: 4,
         productCategoryId: productCategoryId,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -75,7 +77,8 @@ class CategoryService {
         code: null,
         name: null,
         description: null,
-        user: userData.user_id,
+        userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
       if (!result.success || !result.data) {
@@ -103,7 +106,7 @@ class CategoryService {
   async listCategories(userData, paginationParams = {}) {
     try {
       const result = await categoryRepository.manageProductCategory({
-        action: 5, // Get List
+        action: 5,
         productCategoryId: null,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -111,15 +114,15 @@ class CategoryService {
         code: null,
         name: null,
         description: null,
-        user: userData.user_id,
+        userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
-      // Apply pagination on the result
       const allCategories = result.data || [];
       const total = allCategories.length;
       const page = paginationParams.page || 1;
       const limit = paginationParams.limit || 50;
-      const totalPages = Math.ceil(total / limit);
+      const totalPages = Math.ceil(total / limit) || 1;
       const startIndex = (page - 1) * limit;
       const endIndex = startIndex + limit;
       const paginatedCategories = allCategories.slice(startIndex, endIndex);
@@ -130,9 +133,9 @@ class CategoryService {
         data: {
           categories: paginatedCategories,
           pagination: {
-            page: page,
-            limit: limit,
-            total: total,
+            page,
+            limit,
+            total,
             total_pages: totalPages,
             has_next: page < totalPages,
             has_prev: page > 1,
@@ -151,7 +154,7 @@ class CategoryService {
   async deleteCategory(productCategoryId, userData) {
     try {
       const result = await categoryRepository.manageProductCategory({
-        action: 3, // Delete
+        action: 3,
         productCategoryId: productCategoryId,
         businessId: userData.business_id,
         branchId: userData.branch_id,
@@ -159,7 +162,8 @@ class CategoryService {
         code: null,
         name: null,
         description: null,
-        user: userData.user_id,
+        userId: userData.user_id,
+        roleId: userData.role_id,
       });
 
       return {
