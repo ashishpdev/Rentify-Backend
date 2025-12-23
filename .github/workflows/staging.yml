@@ -16,7 +16,7 @@ jobs:
       - name: 📦 Install Dependencies
         run: npm install
 
-      - name: 📤 Upload to VPS (SAFE for .env)
+      - name: 📤 Upload to VPS
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.SSH_HOST }}
@@ -26,8 +26,11 @@ jobs:
           source: "."
           target: ${{ secrets.SSH_TEST_PATH }}
           overwrite: true
-          strip_components: 1
-          exclude: ".git,node_modules,.github,.env"
+          exclude: |
+            .git
+            node_modules
+            .github
+            .env
 
       - name: 🔄 Restart App on VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -35,6 +38,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
+          port: 22
           script: |
             cd ${{ secrets.SSH_TEST_PATH }}
             npm install --production
