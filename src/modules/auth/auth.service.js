@@ -1,114 +1,196 @@
-// service -- Business logic / orchestration
+// src/modules/auth/auth.service.js
+// Business logic & orchestration layer
 const authRepository = require("./auth.repository");
 const EmailService = require("../../services/email.service");
-const TokenUtil = require("../../utils/access_token.util");
+const AccessTokenUtil = require("../../utils/access_token.util");
 const SessionTokenUtil = require("../../utils/session_token.util");
 const OTPUtil = require("../../utils/otp.util");
+const PasswordUtil = require("../../utils/password.utils"); // bcrypt wrapper
 const logger = require("../../config/logger.config");
 const {
-  DatabaseError,
   AuthenticationError,
+  ValidationError,
 } = require("../../utils/errors.util");
 const fs = require("fs");
 const path = require("path");
 const handlebars = require("handlebars");
 
 class AuthService {
-  async _renderOtpTemplate({ otpCode, email, expiryMinutes = 10 }) {
+  // ========================= TEMPLATE RENDERING =========================
+
+  /**
+   * Render OTP email template
+   * @private
+   */
+  async _renderOtpTemplate({
+    otpCode,
+    email,
+    expiryMinutes = 10,
+    purpose = "verification",
+  }) {
     const filePath = path.join(__dirname, "../../templates/emailOtpHtml.hbs");
     const source = fs.readFileSync(filePath, "utf8");
     const template = handlebars.compile(source);
-    return template({ otpCode, email, EXPIRY_MIN: expiryMinutes });
+    return template({
+      otpCode,
+      email,
+      EXPIRY_MIN: expiryMinutes,
+      purpose,
+    });
   }
 
-  // ======================== SEND OTP EMAIL ========================
-  async sendVerificationCode(email, otp, expiryMinutes = 10) {
+  /**
+   * Send OTP via email
+   * @private
+   */
+  async _sendOTPEmail(
+    email,
+    otp,
+    expiryMinutes = 10,
+    purpose = "verification"
+  ) {
     const html = await this._renderOtpTemplate({
       otpCode: otp,
       email,
       expiryMinutes,
+      purpose,
     });
+
+    const subjects = {
+      verification: "Rentify - Verify Your Email",
+      login: "Rentify - Login OTP",
+      reset: "Rentify - Password Reset OTP",
+    };
 
     const mailOptions = {
       from: process.env.EMAIL_USER,
       to: email,
-      subject: "Rentify - OTP Verification",
+      subject: subjects[purpose] || subjects.verification,
       html,
     };
 
-    // EmailService.sendMail returns Promise
-    const info = await EmailService.sendMail(mailOptions);
-    return info;
+    return await EmailService.sendMail(mailOptions);
   }
 
-  // ========================= OTP SERVICES =========================
+  // ========================= OTP OPERATIONS =========================
+
+  /**
+   * Send OTP to user email
+   * @param {string} email - User email
+   * @param {number} otp_type_id - OTP type (1=LOGIN, 2=REGISTRATION, 3=RESET)
+   * @param {Object} options - Additional options (ipAddress)
+   * @returns {Promise<Object>} OTP sent result
+   */
   async sendOTP(email, otp_type_id, options = {}) {
     const { ipAddress = null } = options;
 
     try {
+      // Generate OTP
       const otpCode = OTPUtil.generateOTP();
       const otpCodeHash = OTPUtil.hashOTP(otpCode);
 
+      // Save OTP to database
       const otpRecord = await authRepository.saveOTP({
         targetIdentifier: email,
         otpCodeHash,
         otp_type_id,
         expiryMinutes: 10,
         ipAddress,
+        createdBy: "system",
       });
 
-      // send email (fire and await - if email fails we bubble up)
-      await this.sendVerificationCode(email, otpCode, 10);
+      // Determine purpose for email
+      const purposes = {
+        1: "login",
+        2: "verification",
+        3: "reset",
+      };
+      const purpose = purposes[otp_type_id] || "verification";
 
-      console.log(
-        `[OTP] Email: ${email}, Type ID: ${otp_type_id}, Code: ${otpCode}, ID: ${otpRecord.id}`
-      );
+      // Send OTP email
+      await this._sendOTPEmail(email, otpCode, 10, purpose);
+
+      // Log OTP (remove in production, only for development)
+      if (process.env.NODE_ENV === "development") {
+        logger.debug(
+          `[OTP] Email: ${email}, Type: ${otp_type_id}, Code: ${otpCode}, ID: ${otpRecord.id}`
+        );
+      }
 
       return {
         otpId: otpRecord.id,
         message: `OTP sent successfully to ${email}`,
         expiresAt: otpRecord.expiresAt,
       };
-    } catch (err) {
-      // Re-throw with original error message from repository/SP
-      throw err;
+    } catch (error) {
+      logger.error("AuthService.sendOTP error", {
+        email,
+        otp_type_id,
+        error: error.message,
+      });
+      throw error;
     }
   }
 
-  // ======================== VERIFY OTP CODE =======================
+  /**
+   * Verify OTP code
+   * @param {string} email - User email
+   * @param {string} otpCode - OTP code to verify
+   * @param {number} otp_type_id - OTP type
+   * @returns {Promise<boolean>} Verification success
+   */
   async verifyOTP(email, otpCode, otp_type_id) {
     try {
       const hash = OTPUtil.hashOTP(otpCode);
       const result = await authRepository.verifyOTP(email, hash, otp_type_id);
 
       if (!result || !result.success) {
-        throw new Error("Invalid or expired OTP");
+        throw new AuthenticationError("Invalid or expired OTP");
       }
+
+      logger.info("OTP verified successfully", { email, otp_type_id });
       return true;
-    } catch (err) {
-      // Re-throw the original error message without wrapping
-      throw err;
+    } catch (error) {
+      logger.error("AuthService.verifyOTP error", {
+        email,
+        otp_type_id,
+        error: error.message,
+      });
+      throw error;
     }
   }
 
-  // ===================== COMPLETE REGISTRATION ====================
+  // ========================= REGISTRATION =========================
+
+  /**
+   * Complete business registration
+   * @param {Object} registrationData - Business and owner details
+   * @returns {Promise<Object>} Registration result
+   */
   async completeRegistration(registrationData) {
     try {
-      // // Check if owner email already exists
-      // const ownerExists = await authRepository.emailExists(
-      //   registrationData.ownerEmail
-      // );
-      // if (ownerExists) {
-      //   throw new Error("Owner email already registered");
-      // }
+      // Validate business email != owner email
+      if (registrationData.businessEmail === registrationData.ownerEmail) {
+        throw new ValidationError(
+          "Business email and owner email must be different"
+        );
+      }
 
-      const created = await authRepository.registerBusinessWithOwner(
-        registrationData
-      );
+      // Register business with owner
+      const created =
+        await authRepository.registerBusinessWithOwner(registrationData);
 
       if (!created.businessId || !created.branchId || !created.ownerId) {
         throw new Error("Invalid IDs returned from registration");
       }
+
+      logger.info("Business registered successfully", {
+        businessId: created.businessId,
+        branchId: created.branchId,
+        ownerId: created.ownerId,
+        businessEmail: registrationData.businessEmail,
+        ownerEmail: registrationData.ownerEmail,
+      });
 
       return {
         businessId: created.businessId,
@@ -116,25 +198,38 @@ class AuthService {
         ownerId: created.ownerId,
         message: "Business registered successfully",
       };
-    } catch (err) {
-      throw new Error(`Failed to complete registration: ${err.message}`);
+    } catch (error) {
+      logger.error("AuthService.completeRegistration error", {
+        email: registrationData.ownerEmail,
+        error: error.message,
+      });
+      throw error;
     }
   }
 
-  // ======================== LOGIN WITH OTP ========================
-  async loginWithOTP(email, otpCode, ipAddress = null) {
+  // ========================= LOGIN =========================
+
+  /**
+   * Login with OTP
+   * @param {string} email - User email
+   * @param {string} otpCode - OTP code
+   * @param {string} ipAddress - Client IP
+   * @param {string} userAgent - Client user agent
+   * @returns {Promise<Object>} User data with session token
+   */
+  async loginWithOTP(email, otpCode, ipAddress = null, userAgent = null) {
     try {
-      // Hash the OTP code
+      // Hash OTP
       const hash = OTPUtil.hashOTP(otpCode);
 
-      // Login with OTP - get user info (OTP verification happens in SP)
+      // Login with OTP (verifies OTP in SP)
       const user = await authRepository.loginWithOTP(email, hash, ipAddress);
 
       if (!user || !user.user_id) {
-        throw new Error("Failed to retrieve user information");
+        throw new AuthenticationError("Failed to retrieve user information");
       }
 
-      // Generate encrypted session token with user data
+      // Generate session token
       const sessionTokenData = {
         user_id: user.user_id,
         business_id: user.business_id,
@@ -154,12 +249,27 @@ class AuthService {
       const tokenResult =
         SessionTokenUtil.generateSessionToken(sessionTokenData);
 
-      // Create session in database with encrypted token
+      // device info
+      const deviceId = sessionTokenData.device_id; // e.g. "device_123_1612345678901"
+      const deviceName = sessionTokenData.device_name || null;
+      // pick a default device type id (1 = web/mobile etc - adjust to your domain)
+      const deviceTypeId = parseInt(
+        process.env.DEFAULT_DEVICE_TYPE_ID || "1",
+        10
+      );
+
+      // Parse device info from userAgent
+      const deviceInfo = this._parseUserAgent(userAgent);
+
+      // Create session in database
       const sessionResult = await authRepository.createSession(
         user.user_id,
         tokenResult.sessionToken,
         tokenResult.expiresAt,
-        ipAddress
+        ipAddress,
+        sessionTokenData.device_id,
+        deviceInfo.deviceName,
+        deviceInfo.deviceTypeId
       );
 
       if (!sessionResult.isSuccess) {
@@ -168,7 +278,50 @@ class AuthService {
         );
       }
 
+      logger.info("Login with OTP successful", {
+        userId: user.user_id,
+        email: user.email,
+      });
+
       return {
+        ...user,
+        session_token: sessionResult.sessionToken,
+      };
+    } catch (error) {
+      logger.error("AuthService.loginWithOTP error", {
+        email,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Login with password
+   * @param {string} email - User email
+   * @param {string} password - Plain text password
+   * @param {string} ipAddress - Client IP
+   * @param {string} userAgent - Client user agent
+   * @returns {Promise<Object>} User data with session token
+   */
+  async loginWithPassword(email, password, ipAddress = null, userAgent = null) {
+    try {
+      // Hash password
+      const passwordHash = PasswordUtil.hashPassword(password);
+
+      // Login with password
+      const user = await authRepository.loginWithPassword(
+        email,
+        passwordHash,
+        ipAddress
+      );
+
+      if (!user || !user.user_id) {
+        throw new AuthenticationError("Invalid email or password");
+      }
+
+      // Generate session token
+      const sessionTokenData = {
         user_id: user.user_id,
         business_id: user.business_id,
         branch_id: user.branch_id,
@@ -180,70 +333,61 @@ class AuthService {
         branch_name: user.branch_name,
         role_name: user.role_name,
         is_owner: user.is_owner,
+        ip_address: ipAddress,
+        device_id: `device_${user.user_id}_${Date.now()}`,
+      };
+
+      const tokenResult =
+        SessionTokenUtil.generateSessionToken(sessionTokenData);
+
+      // Parse device info
+      const deviceInfo = this._parseUserAgent(userAgent);
+
+      // Create session
+      const sessionResult = await authRepository.createSession(
+        user.user_id,
+        tokenResult.sessionToken,
+        tokenResult.expiresAt,
+        ipAddress,
+        sessionTokenData.device_id,
+        deviceInfo.deviceName,
+        deviceInfo.deviceTypeId
+      );
+
+      if (!sessionResult.isSuccess) {
+        throw new Error(
+          sessionResult.errorMessage || "Failed to create session"
+        );
+      }
+
+      logger.info("Login with password successful", {
+        userId: user.user_id,
+        email: user.email,
+      });
+
+      return {
+        ...user,
         session_token: sessionResult.sessionToken,
       };
-    } catch (err) {
-      // Re-throw the original error message without wrapping
-      throw err;
+    } catch (error) {
+      logger.error("AuthService.loginWithPassword error", {
+        email,
+        error: error.message,
+      });
+      throw error;
     }
   }
 
-  // ======================== EXTEND SESSION ========================
-  // async extendSession(userId, currentSessionToken) {
-  //   try {
-  //     if (!userId || !currentSessionToken) {
-  //       throw new AuthenticationError("User ID and session token are required");
-  //     }
+  // ========================= TOKEN REFRESH =========================
 
-  //     // Decrypt current session token to get session data
-  //     const currentSessionData =
-  //       SessionTokenUtil.decryptSessionToken(currentSessionToken);
-
-  //     // Generate new extended session token
-  //     const extendedToken =
-  //       SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
-
-  //     // Call repository to extend session (passing both old and new tokens)
-  //     const result = await authRepository.extendSession(
-  //       userId,
-  //       currentSessionToken,
-  //       extendedToken.sessionToken,
-  //       extendedToken.expiresAt
-  //     );
-
-  //     if (!result.isSuccess) {
-  //       throw new AuthenticationError(
-  //         result.errorMessage || "Failed to extend session"
-  //       );
-  //     }
-
-  //     return {
-  //       isSuccess: result.isSuccess,
-  //       sessionToken: result.sessionToken,
-  //       expiryAt: result.expiryAt,
-  //       errorMessage: result.errorMessage,
-  //     };
-  //   } catch (error) {
-  //     if (error.statusCode) {
-  //       throw error;
-  //     }
-  //     logger.error("AuthService.extendSession error", {
-  //       userId,
-  //       error: error.message,
-  //     });
-  //     throw new DatabaseError(
-  //       `Failed to extend session: ${error.message}`,
-  //       error
-  //     );
-  //   }
-  // }
-
-  // inside src/modules/auth/auth.service.js
-
-  // ======================== REFRESH TOKENS ========================
+  /**
+   * Refresh access and session tokens
+   * @param {string} currentSessionToken - Current session token
+   * @returns {Promise<Object>} New tokens
+   */
   async refreshTokens(currentSessionToken) {
     try {
-      // Decrypt current session token locally
+      // Decrypt current session token
       const currentSessionData =
         SessionTokenUtil.decryptSessionToken(currentSessionToken);
 
@@ -251,8 +395,8 @@ class AuthService {
         throw new AuthenticationError("Invalid session token");
       }
 
-      // Generate new access token payload
-      const tokenData = {
+      // Generate new access token
+      const accessTokenData = {
         user_id: currentSessionData.user_id,
         business_id: currentSessionData.business_id,
         branch_id: currentSessionData.branch_id,
@@ -266,21 +410,19 @@ class AuthService {
         is_owner: currentSessionData.is_owner,
       };
 
-      const accessTokenResult = TokenUtil.generateAccessToken(tokenData);
+      const accessTokenResult =
+        AccessTokenUtil.generateAccessToken(accessTokenData);
 
       // Generate rotated session token
       const extendedSessionTokenObj =
         SessionTokenUtil.generateExtendedSessionToken(currentSessionData);
-      const newSessionToken = extendedSessionTokenObj.sessionToken;
-      const newExpiryAt = extendedSessionTokenObj.expiresAt;
 
-      // Persist rotation in DB (extendSession stored procedure)
-      // NOTE: extendSession in repository expects: (userId, oldSessionToken, newSessionToken, newExpiryAt)
+      // Persist rotation in DB
       const repoResult = await authRepository.extendSession(
         currentSessionData.user_id,
         currentSessionToken,
-        newSessionToken,
-        newExpiryAt
+        extendedSessionTokenObj.sessionToken,
+        extendedSessionTokenObj.expiresAt
       );
 
       if (!repoResult.isSuccess) {
@@ -289,46 +431,168 @@ class AuthService {
         );
       }
 
+      logger.info("Tokens refreshed successfully", {
+        userId: currentSessionData.user_id,
+      });
+
       return {
         isSuccess: true,
         accessToken: accessTokenResult.accessToken,
         accessExpiresAt: accessTokenResult.expiresAt,
-        sessionToken: newSessionToken,
-        sessionExpiresAt: newExpiryAt,
+        sessionToken: extendedSessionTokenObj.sessionToken,
+        sessionExpiresAt: extendedSessionTokenObj.expiresAt,
         sessionMaxAgeMs: parseInt(
           process.env.SESSION_COOKIE_MAXAGE_MS || String(60 * 60 * 1000),
           10
         ),
       };
-    } catch (err) {
-      logger.error("AuthService.refreshTokens error", { error: err.message });
-      throw err;
+    } catch (error) {
+      logger.error("AuthService.refreshTokens error", { error: error.message });
+      throw error;
     }
   }
 
-  // ======================== LOGOUT ========================
+  // ========================= PASSWORD MANAGEMENT =========================
+
+  /**
+   * Change user password
+   * @param {number} userId - User ID
+   * @param {string} oldPassword - Current password
+   * @param {string} newPassword - New password
+   * @param {string} updatedBy - User performing update
+   * @returns {Promise<Object>} Password change result
+   */
+  async changePassword(userId, oldPassword, newPassword, updatedBy) {
+    try {
+      // Hash passwords
+      const oldPasswordHash = PasswordUtil.hashPassword(oldPassword);
+      const newPasswordHash = PasswordUtil.hashPassword(newPassword);
+
+      // Change password
+      const result = await authRepository.changePassword(
+        userId,
+        oldPasswordHash,
+        newPasswordHash,
+        updatedBy
+      );
+
+      logger.info("Password changed successfully", { userId });
+
+      return result;
+    } catch (error) {
+      logger.error("AuthService.changePassword error", {
+        userId,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Reset password using OTP
+   * @param {string} email - User email
+   * @param {string} otpCode - OTP code
+   * @param {string} newPassword - New password
+   * @returns {Promise<Object>} Password reset result
+   */
+  async resetPassword(email, otpCode, newPassword) {
+    try {
+      // Hash OTP and password
+      const otpCodeHash = OTPUtil.hashOTP(otpCode);
+      const newPasswordHash = PasswordUtil.hashPassword(newPassword);
+
+      // Reset password
+      const result = await authRepository.resetPassword(
+        email,
+        otpCodeHash,
+        newPasswordHash,
+        email // updatedBy = email for self-service reset
+      );
+
+      logger.info("Password reset successfully", { email });
+
+      return result;
+    } catch (error) {
+      logger.error("AuthService.resetPassword error", {
+        email,
+        error: error.message,
+      });
+      throw error;
+    }
+  }
+
+  // ========================= LOGOUT =========================
+
+  /**
+   * Logout user
+   * @param {number} userId - User ID
+   * @returns {Promise<Object>} Logout result
+   */
   async logout(userId) {
     try {
-      if (!userId) {
-        throw new AuthenticationError("User ID is required");
-      }
-
       const result = await authRepository.logout(userId);
+
+      logger.info("User logged out successfully", { userId });
 
       return {
         isSuccess: result.success,
-        errorMessage: result.error_message,
+        message: "Logged out successfully",
       };
     } catch (error) {
-      if (error.statusCode) {
-        throw error;
-      }
       logger.error("AuthService.logout error", {
         userId,
         error: error.message,
       });
-      throw new DatabaseError(`Failed to logout: ${error.message}`, error);
+      throw error;
     }
+  }
+
+  // ========================= HELPER METHODS =========================
+
+  /**
+   * Parse user agent string
+   * @private
+   */
+  _parseUserAgent(userAgent) {
+    if (!userAgent) {
+      return {
+        deviceName: "Unknown Device",
+        deviceTypeId: 1, // 1 = Unknown/Other
+      };
+    }
+
+    // Simple device type detection
+    const ua = userAgent.toLowerCase();
+    let deviceTypeId = 1; // Default: Unknown
+    let deviceName = "Unknown Device";
+
+    if (ua.includes("mobile")) {
+      deviceTypeId = 2; // Mobile
+      deviceName = "Mobile Device";
+    } else if (ua.includes("tablet") || ua.includes("ipad")) {
+      deviceTypeId = 3; // Tablet
+      deviceName = "Tablet";
+    } else if (
+      ua.includes("windows") ||
+      ua.includes("macintosh") ||
+      ua.includes("linux")
+    ) {
+      deviceTypeId = 4; // Desktop
+      deviceName = "Desktop Computer";
+    }
+
+    // Extract browser name
+    if (ua.includes("chrome")) {
+      deviceName += " (Chrome)";
+    } else if (ua.includes("firefox")) {
+      deviceName += " (Firefox)";
+    } else if (ua.includes("safari")) {
+      deviceName += " (Safari)";
+    } else if (ua.includes("edge")) {
+      deviceName += " (Edge)";
+    }
+
+    return { deviceName, deviceTypeId };
   }
 }
 

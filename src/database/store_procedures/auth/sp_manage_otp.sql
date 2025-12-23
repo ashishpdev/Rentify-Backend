@@ -1,84 +1,68 @@
 DROP PROCEDURE IF EXISTS sp_manage_otp;
 
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_otp`(
-    IN  p_action INT,                    -- 1=Create, 2=Get, 3=Delete
+CREATE PROCEDURE sp_manage_otp(
+    IN  p_action INT,
     IN  p_target_identifier VARCHAR(255),
     IN  p_otp_code_hash VARCHAR(255),
     IN  p_otp_type_id INT,
     IN  p_expiry_minutes INT,
-    IN  p_ip_address VARCHAR(100),
-    IN  p_created_by VARCHAR(255),
+    IN  p_ip_address VARCHAR(45),
+    IN  p_created_by VARCHAR(100),
     
     OUT p_success BOOLEAN,
     OUT p_id CHAR(36),
     OUT p_expires_at DATETIME(6),
-    OUT p_otp_code_hash_out VARCHAR(255),
     OUT p_error_code VARCHAR(50),
     OUT p_error_message VARCHAR(500)
 )
 proc_body: BEGIN
 
-    /* ================================================================
-       DECLARATIONS
-       ================================================================ */
     DECLARE v_otp_type_id INT DEFAULT NULL;
     DECLARE v_user_exists INT DEFAULT 0;
     DECLARE v_email_exists INT DEFAULT 0;
     DECLARE v_default_expiry INT DEFAULT 10;
+    DECLARE v_pending_status_id TINYINT DEFAULT NULL;
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-       ================================================================ */
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
         SET p_success = FALSE;
-        SET p_error_code = 'ERR_INVALID_REFERENCE';
-        SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
+        SET p_error_code = 'ERR_FOREIGN_KEY_VIOLATION';
+        SET p_error_message = 'Invalid OTP type reference.';
     END;
 
-    /* ================================================================
-       ERROR HANDLER
-       ================================================================ */
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
-        ROLLBACK;
-        SET p_success = FALSE;
-
-        IF p_error_code IS NULL THEN
-            SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Unexpected database error occurred.';
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
         END IF;
+        ROLLBACK;
+        INSERT INTO proc_error_log(proc_name, proc_args, mysql_errno, sql_state, error_message)
+        VALUES ('sp_manage_otp', CONCAT('action=', p_action, ', email=', LEFT(p_target_identifier, 100)), v_errno, v_sql_state, LEFT(v_error_msg, 2000));
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_SQL_EXCEPTION';
+        SET p_error_message = 'OTP operation failed.';
     END;
 
-    /* ================================================================
-       RESET OUTPUT PARAMETERS
-       ================================================================ */
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_expires_at = NULL;
-    SET p_otp_code_hash_out = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-    /* ================================================================
-       ACTION 1: CREATE OTP
-       ================================================================ */
     IF p_action = 1 THEN
 
-        /* Validate Inputs */
         IF p_target_identifier IS NULL OR p_target_identifier = '' THEN
             SET p_error_code = 'ERR_INVALID_INPUT';
-            SET p_error_message = 'Target identifier is required.';
+            SET p_error_message = 'Email/phone is required.';
             LEAVE proc_body;
         END IF;
 
@@ -88,27 +72,26 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        /* Validate OTP Type */
         SELECT master_otp_type_id INTO v_otp_type_id
         FROM master_otp_type
         WHERE master_otp_type_id = p_otp_type_id
-          AND is_deleted = 0
-          AND is_active = TRUE
         LIMIT 1;
 
         IF v_otp_type_id IS NULL THEN
             SET p_error_code = 'ERR_INVALID_TYPE';
-            SET p_error_message = 'Invalid or inactive OTP type.';
+            SET p_error_message = 'Invalid OTP type.';
             LEAVE proc_body;
         END IF;
 
-        /* Business Logic: Type 1 (Login/Reset) - Check if user exists */
-        IF p_otp_type_id = 1 THEN
+        SELECT master_otp_status_id INTO v_pending_status_id
+        FROM master_otp_status
+        WHERE code = 'PENDING'
+        LIMIT 1;
+
+        IF p_otp_type_id IN (1, 3) THEN
             SELECT COUNT(*) INTO v_user_exists
             FROM master_user
-            WHERE email = p_target_identifier
-              AND is_deleted = 0
-              AND is_active = TRUE;
+            WHERE email = p_target_identifier AND deleted_at IS NULL;
 
             IF v_user_exists = 0 THEN
                 SET p_error_code = 'ERR_USER_NOT_FOUND';
@@ -117,12 +100,10 @@ proc_body: BEGIN
             END IF;
         END IF;
 
-        /* Business Logic: Type 2 (Registration) - Check if email exists */
         IF p_otp_type_id = 2 THEN
             SELECT COUNT(*) INTO v_email_exists
             FROM master_user
-            WHERE email = p_target_identifier 
-              AND is_deleted = 0; -- Checking strictly for existence
+            WHERE email = p_target_identifier AND deleted_at IS NULL;
 
             IF v_email_exists > 0 THEN
                 SET p_error_code = 'ERR_EMAIL_EXISTS';
@@ -133,100 +114,63 @@ proc_body: BEGIN
 
         START TRANSACTION;
 
-        /* Invalidate previous OTPs for this target/type */
-        DELETE FROM master_otp
-        WHERE target_identifier = p_target_identifier
-          AND otp_type_id = p_otp_type_id;
+            DELETE FROM master_otp
+            WHERE target_identifier = p_target_identifier
+              AND otp_type_id = p_otp_type_id;
 
-        /* Set expiration and ID */
-        SET p_id = UUID();
-        SET p_expires_at = DATE_ADD(UTC_TIMESTAMP(), INTERVAL COALESCE(p_expiry_minutes, v_default_expiry) MINUTE);
+            SET p_id = UUID();
+            SET p_expires_at = DATE_ADD(UTC_TIMESTAMP(6), INTERVAL COALESCE(p_expiry_minutes, v_default_expiry) MINUTE);
 
-        /* Insert New OTP */
-        INSERT INTO master_otp (
-            id, 
-            target_identifier, 
-            otp_code_hash, 
-            otp_type_id,
-            expires_at, 
-            ip_address, 
-            created_by, 
-            created_at
-        ) VALUES (
-            p_id, 
-            p_target_identifier, 
-            p_otp_code_hash, 
-            p_otp_type_id,
-            p_expires_at, 
-            p_ip_address, 
-            p_created_by, 
-            UTC_TIMESTAMP(6)
-        );
+            INSERT INTO master_otp (
+                id, target_identifier, otp_code_hash, otp_type_id, otp_status_id,
+                expires_at, ip_address, created_by, created_at
+            ) VALUES (
+                p_id, p_target_identifier, p_otp_code_hash, p_otp_type_id, v_pending_status_id,
+                p_expires_at, p_ip_address, p_created_by, UTC_TIMESTAMP(6)
+            );
 
         COMMIT;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
         SET p_error_message = 'OTP created successfully.';
-        LEAVE proc_body;
 
-    END IF;
+    ELSEIF p_action = 2 THEN
 
-    /* ================================================================
-       ACTION 2: GET OTP (Verification)
-       ================================================================ */
-    IF p_action = 2 THEN
-
-        SELECT id, expires_at, otp_code_hash
-        INTO p_id, p_expires_at, p_otp_code_hash_out
+        SELECT id, expires_at
+        INTO p_id, p_expires_at
         FROM master_otp
         WHERE target_identifier = p_target_identifier
           AND otp_type_id = p_otp_type_id
-          AND is_deleted = 0
-          AND is_active = TRUE
         ORDER BY created_at DESC
         LIMIT 1;
 
         IF p_id IS NULL THEN
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'No valid OTP found for this identifier.';
+            SET p_error_message = 'No OTP found.';
             LEAVE proc_body;
         END IF;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'OTP details fetched successfully.';
-        LEAVE proc_body;
+        SET p_error_message = 'OTP retrieved.';
 
-    END IF;
-
-    /* ================================================================
-       ACTION 3: DELETE OTP
-       ================================================================ */
-    IF p_action = 3 THEN
+    ELSEIF p_action = 3 THEN
 
         START TRANSACTION;
 
-        DELETE FROM master_otp
-        WHERE target_identifier = p_target_identifier;
-
-        IF ROW_COUNT() = 0 THEN
-             SET p_error_message = 'No records found to delete, but operation processed.';
-        END IF;
+            DELETE FROM master_otp
+            WHERE target_identifier = p_target_identifier;
 
         COMMIT;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'OTP(s) deleted successfully.';
-        LEAVE proc_body;
+        SET p_error_message = 'OTP(s) deleted.';
 
+    ELSE
+        SET p_error_code = 'ERR_INVALID_ACTION';
+        SET p_error_message = 'Invalid action. Use 1=Create, 2=Get, 3=Delete.';
     END IF;
-
-    /* ================================================================
-       INVALID ACTION
-       ================================================================ */
-    SET p_error_code = 'ERR_INVALID_ACTION';
-    SET p_error_message = 'Invalid action specified.';
 
 END;
