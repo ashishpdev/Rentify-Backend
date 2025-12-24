@@ -169,20 +169,20 @@ CREATE TABLE product_condition (
 ) ENGINE=InnoDB;
 
 -- used for rental transaction status after issue
-DROP TABLE IF EXISTS product_rental_status;
-CREATE TABLE product_rental_status (
-  product_rental_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(64) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  description TEXT,
-  created_by VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  updated_by VARCHAR(255),
-  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
-  deleted_at TIMESTAMP(6) NULL,
-  is_active BOOLEAN DEFAULT TRUE,
-  is_deleted TINYINT(1) DEFAULT 0
-) ENGINE=InnoDB;
+-- DROP TABLE IF EXISTS product_rental_status;
+-- CREATE TABLE product_rental_status (
+--   product_rental_status_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+--   code VARCHAR(64) NOT NULL UNIQUE,
+--   name VARCHAR(200) NOT NULL,
+--   description TEXT,
+--   created_by VARCHAR(255) NOT NULL,
+--   created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+--   updated_by VARCHAR(255),
+--   updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+--   deleted_at TIMESTAMP(6) NULL,
+--   is_active BOOLEAN DEFAULT TRUE,
+--   is_deleted TINYINT(1) DEFAULT 0
+-- ) ENGINE=InnoDB;
 
 DROP TABLE IF EXISTS inventory_movement_type;
 CREATE TABLE inventory_movement_type (
@@ -199,9 +199,9 @@ CREATE TABLE inventory_movement_type (
   is_deleted TINYINT(1) DEFAULT 0
 ) ENGINE=InnoDB;
 
-DROP TABLE IF EXISTS billing_period;
-CREATE TABLE billing_period (
-  billing_period_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+DROP TABLE IF EXISTS rental_billing_period;
+CREATE TABLE rental_billing_period (
+  rental_billing_period_id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(64) NOT NULL UNIQUE,
   name VARCHAR(200) NOT NULL,
   description TEXT,
@@ -320,6 +320,38 @@ CREATE TABLE notification_status (
 ) ENGINE=InnoDB;
 
 
+-- Rental order statuses (keep if different from product_rental_status)
+DROP TABLE IF EXISTS rental_order_status;
+CREATE TABLE rental_order_status (
+  rental_order_status_id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
+-- Sales order statuses
+DROP TABLE IF EXISTS sales_order_status;
+CREATE TABLE sales_order_status (
+  sales_order_status_id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  description TEXT,
+  created_by VARCHAR(255),
+  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+  updated_by VARCHAR(255),
+  updated_at TIMESTAMP(6) NULL DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP(6),
+  deleted_at TIMESTAMP(6) NULL,
+  is_active BOOLEAN DEFAULT TRUE,
+  is_deleted TINYINT(1) DEFAULT 0
+) ENGINE=InnoDB;
+
 
 -- =========================================================
  /* SEED MASTER ENUM */
@@ -395,12 +427,12 @@ INSERT IGNORE INTO product_condition (code, name, description, created_by) VALUE
   ('POOR','Poor','Poor condition','system'),
   ('BROKEN','Broken','Non functional / broken','system');
 
-INSERT IGNORE INTO product_rental_status (code, name, description, created_by) VALUES
-  ('ACTIVE','Active','Currently active rental','system'),
-  ('RETURNED','Returned','Item returned','system'),
-  ('LATE','Late','Returned late','system'),
-  ('CANCELLED','Cancelled','Rental cancelled','system'),
-  ('LOST','Lost','Item lost during rental','system');
+-- INSERT IGNORE INTO product_rental_status (code, name, description, created_by) VALUES
+--   ('ACTIVE','Active','Currently active rental','system'),
+--   ('RETURNED','Returned','Item returned','system'),
+--   ('LATE','Late','Returned late','system'),
+--   ('CANCELLED','Cancelled','Rental cancelled','system'),
+--   ('LOST','Lost','Item lost during rental','system');
 
 INSERT IGNORE INTO inventory_movement_type (code, name, description, created_by) VALUES
   ('ADD', 'Add Stock', 'Adding new stock to inventory', 'system'),
@@ -415,7 +447,7 @@ INSERT IGNORE INTO inventory_movement_type (code, name, description, created_by)
   ('LOST', 'Lost', 'Item reported as lost', 'system'),
   ('RETIRE', 'Retire Item', 'Item retired from inventory', 'system');
 
-INSERT IGNORE INTO billing_period (code, name, description, created_by) VALUES
+INSERT IGNORE INTO rental_billing_period (code, name, description, created_by) VALUES
   ('HOUR','Hour','Billing per hour','system'),
   ('DAY','Day','Billing per day','system'),
   ('WEEK','Week','Billing per week','system'),
@@ -466,3 +498,15 @@ INSERT IGNORE INTO notification_status (notification_status_id, code, name, desc
     (4, 'DELIVERED', 'Delivered', 'Delivered to recipient (provider reported)', 'system'),
     (5, 'FAILED', 'Failed', 'Delivery failed', 'system')
 
+INSERT IGNORE INTO rental_order_status (code, name, description, created_by) VALUES
+('PENDING', 'Pending', 'Rental order pending confirmation', 'system'),
+('CONFIRMED', 'Confirmed', 'Rental order confirmed', 'system'),
+('ACTIVE', 'Active', 'Rental order active', 'system'),
+('COMPLETED', 'Completed', 'Rental order completed', 'system'),
+('CANCELLED', 'Cancelled', 'Rental order cancelled', 'system');
+
+INSERT IGNORE INTO sales_order_status (code, name, description, created_by) VALUES
+('PENDING', 'Pending', 'Sales order pending confirmation', 'system'),
+('CONFIRMED', 'Confirmed', 'Sales order confirmed', 'system'),
+('FULFILLED', 'Fulfilled', 'Sales order fulfilled', 'system'),
+('CANCELLED', 'Cancelled', 'Sales order cancelled', 'system');

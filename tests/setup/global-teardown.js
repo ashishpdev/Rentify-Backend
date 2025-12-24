@@ -1,12 +1,13 @@
 // tests/setup/global-teardown.js
+const db = require('../../src/database/connection');
+
 module.exports = async () => {
-  // If you are using a global in-memory DB or Docker container orchestrator,
-  // stop it here.
+  console.log('\n🧹 Cleaning up test environment...\n');
   
-  // For standard Jest + MySQL:
-  console.log('Global Teardown: Tests Completed.');
-  
-  // Force exit is sometimes required if DB pools hang
-  // typically handled by jest --forceExit flag, but can be explicit here:
-  // process.exit(0);
+  try {
+    await db.closeConnections();
+    console.log('✅ Test cleanup complete\n');
+  } catch (error) {
+    console.error('❌ Cleanup error:', error);
+  }
 };
