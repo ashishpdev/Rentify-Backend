@@ -1,5 +1,4 @@
 DROP PROCEDURE IF EXISTS sp_action_register_business_branch_owner;
-
 CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_action_register_business_branch_owner`(
     IN  p_business_name VARCHAR(255),
     IN  p_business_email VARCHAR(255),
@@ -68,7 +67,7 @@ proc_body: BEGIN
         SET p_success = FALSE;
         IF p_error_code IS NULL THEN
             SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Database error during registration process.';
+            SET p_error_message = CONCAT('Database error: ', v_error_msg);
         END IF;
     END;
 
@@ -96,11 +95,9 @@ proc_body: BEGIN
     -- 2. Fetch OTP Configuration (Registration Type & Verified Status)
     SELECT master_otp_type_id INTO v_otp_type_id 
     FROM master_otp_type WHERE code = 'REGISTRATION' LIMIT 1; 
-    -- Assuming code is 'REGISTRATION', otherwise use ID 2 if code not available
 
     SELECT master_otp_status_id INTO v_otp_status_id 
     FROM master_otp_status WHERE code = 'VERIFIED' LIMIT 1;
-    -- Assuming code is 'VERIFIED', otherwise use ID 2
 
     -- Fallback if configs missing (Optional safety)
     IF v_otp_type_id IS NULL THEN SET v_otp_type_id = 2; END IF;
@@ -112,7 +109,7 @@ proc_body: BEGIN
     WHERE target_identifier = p_owner_email
       AND otp_type_id = v_otp_type_id
       AND otp_status_id = v_otp_status_id
-      AND expires_at > UTC_TIMESTAMP(); -- Using UTC to match other SPs
+      AND expires_at > UTC_TIMESTAMP();
 
     IF v_otp_verified_count = 0 THEN
         SET p_error_code = 'ERR_OTP_NOT_VERIFIED';
@@ -151,7 +148,7 @@ proc_body: BEGIN
 
 
     /* ================================================================
-       STEP 2: CREATE HQ BRANCH (Direct Insert)
+       STEP 2: CREATE HQ BRANCH (Direct Insert) - FIXED
        ================================================================ */
     START TRANSACTION;
 
@@ -159,15 +156,25 @@ proc_body: BEGIN
         business_id, 
         branch_name, 
         branch_code, 
-        contact_number, 
+        contact_number,
+        address_line,
+        city,
+        state,
+        country,
+        pincode,
         created_by,
         created_at
     )
     VALUES (
         v_new_business_id, 
         CONCAT(p_business_name, ' - HQ'), 
-        'HQ-001',
-        p_contact_number, 
+        CONCAT('HQ-', LPAD(v_new_business_id, 4, '0')),
+        p_contact_number,
+        'Headquarters',           -- Default address
+        'Not Specified',          -- Default city
+        'Not Specified',          -- Default state
+        'IN',                     -- Default country (India)
+        '000000',                 -- Default pincode
         p_created_by,
         UTC_TIMESTAMP(6)
     );
@@ -198,9 +205,6 @@ proc_body: BEGIN
     );
 
     IF v_sp_success = FALSE THEN
-        -- CRITICAL: Business was created, but Owner failed.
-        -- In a real-world scenario, you might want to DELETE the business here to rollback.
-        -- For now, we return the error as requested.
         SET p_error_code = v_sp_error_code;
         SET p_error_message = CONCAT('Owner Creation Failed: ', v_sp_error_message);
         LEAVE proc_body;

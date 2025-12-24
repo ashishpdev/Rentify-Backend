@@ -33,7 +33,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp_type_id\": 123\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp_type_id\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -43,7 +43,7 @@
             "description": "Handler: authController.sendOTP\n🔓 Public endpoint - No authentication required"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otp_type_id: number (required) — example: 123"
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otp_type_id: number (required) — example: 1"
         },
         {
           "name": "POST /api/auth/verify-otp",
@@ -69,7 +69,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 123\n}",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 1\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -79,43 +79,7 @@
             "description": "Handler: authController.verifyOTP\n🔓 Public endpoint - No authentication required"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 123"
-        },
-        {
-          "name": "POST /api/auth/login",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json",
-                "type": "text"
-              }
-            ],
-            "url": {
-              "raw": "{{baseUrl}}/api/auth/login",
-              "host": [
-                "{{baseUrl}}"
-              ],
-              "path": [
-                "api",
-                "auth",
-                "login"
-              ]
-            },
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 123\n}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "description": "Handler: authController.loginWithOTP\n🔓 Public endpoint - No authentication required"
-          },
-          "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 123"
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 1"
         },
         {
           "name": "POST /api/auth/complete-registration",
@@ -152,6 +116,152 @@
           },
           "response": [],
           "_fieldDesc": "Fields (required vs optional):\n- businessName: string (required) — example: \"string\"\n- businessEmail: string (required) — example: \"user@example.com\"\n- ownerName: string (required) — example: \"string\"\n- ownerEmail: string (required) — example: \"user@example.com\"\n- ownerContactNumber: string (required) — example: \"pattern_example\""
+        },
+        {
+          "name": "POST /api/auth/login/otp",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/otp",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                "otp"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"otp_type_id\": 123\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: authController.loginWithOTP\n🔓 Public endpoint - No authentication required"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- otp_type_id: number (required) — example: 123"
+        },
+        {
+          "name": "POST /api/auth/login/password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login/password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "login",
+                "password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: authController.loginWithPassword\n🔓 Public endpoint - No authentication required"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- password: string (required) — example: \"string\""
+        },
+        {
+          "name": "POST /api/auth/reset-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "reset-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"otpCode\": \"pattern_example\",\n  \"newPassword\": \"pattern_example\",\n  \"confirmPassword\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: authController.resetPassword\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- email: string (required) — example: \"user@example.com\"\n- otpCode: string (required) — example: \"pattern_example\"\n- newPassword: string (required) — example: \"pattern_example\"\n- confirmPassword: string (required) — example: \"string\""
+        },
+        {
+          "name": "POST /api/auth/change-password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/change-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "change-password"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"oldPassword\": \"string\",\n  \"newPassword\": \"pattern_example\",\n  \"confirmPassword\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: authController.changePassword\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- oldPassword: string (required) — example: \"string\"\n- newPassword: string (required) — example: \"pattern_example\"\n- confirmPassword: string (required) — example: \"string\""
         },
         {
           "name": "POST /api/auth/decrypt-token",
@@ -210,6 +320,26 @@
               ]
             },
             "description": "Handler: authController.logout\n🔒 Requires access_token cookie only"
+          },
+          "response": []
+        },
+        {
+          "name": "GET /api/auth/health",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "auth",
+                "health"
+              ]
+            },
+            "description": "Handler: <inline>\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
         }
@@ -797,7 +927,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
+              "raw": "{\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_sell\": null,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -807,7 +937,7 @@
             "description": "Handler: ModelController.createModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_sell: number (optional) — example: null\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/update",
@@ -833,7 +963,7 @@
             },
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"url\": null,\n      \"alt_text\": null,\n      \"is_primary\": null,\n      \"image_order\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_warranty_days\": null\n}",
+              "raw": "{\n  \"product_model_id\": 123,\n  \"product_segment_id\": 123,\n  \"product_category_id\": 123,\n  \"model_name\": \"string\",\n  \"description\": null,\n  \"product_model_images\": [\n    {\n      \"product_model_image_id\": null,\n      \"url\": null,\n      \"thumbnail_url\": null,\n      \"alt_text\": null,\n      \"file_size_bytes\": null,\n      \"width_px\": null,\n      \"height_px\": null,\n      \"is_primary\": null,\n      \"image_order\": null,\n      \"product_model_image_category_id\": null,\n      \"is_deleted\": null\n    }\n  ],\n  \"default_rent\": 123,\n  \"default_deposit\": 123,\n  \"default_sell\": null,\n  \"default_warranty_days\": null\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -843,7 +973,7 @@
             "description": "Handler: ModelController.updateModel\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": [],
-          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_warranty_days: number (optional) — example: null"
+          "_fieldDesc": "Fields (required vs optional):\n- product_model_id: number (required) — example: 123\n- product_segment_id: number (required) — example: 123\n- product_category_id: number (required) — example: 123\n- model_name: string (required) — example: \"string\"\n- description: string (optional) — example: null\n- product_model_images: array (optional) — example: []\n- default_rent: number (required) — example: 123\n- default_deposit: number (required) — example: 123\n- default_sell: number (optional) — example: null\n- default_warranty_days: number (optional) — example: null"
         },
         {
           "name": "POST /api/model/get",

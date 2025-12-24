@@ -1,0 +1,339 @@
+# Wedding/Event Rental Management System
+## Database Tables Reference Guide
+
+---
+
+## 1️⃣ BUSINESS CORE & ORGANIZATION
+
+### **master_business**
+Multi-tenant SaaS businesses with subscription management, billing cycles, and contact information.
+
+### **master_branch**
+Branch/location management for businesses with multiple physical locations, each with its own inventory and operations.
+
+---
+
+## 2️⃣ USER MANAGEMENT & SECURITY
+
+### **master_user**
+System users (Owner, Manager, Salesman) with role-based access, salary information, and employee details.
+
+### **master_permission**
+Granular permissions for different modules (billing, assets, customers) to control feature access.
+
+### **role_permission**
+Maps permissions to roles, defining what each user role can do in the system.
+
+### **master_user_session**
+Tracks active user sessions across devices with JWT tokens and session expiry management.
+
+### **master_otp**
+One-time password management for authentication, password reset, and verification flows.
+
+---
+
+## 3️⃣ PRODUCT HIERARCHY
+
+### **product_segment**
+Top-level categorization (e.g., Men's Wear, Women's Wear, Accessories).
+
+### **product_category**
+Categories within segments (e.g., Sherwani, Lehenga, Suits under respective segments).
+
+### **product_model**
+Product templates with pricing, descriptions, and specifications (e.g., "Royal Blue Sherwani XL").
+
+### **product_model_images**
+Multiple images per product model with primary image designation and display ordering.
+
+---
+
+## 4️⃣ ASSET MANAGEMENT (CORE)
+
+### **asset**
+Individual physical inventory items with unique QR codes, measurements, condition tracking, rental history, and performance metrics.
+
+### **asset_measurement**
+Detailed measurements (chest, waist, hip, sleeve) for clothing assets to match customer requirements.
+
+### **asset_availability**
+Tracks when assets are booked, blocked, or in maintenance to prevent double-booking.
+
+---
+
+## 5️⃣ CUSTOMER MANAGEMENT
+
+### **customer**
+Customer profiles with contact info, wedding dates, purchase history, loyalty points, and tier classification.
+
+### **customer_contact**
+Multiple contact persons per customer (pickup person, return person, emergency contact) with relationship tracking.
+
+### **customer_communication_log**
+Complete history of all communications (WhatsApp, SMS, Email) with delivery status and read receipts.
+
+---
+
+## 6️⃣ MULTI-SALESMAN CART SYSTEM
+
+### **shopping_cart**
+Multiple salesmen can add items to a single customer's cart before final billing.
+
+### **shopping_cart_item**
+Individual assets added by specific salesmen, enabling asset-wise incentive tracking.
+
+---
+
+## 7️⃣ RENTAL ORDERS
+
+### **rental_order**
+Complete rental transactions with dates, pricing, GST, deposits, pickup/return person tracking, and soft delete capability.
+
+### **rental_order_item**
+Individual assets in rental orders with salesman attribution for incentive calculation and item-level pricing.
+
+---
+
+## 8️⃣ SALES ORDERS
+
+### **sales_order**
+Sales transactions for assets being sold (not rented), with shipping info and payment tracking.
+
+### **sales_order_item**
+Individual assets sold with salesman attribution for commission tracking.
+
+---
+
+## 9️⃣ INVOICING & BILLING
+
+### **invoices**
+Generated PDF invoices stored in cloud (S3/similar) with links to rental or sales orders.
+
+### **credit_debit_note**
+Financial adjustments for returns, damages, or corrections with approval workflow.
+
+### **general_voucher**
+General accounting entries for miscellaneous transactions not tied to orders.
+
+---
+
+## 🔟 PAYMENTS
+
+### **payments**
+All payment transactions (incoming and outgoing) with payment modes, references, and status tracking.
+
+### **payment_allocation**
+Distributes payments across multiple orders when partial payments or bulk payments are received.
+
+---
+
+## 1️⃣1️⃣ MAINTENANCE & DAMAGE
+
+### **maintenance_records**
+Scheduled and unscheduled maintenance activities with cost tracking and vendor details.
+
+### **damage_reports**
+Damage incidents with severity, repair costs, customer liability, and insurance claims.
+
+---
+
+## 1️⃣2️⃣ RESERVATIONS & DEPOSITS
+
+### **reservations**
+Future bookings for products with advance payments before actual rental order creation.
+
+### **reservation_item**
+Specific assets or models reserved for date ranges to prevent overbooking.
+
+### **deposit**
+Security deposit management with hold, release, and deduction tracking.
+
+---
+
+## 1️⃣3️⃣ STOCK MANAGEMENT
+
+### **stock**
+Aggregated inventory counts per product model (available, on rent, damaged, in maintenance).
+
+### **stock_movements**
+Transaction log for all stock changes at model level with reasons and related orders.
+
+### **asset_movements**
+Detailed movement history for individual assets tracking status changes and location transfers.
+
+---
+
+## 1️⃣4️⃣ ORDER PROGRESS TRACKING
+
+### **order_progress**
+Tracks readiness stages (Design → Stitching → Cleaning → Ready) per order and asset.
+
+---
+
+## 1️⃣5️⃣ DRY CLEANING & WASHER MANAGEMENT
+
+### **washer_vendor**
+External dry cleaning vendors with pricing, payment terms, and outstanding balances.
+
+### **cleaning_job**
+Batch cleaning jobs sent to washers with expected completion dates and charges.
+
+### **cleaning_job_item**
+Individual assets in cleaning jobs with service types and condition tracking.
+
+---
+
+## 1️⃣6️⃣ ALTERATION MANAGEMENT
+
+### **alteration_request**
+Customer-specific alterations with measurements, charges, approval workflow, and assignment tracking.
+
+---
+
+## 1️⃣7️⃣ DARJI (TAILOR) MANAGEMENT
+
+### **darji_master**
+Tailor profiles with payment types (per piece/monthly), bank details, and performance tracking.
+
+### **darji_work_assignment**
+Work assigned to tailors with specifications, rates, deadlines, and quality ratings.
+
+### **darji_payment**
+Payment transactions to tailors with reference to completed assignments.
+
+---
+
+## 1️⃣8️⃣ MANUFACTURING & BOM
+
+### **raw_material**
+Raw materials inventory (fabric, thread, buttons) with stock levels and reorder points.
+
+### **bill_of_materials (BOM)**
+Recipe/formula showing what materials are needed to create a product model.
+
+### **bom_item**
+Individual materials in BOM with quantities, wastage percentages, and costs.
+
+### **production_order**
+Manufacturing orders to produce new assets using BOM specifications.
+
+### **production_output**
+Links produced assets back to production orders for cost tracking.
+
+---
+
+## 1️⃣9️⃣ SUPPLIER & PURCHASE MANAGEMENT
+
+### **supplier**
+Vendor master with contact info, payment terms, credit limits, and outstanding balances.
+
+### **purchase_order**
+Purchase orders for raw materials or finished goods with GST and payment tracking.
+
+### **purchase_order_item**
+Line items in purchase orders with quantities, prices, and received quantities.
+
+### **goods_received_note (GRN)**
+Receipt confirmation when materials arrive with quality inspection results.
+
+### **grn_item**
+Individual items received with accepted/rejected quantities.
+
+### **supplier_payment**
+Payments made to suppliers with TDS deduction and PO references.
+
+---
+
+## 2️⃣0️⃣ DELIVERY & LOGISTICS
+
+### **delivery_person**
+Delivery staff profiles with vehicle details and contact information.
+
+### **delivery_schedule**
+Planned deliveries with time slots, addresses, and proof of delivery tracking.
+
+---
+
+## 2️⃣1️⃣ BUSINESS CONFIGURATION
+
+### **terms_and_conditions**
+Rental and sales T&C with versioning, effective dates, and multi-language support.
+
+### **notification_template**
+WhatsApp/SMS/Email templates with variables for booking confirmations, reminders, and alerts.
+
+---
+
+## 📊 MASTER DATA TABLES (Supporting)
+
+### Master Status & Configuration Tables:
+- **master_business_status**: Active, Suspended, Trial
+- **master_role_type**: Owner, Manager, Salesman
+- **master_subscription_type**: Free, Basic, Premium plans
+- **master_subscription_status**: Active, Expired, Cancelled
+- **master_billing_cycle**: Monthly, Quarterly, Yearly
+- **master_otp_type**: Login, Reset, Verification
+- **master_otp_status**: Pending, Verified, Expired
+- **master_device_type**: Web, iOS, Android
+- **product_status**: Available, On Rent, In Cleaning, Damaged
+- **product_condition**: New, Good, Fair, Worn
+- **inventory_movement_type**: In, Out, Transfer, Adjust
+- **rental_billing_period**: 1 Day, 3 Days, 1 Week
+- **payment_mode**: Cash, Card, UPI, Bank Transfer
+- **maintenance_status**: Scheduled, In Progress, Completed
+- **reservation_status**: Pending, Confirmed, Cancelled
+- **source_type**: Own, Borrowed, Manufactured
+- **contact_type**: Primary, Alternate, Emergency
+- **notification_channel**: SMS, WhatsApp, Email
+- **notification_status**: Pending, Sent, Delivered, Failed
+- **rental_order_status**: Draft, Confirmed, Delivered, Returned
+- **sales_order_status**: Draft, Confirmed, Shipped, Completed
+- **master_customer_tier**: Regular, Silver, Gold, Platinum
+- **master_invoice_type**: Rental, Sales, Proforma
+- **master_payment_direction**: Incoming, Outgoing
+- **master_payment_status**: Pending, Completed, Failed
+- **damage_severity**: Minor, Moderate, Severe, Total Loss
+- **master_gender**: Male, Female, Unisex
+- **clothing_season**: Summer, Winter, All Season
+- **clothing_size_system**: US, UK, EU, Indian
+- **clothing_size**: Actual size mappings with measurements
+- **clothing_colour**: Color master with hex codes
+- **product_model_image_category**: Front, Back, Detail, Lifestyle
+- **order_progress_stage**: Design, Stitching, Cleaning, QC, Ready
+
+---
+
+## 🎯 KEY SYSTEM FEATURES ENABLED
+
+✅ **Multi-Salesman, Single Bill**: Multiple salesmen → one invoice with asset-wise incentives  
+✅ **Complete Asset Lifecycle**: Purchase → Store → Rent → Clean → Rent → Maintain → Sell  
+✅ **Manufacturing Integration**: Raw materials → BOM → Production → Asset creation  
+✅ **Tailor Management**: Work assignment, quality tracking, payment processing  
+✅ **Soft Delete**: Orders can be deleted with reason and approval  
+✅ **Future Booking**: Prevent selling if future bookings exist  
+✅ **Comprehensive Tracking**: Every movement, payment, and status change is logged  
+✅ **Multi-Tenant SaaS**: Complete business and branch isolation  
+✅ **Financial Control**: GST, deposits, late fees, penalties, discounts  
+✅ **Communication History**: Full audit trail of customer communications  
+
+---
+
+## 📁 TOTAL TABLE COUNT: **75+ Tables**
+
+**Categories:**
+- Core Business: 2 tables
+- User Management: 5 tables
+- Product & Assets: 8 tables
+- Orders & Billing: 10 tables
+- Payments: 2 tables
+- Inventory: 6 tables
+- Operations: 15 tables
+- Manufacturing: 5 tables
+- Procurement: 7 tables
+- Configuration: 40+ master tables
+
+---
+
+**Version:** 2.0  
+**Last Updated:** December 2024  
+**Database:** MySQL 8.0+ with Partitioning Support

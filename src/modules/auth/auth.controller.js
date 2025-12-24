@@ -1,48 +1,50 @@
-// controllers -- HTTP layer / request <-> response
-const ResponseUtil = require('../../utils/response.util');
-const authService = require('./auth.service');
-const { AuthValidator } = require('./auth.validator');
-const logger = require('../../config/logger.config');
-const config = require('../../config/env.config');
-const AccessTokenUtil = require('../../utils/access_token.util');
-const { RESPONSE_MESSAGES } = require('../../constants/operations');
+// src/modules/auth/auth.controller.js
+// HTTP layer - Request/Response handling
+const ResponseUtil = require("../../utils/response.util");
+const authService = require("./auth.service");
+const { AuthValidator } = require("./auth.validator");
+const logger = require("../../config/logger.config");
+const config = require("../../config/env.config");
+const AccessTokenUtil = require("../../utils/access_token.util");
+const { RESPONSE_MESSAGES } = require("../../constants/operations");
 
 class AuthController {
-  // ======================== SEND OTP CONTROLLER ========================
+  // ======================== SEND OTP ========================
   async sendOTP(req, res, next) {
     const startTime = Date.now();
 
     try {
-      logger.info('OTP send request received', {
+      logger.info("OTP send request received", {
         email: req.body.email,
         otp_type_id: req.body.otp_type_id,
         ip: req.ip,
       });
 
+      // Validate request
       const { error, value } = AuthValidator.validateSendOTP(req.body);
       if (error) {
-        logger.warn('OTP send validation failed', {
+        logger.warn("OTP send validation failed", {
           email: req.body.email,
-          error: error.details[0].message,
+          errors: error.details.map((d) => d.message),
         });
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      const ipAddress = req.ip || req.headers['x-forwarded-for'] || null;
+      const ipAddress = req.ip || req.headers["x-forwarded-for"] || null;
 
-      // 'value' is already validated and typed - no need for DTO wrapper
+      // Send OTP
       const result = await authService.sendOTP(value.email, value.otp_type_id, {
         ipAddress,
       });
 
       const duration = Date.now() - startTime;
-      logger.logPerformance('sendOTP', duration, {
+      logger.logPerformance("sendOTP", duration, {
         email: value.email,
         otp_type_id: value.otp_type_id,
         success: true,
       });
 
-      logger.info('OTP sent successfully', {
+      logger.info("OTP sent successfully", {
         email: value.email,
         otp_type_id: value.otp_type_id,
         otpId: result.otpId,
@@ -51,66 +53,55 @@ class AuthController {
       return ResponseUtil.success(
         res,
         { otpId: result.otpId, expiresAt: result.expiresAt },
-        result.message,
+        result.message
       );
     } catch (err) {
-      const errorMessage = (err && err.message) || 'Failed to send OTP';
+      const errorMessage = err?.message || "Failed to send OTP";
 
-      // Handle email already registered
-      if (errorMessage === 'Email already registered') {
-        logger.warn('OTP send failed: Email already registered', {
-          email: req.body.email,
-          ip: req.ip,
-        });
+      // Handle specific errors
+      if (errorMessage.includes("Email already registered")) {
         return ResponseUtil.conflict(res, errorMessage);
       }
 
-      // Handle invalid OTP type
-      if (errorMessage === 'Invalid OTP type') {
-        logger.warn('OTP send failed: Invalid OTP type', {
-          email: req.body.email,
-          otp_type_id: req.body.otp_type_id,
-          ip: req.ip,
-        });
+      if (errorMessage.includes("Invalid OTP type")) {
         return ResponseUtil.badRequest(res, errorMessage);
       }
 
-      // Log full error for debugging
-      logger.logError(err, req, {
-        operation: 'sendOTP',
-        email: req.body.email,
-      });
+      if (errorMessage.includes("Email not registered")) {
+        return ResponseUtil.notFound(res, errorMessage);
+      }
 
-      // Return generic server error for unknown issues
+      logger.logError(err, req, { operation: "sendOTP" });
       return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  // ======================= VERIFY OTP CONTROLLER =======================
+  // ======================== VERIFY OTP ========================
   async verifyOTP(req, res, next) {
     try {
-      logger.info('OTP verification request received', {
+      logger.info("OTP verification request received", {
         email: req.body.email,
         ip: req.ip,
       });
 
+      // Validate request
       const { error, value } = AuthValidator.validateVerifyOTP(req.body);
       if (error) {
-        logger.warn('OTP verification validation failed', {
+        logger.warn("OTP verification validation failed", {
           email: req.body.email,
-          error: error.details[0].message,
+          errors: error.details.map((d) => d.message),
         });
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // 'value' is already validated - no need for DTO wrapper
+      // Verify OTP
       await authService.verifyOTP(
         value.email,
         value.otpCode,
-        value.otp_type_id,
+        value.otp_type_id
       );
 
-      logger.logAuth('OTP_VERIFIED', {
+      logger.logAuth("OTP_VERIFIED", {
         email: value.email,
         ip: req.ip,
       });
@@ -118,76 +109,66 @@ class AuthController {
       return ResponseUtil.success(
         res,
         { email: value.email, verified: true },
-        'OTP verified successfully',
+        "OTP verified successfully"
       );
     } catch (err) {
-      const errorMessage = (err && err.message) || 'Failed to verify OTP';
+      const errorMessage = err?.message || "Failed to verify OTP";
 
-      if (errorMessage === 'Invalid or expired OTP') {
-        logger.warn('OTP verification failed', {
-          email: req.body.email,
-          reason: errorMessage,
-          ip: req.ip,
-        });
+      if (errorMessage.includes("Invalid or expired OTP")) {
         return ResponseUtil.unauthorized(res, errorMessage);
       }
 
-      logger.logError(err, req, {
-        operation: 'verifyOTP',
-        email: req.body.email,
-      });
-
+      logger.logError(err, req, { operation: "verifyOTP" });
       return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  // =================== COMPLETE REGISTRATION CONTROLLER ===================
+  // ======================== COMPLETE REGISTRATION ========================
   async completeRegistration(req, res, next) {
     const startTime = Date.now();
 
     try {
-      logger.info('Business registration started', {
-        email: req.body.email,
+      logger.info("Business registration started", {
+        email: req.body.ownerEmail,
         businessName: req.body.businessName,
-        businessType: req.body.businessType,
         ip: req.ip,
       });
 
+      // Validate request
       const { error, value } = AuthValidator.validateCompleteRegistration(
-        req.body,
+        req.body
       );
       if (error) {
-        logger.warn('Registration validation failed', {
-          email: req.body.email,
-          error: error.details[0].message,
+        logger.warn("Registration validation failed", {
+          email: req.body.ownerEmail,
+          errors: error.details.map((d) => d.message),
         });
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
-      // 'value' is already validated - pass it directly to service
+      // Complete registration
       const result = await authService.completeRegistration(value);
 
-      // service already validates ids, but keep check
       if (!result.businessId || !result.branchId || !result.ownerId) {
-        logger.error('Registration failed: Missing IDs', {
-          email: value.email,
+        logger.error("Registration failed: Missing IDs", {
+          email: value.ownerEmail,
           result,
         });
         return ResponseUtil.serverError(
           res,
-          'Registration failed: Missing required IDs in response',
+          "Registration failed: Missing required IDs in response"
         );
       }
 
       const duration = Date.now() - startTime;
-      logger.logPerformance('completeRegistration', duration, {
-        email: value.email,
+      logger.logPerformance("completeRegistration", duration, {
+        email: value.ownerEmail,
         businessId: result.businessId,
         success: true,
       });
 
-      logger.logAuth('REGISTRATION_COMPLETED', {
-        email: value.email,
+      logger.logAuth("REGISTRATION_COMPLETED", {
+        email: value.ownerEmail,
         businessId: result.businessId,
         branchId: result.branchId,
         ownerId: result.ownerId,
@@ -202,76 +183,68 @@ class AuthController {
           branchId: result.branchId,
           ownerId: result.ownerId,
         },
-        result.message,
+        result.message
       );
     } catch (err) {
-      const errorMessage = (err && err.message) || 'Registration failed';
+      const errorMessage = err?.message || "Registration failed";
 
-      // Handle OTP verification failure
-      if (errorMessage === 'Owner email not verified') {
-        logger.warn('Registration failed: OTP not verified', {
-          email: req.body.email,
-          reason: errorMessage,
-          ip: req.ip,
-        });
+      if (errorMessage.includes("Owner email not verified")) {
         return ResponseUtil.badRequest(res, errorMessage);
       }
 
-      // Handle email mismatch
-      if (errorMessage === 'Business email and owner email must be different') {
-        logger.warn('Registration validation failed: Email mismatch', {
-          email: req.body.email,
-          reason: errorMessage,
-          ip: req.ip,
-        });
+      if (errorMessage.includes("email must be different")) {
         return ResponseUtil.badRequest(res, errorMessage);
       }
 
-      // Log full error for debugging
-      logger.logError(err, req, {
-        operation: 'completeRegistration',
-        email: req.body.email,
-      });
+      if (errorMessage.includes("already registered")) {
+        return ResponseUtil.conflict(res, errorMessage);
+      }
 
-      // Return the error message directly
+      logger.logError(err, req, { operation: "completeRegistration" });
       return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  // ========================= LOGIN WITH OTP CONTROLLER =========================
+  // ======================== LOGIN WITH OTP ========================
   async loginWithOTP(req, res, next) {
     const startTime = Date.now();
 
     try {
-      // validation and service call remains same (AuthValidator etc.)
+      logger.info("Login with OTP request received", {
+        email: req.body.email,
+        ip: req.ip,
+      });
+
+      // Validate request
       const { error, value } = AuthValidator.validateLoginOTP(req.body);
       if (error) {
+        logger.warn("Login OTP validation failed", {
+          email: req.body.email,
+          errors: error.details.map((d) => d.message),
+        });
         return ResponseUtil.badRequest(res, error.details[0].message);
       }
 
       const ipAddress =
         req.ip ||
-        req.headers['x-forwarded-for'] ||
+        req.headers["x-forwarded-for"] ||
         req.connection?.remoteAddress ||
         null;
-      const userAgent = req.get('user-agent');
+      const userAgent = req.get("user-agent");
 
+      // Login
       const user = await authService.loginWithOTP(
         value.email,
         value.otpCode,
-        value.otp_type_id,
         ipAddress,
-        userAgent,
+        userAgent
       );
 
       if (!user || !user.user_id) {
-        return ResponseUtil.unauthorized(res, 'Invalid login credentials');
+        return ResponseUtil.unauthorized(res, "Invalid login credentials");
       }
 
-      // session token created by authService.loginWithOTP
-      const sessionToken = user.session_token;
-
-      // Generate signed access token
+      // Generate access token
       const tokenData = {
         user_id: user.user_id,
         business_id: user.business_id,
@@ -285,13 +258,121 @@ class AuthController {
         role_name: user.role_name,
         is_owner: user.is_owner,
       };
-      const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
-      const accessToken = tokenResult.accessToken;
-      const accessTokenExpiry = tokenResult.expiresAt;
 
-      // set cookies (HttpOnly)
-      // session token usually longer-lived (but still moderately short)
-      // Set cookie expiration from session token metadata if needed; using tokenResult for access token
+      const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
+
+      // Set cookies
+      const sessionCookieOpts = {
+        httpOnly: config.cookie.httpOnly,
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+        domain: config.cookie.domain,
+        maxAge: 60 * 60 * 1000, // 1 hour
+      };
+
+      const accessCookieOpts = {
+        httpOnly: config.cookie.httpOnly,
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+        domain: config.cookie.domain,
+        maxAge:
+          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10) *
+          60 *
+          1000,
+      };
+
+      res.cookie("session_token", user.session_token, sessionCookieOpts);
+      res.cookie("access_token", tokenResult.accessToken, accessCookieOpts);
+
+      const duration = Date.now() - startTime;
+      logger.logPerformance("loginWithOTP", duration, { userId: user.user_id });
+
+      logger.logAuth("LOGIN_SUCCESS", {
+        email: value.email,
+        userId: user.user_id,
+        method: "OTP",
+      });
+
+      return ResponseUtil.success(
+        res,
+        {
+          session_expires_at: tokenResult.expiresAt,
+        },
+        "Login successful"
+      );
+    } catch (err) {
+      const errorMessage = err?.message || "Failed to login";
+
+      if (errorMessage.includes("Invalid or expired OTP")) {
+        return ResponseUtil.unauthorized(res, errorMessage);
+      }
+
+      if (errorMessage.includes("User not found")) {
+        return ResponseUtil.unauthorized(res, "Invalid login credentials");
+      }
+
+      logger.logError(err, req, { operation: "loginWithOTP" });
+      return ResponseUtil.serverError(res, errorMessage);
+    }
+  }
+
+  // ======================== LOGIN WITH PASSWORD ========================
+  async loginWithPassword(req, res, next) {
+    const startTime = Date.now();
+
+    try {
+      logger.info("Login with password request received", {
+        email: req.body.email,
+        ip: req.ip,
+      });
+
+      // Validate request
+      const { error, value } = AuthValidator.validateLoginPassword(req.body);
+      if (error) {
+        logger.warn("Login password validation failed", {
+          email: req.body.email,
+          errors: error.details.map((d) => d.message),
+        });
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      const ipAddress =
+        req.ip ||
+        req.headers["x-forwarded-for"] ||
+        req.connection?.remoteAddress ||
+        null;
+      const userAgent = req.get("user-agent");
+
+      // Login
+      const user = await authService.loginWithPassword(
+        value.email,
+        value.password,
+        ipAddress,
+        userAgent
+      );
+
+      if (!user || !user.user_id) {
+        return ResponseUtil.unauthorized(res, "Invalid email or password");
+      }
+
+      // Generate access token
+      const tokenData = {
+        user_id: user.user_id,
+        business_id: user.business_id,
+        branch_id: user.branch_id,
+        role_id: user.role_id,
+        email: user.email,
+        contact_number: user.contact_number,
+        user_name: user.user_name,
+        business_name: user.business_name,
+        branch_name: user.branch_name,
+        role_name: user.role_name,
+        is_owner: user.is_owner,
+      };
+
+      const tokenResult = AccessTokenUtil.generateAccessToken(tokenData);
+
+      // Set cookies
       const sessionCookieOpts = {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
@@ -299,86 +380,208 @@ class AuthController {
         domain: config.cookie.domain,
         maxAge: 60 * 60 * 1000,
       };
+
       const accessCookieOpts = {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
         domain: config.cookie.domain,
         maxAge:
-          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || '15', 10) *
+          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10) *
           60 *
           1000,
       };
 
-      res.cookie('session_token', sessionToken, sessionCookieOpts);
-      res.cookie('access_token', accessToken, accessCookieOpts);
+      res.cookie("session_token", user.session_token, sessionCookieOpts);
+      res.cookie("access_token", tokenResult.accessToken, accessCookieOpts);
 
-      logger.logAuth('LOGIN_SUCCESS', {
+      const duration = Date.now() - startTime;
+      logger.logPerformance("loginWithPassword", duration, {
+        userId: user.user_id,
+      });
+
+      logger.logAuth("LOGIN_SUCCESS", {
         email: value.email,
         userId: user.user_id,
-        sessionToken: sessionToken
-          ? sessionToken.substring(0, 20) + '...'
-          : 'failed',
+        method: "PASSWORD",
       });
 
       return ResponseUtil.success(
         res,
         {
-          session_expires_at: accessTokenExpiry, // still provide expiry info
+          session_expires_at: tokenResult.expiresAt,
         },
-        'Login successful',
+        "Login successful"
       );
     } catch (err) {
-      // existing error handling
-      const errorMessage = (err && err.message) || 'Failed to login';
-      if (errorMessage === 'Invalid or expired OTP') {
+      const errorMessage = err?.message || "Failed to login";
+
+      if (errorMessage.includes("Invalid email or password")) {
         return ResponseUtil.unauthorized(res, errorMessage);
       }
-      logger.logError(err, req, {
-        operation: 'loginWithOTP',
-        email: req.body.email,
-        ip: req.ip,
-      });
+
+      if (errorMessage.includes("Account locked")) {
+        return ResponseUtil.forbidden(res, errorMessage);
+      }
+
+      if (errorMessage.includes("Account is inactive")) {
+        return ResponseUtil.forbidden(res, errorMessage);
+      }
+
+      logger.logError(err, req, { operation: "loginWithPassword" });
       return ResponseUtil.serverError(res, errorMessage);
     }
   }
 
-  // ========================= DECRYPT USER DATA CONTROLLER =========================
-  async decryptUserData(req, res, next) {
+  // ======================== CHANGE PASSWORD ========================
+  async changePassword(req, res, next) {
     try {
-      logger.debug('Decrypt user data request received', {
+      logger.info("Change password request received", {
+        userId: req.user.user_id,
         ip: req.ip,
       });
 
-      // Extract access token from cookie (mandatory)
+      // Validate request
+      const { error, value } = AuthValidator.validateChangePassword(req.body);
+      if (error) {
+        logger.warn("Change password validation failed", {
+          userId: req.user.user_id,
+          errors: error.details.map((d) => d.message),
+        });
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Change password
+      const result = await authService.changePassword(
+        req.user.user_id,
+        value.oldPassword,
+        value.newPassword,
+        req.user.email
+      );
+
+      // Clear cookies to force re-login
+      res.clearCookie("access_token", {
+        httpOnly: config.cookie.httpOnly,
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+      });
+      res.clearCookie("session_token", {
+        httpOnly: config.cookie.httpOnly,
+        secure: config.cookie.secure,
+        sameSite: config.cookie.sameSite,
+      });
+
+      logger.logAuth("PASSWORD_CHANGED", {
+        userId: req.user.user_id,
+        email: req.user.email,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { changed: true },
+        result.message || "Password changed successfully. Please login again."
+      );
+    } catch (err) {
+      const errorMessage = err?.message || "Failed to change password";
+
+      if (errorMessage.includes("Current password is incorrect")) {
+        return ResponseUtil.badRequest(res, errorMessage);
+      }
+
+      if (errorMessage.includes("same password")) {
+        return ResponseUtil.badRequest(res, errorMessage);
+      }
+
+      if (errorMessage.includes("User not found")) {
+        return ResponseUtil.notFound(res, errorMessage);
+      }
+
+      logger.logError(err, req, { operation: "changePassword" });
+      return ResponseUtil.serverError(res, errorMessage);
+    }
+  }
+
+  // ======================== RESET PASSWORD ========================
+  async resetPassword(req, res, next) {
+    try {
+      logger.info("Reset password request received", {
+        email: req.body.email,
+        ip: req.ip,
+      });
+
+      // Validate request
+      const { error, value } = AuthValidator.validateResetPassword(req.body);
+      if (error) {
+        logger.warn("Reset password validation failed", {
+          email: req.body.email,
+          errors: error.details.map((d) => d.message),
+        });
+        return ResponseUtil.badRequest(res, error.details[0].message);
+      }
+
+      // Reset password
+      const result = await authService.resetPassword(
+        value.email,
+        value.otpCode,
+        value.newPassword
+      );
+
+      logger.logAuth("PASSWORD_RESET", {
+        email: value.email,
+      });
+
+      return ResponseUtil.success(
+        res,
+        { reset: true },
+        result.message ||
+          "Password reset successfully. Please login with your new password."
+      );
+    } catch (err) {
+      const errorMessage = err?.message || "Failed to reset password";
+
+      if (errorMessage.includes("Invalid or expired OTP")) {
+        return ResponseUtil.badRequest(res, errorMessage);
+      }
+
+      if (errorMessage.includes("User not found")) {
+        return ResponseUtil.notFound(res, errorMessage);
+      }
+
+      logger.logError(err, req, { operation: "resetPassword" });
+      return ResponseUtil.serverError(res, errorMessage);
+    }
+  }
+
+  // ======================== DECRYPT USER DATA ========================
+  async decryptUserData(req, res, next) {
+    try {
+      logger.debug("Decrypt user data request received", { ip: req.ip });
+
+      // Extract access token from cookie
       const accessToken = req.cookies?.access_token;
 
       if (!accessToken) {
-        logger.warn('Missing access token cookie in decrypt request', {
-          ip: req.ip,
-        });
-        return ResponseUtil.badRequest(res, 'access_token cookie is required');
+        logger.warn("Missing access token cookie", { ip: req.ip });
+        return ResponseUtil.badRequest(res, "access_token cookie is required");
       }
 
       // Validate token structure
       if (!AccessTokenUtil.isValidTokenStructure(accessToken)) {
-        logger.warn('Invalid access token structure in decrypt request', {
-          ip: req.ip,
-        });
-        return ResponseUtil.badRequest(res, 'Invalid access token format');
+        logger.warn("Invalid access token structure", { ip: req.ip });
+        return ResponseUtil.badRequest(res, "Invalid access token format");
       }
 
-      // Decrypt the token to get user data
+      // Decrypt token
       const userData = AccessTokenUtil.decryptAccessToken(accessToken);
 
       if (!userData || !userData.user_id) {
-        logger.warn('Failed to extract user data from access token', {
+        logger.warn("Failed to extract user data from access token", {
           ip: req.ip,
         });
-        return ResponseUtil.unauthorized(res, 'Invalid access token');
+        return ResponseUtil.unauthorized(res, "Invalid access token");
       }
 
-      // Return only the necessary user data fields
+      // Return user data
       const decryptedData = {
         user_id: userData.user_id,
         business_id: userData.business_id,
@@ -393,7 +596,7 @@ class AuthController {
         is_owner: userData.is_owner,
       };
 
-      logger.debug('User data decrypted successfully', {
+      logger.debug("User data decrypted successfully", {
         userId: userData.user_id,
         businessId: userData.business_id,
         ip: req.ip,
@@ -402,138 +605,132 @@ class AuthController {
       return ResponseUtil.success(
         res,
         decryptedData,
-        'User data decrypted successfully',
+        "User data decrypted successfully"
       );
     } catch (err) {
-      // Handle different error types
-      if (err.message.includes('tampered')) {
-        logger.warn('Tampered access token in decrypt request', {
-          error: err.message,
-          ip: req.ip,
-        });
+      // Handle token errors
+      if (err.message.includes("tampered")) {
         return ResponseUtil.unauthorized(
           res,
-          'Access token has been compromised',
+          "Access token has been compromised"
         );
       }
 
-      if (err.message.includes('expired')) {
-        logger.warn('Expired access token in decrypt request', {
-          error: err.message,
-          ip: req.ip,
-        });
-        return ResponseUtil.unauthorized(res, 'Access token has expired');
+      if (err.message.includes("expired")) {
+        return ResponseUtil.unauthorized(res, "Access token has expired");
       }
 
-      if (err.message.includes('corrupted')) {
-        logger.warn('Corrupted access token in decrypt request', {
-          error: err.message,
-          ip: req.ip,
-        });
-        return ResponseUtil.unauthorized(res, 'Access token is corrupted');
+      if (err.message.includes("corrupted")) {
+        return ResponseUtil.unauthorized(res, "Access token is corrupted");
       }
 
-      logger.error('Error decrypting user data', {
+      logger.error("Error decrypting user data", {
         error: err.message,
         ip: req.ip,
       });
-
-      return ResponseUtil.unauthorized(res, 'Failed to decrypt user data');
+      return ResponseUtil.unauthorized(res, "Failed to decrypt user data");
     }
   }
 
-  // ========================= REFRESH TOKENS CONTROLLER =========================
-  // Called by clients when access token expired; session cookie present
+  // ======================== REFRESH TOKENS ========================
   async refreshTokens(req, res, next) {
     try {
+      logger.info("Refresh tokens request received", { ip: req.ip });
+
       const sessionToken = req.cookies?.session_token;
       if (!sessionToken) {
-        return ResponseUtil.badRequest(res, 'session_token cookie is required');
+        return ResponseUtil.badRequest(res, "session_token cookie is required");
       }
 
+      // Refresh tokens
       const refreshResult = await authService.refreshTokens(sessionToken);
 
       if (!refreshResult || !refreshResult.isSuccess) {
         return ResponseUtil.unauthorized(
           res,
-          refreshResult?.errorMessage || 'Failed to refresh tokens',
+          refreshResult?.errorMessage || "Failed to refresh tokens"
         );
       }
 
-      // set rotated session cookie + new access token cookie
-      res.cookie('session_token', refreshResult.sessionToken, {
+      // Set new cookies
+      res.cookie("session_token", refreshResult.sessionToken, {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
         domain: config.cookie.domain,
         maxAge: refreshResult.sessionMaxAgeMs || 60 * 60 * 1000,
       });
-      res.cookie('access_token', refreshResult.accessToken, {
+
+      res.cookie("access_token", refreshResult.accessToken, {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
         domain: config.cookie.domain,
         maxAge:
-          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || '15', 10) *
+          parseInt(process.env.ACCESS_TOKEN_EXPIRES_MIN || "15", 10) *
           60 *
           1000,
       });
 
-      return ResponseUtil.success(res, { refreshed: true }, 'Tokens refreshed');
+      logger.info("Tokens refreshed successfully", { ip: req.ip });
+
+      return ResponseUtil.success(
+        res,
+        { refreshed: true },
+        "Tokens refreshed successfully"
+      );
     } catch (err) {
-      logger.logError(err, req, { operation: 'refreshTokens' });
-      return ResponseUtil.serverError(res, 'Failed to refresh tokens');
+      logger.logError(err, req, { operation: "refreshTokens" });
+      return ResponseUtil.serverError(res, "Failed to refresh tokens");
     }
   }
 
-  // ========================= LOGOUT CONTROLLER =========================
+  // ======================== LOGOUT ========================
   async logout(req, res, next) {
     try {
-      // Middleware (requireAccessToken) already validated and attached:
-      // - req.user (from access token)
-      // - req.accessToken (access token)
+      logger.info("Logout request received", {
+        userId: req.user.user_id,
+        ip: req.ip,
+      });
 
-      const userId = req.user.user_id;
-
-      const result = await authService.logout(userId);
+      // Logout
+      const result = await authService.logout(req.user.user_id);
 
       if (!result.isSuccess) {
-        logger.warn('Logout failed', {
-          userId,
+        logger.warn("Logout failed", {
+          userId: req.user.user_id,
           errorMessage: result.errorMessage,
         });
         return ResponseUtil.serverError(
           res,
-          result.errorMessage || RESPONSE_MESSAGES.LOGOUT_FAILED,
+          result.errorMessage || RESPONSE_MESSAGES.LOGOUT_FAILED
         );
       }
 
-      // Clear authentication cookies
-      res.clearCookie('access_token', {
+      // Clear cookies
+      res.clearCookie("access_token", {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
       });
-      res.clearCookie('session_token', {
+      res.clearCookie("session_token", {
         httpOnly: config.cookie.httpOnly,
         secure: config.cookie.secure,
         sameSite: config.cookie.sameSite,
       });
 
-      logger.logAuth('LOGOUT_SUCCESS', {
-        userId,
+      logger.logAuth("LOGOUT_SUCCESS", {
+        userId: req.user.user_id,
       });
 
       return ResponseUtil.success(
         res,
-        { logged_out: true, userId },
-        RESPONSE_MESSAGES.LOGOUT_SUCCESS,
+        { logged_out: true, userId: req.user.user_id },
+        RESPONSE_MESSAGES.LOGOUT_SUCCESS || "Logged out successfully"
       );
     } catch (error) {
-      logger.logError(error, req, {
-        operation: 'logout',
-      });
-      return ResponseUtil.serverError(res, 'Failed to logout');
+      logger.logError(error, req, { operation: "logout" });
+      return ResponseUtil.serverError(res, "Failed to logout");
     }
   }
 }

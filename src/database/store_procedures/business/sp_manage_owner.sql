@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS sp_manage_owner;
 CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_owner`(
-    IN  p_action INT,                      -- 1=Create, 2=Update, 3=Delete, 4=Get
+    IN  p_action INT,
     IN  p_owner_id INT,
     IN  p_business_id INT,
     IN  p_branch_id INT,
@@ -17,35 +17,27 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_owner`(
 )
 proc_body: BEGIN
 
-    /* ================================================================
-       DECLARATIONS
-       ================================================================ */
     DECLARE v_owner_role_id INT DEFAULT NULL;
     DECLARE v_existing_owner INT DEFAULT 0;
     DECLARE v_user_role_id INT DEFAULT NULL;
+    DECLARE v_default_password VARCHAR(255) DEFAULT NULL;
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-       ================================================================ */
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
         SET p_success = FALSE;
         SET p_error_code = 'ERR_INVALID_REFERENCE';
-        SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
+        SET p_error_message = 'Operation failed: Invalid reference provided.';
     END;
 
-    /* ================================================================
-       ERROR HANDLER (GLOBAL)
-       ================================================================ */
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
+        GET DIAGNOSTICS CONDITION v_cno
             v_errno = MYSQL_ERRNO,
             v_sql_state = RETURNED_SQLSTATE,
             v_error_msg = MESSAGE_TEXT;
@@ -53,27 +45,20 @@ proc_body: BEGIN
         SET p_success = FALSE;
         IF p_error_code IS NULL THEN
             SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Unexpected database error occurred.';
+            SET p_error_message = CONCAT('Database error: ', v_error_msg);
         END IF;
     END;
 
-    /* Reset output variables */
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-
-
-    /* ================================================================
-       ROLE VALIDATION (ONLY FOR UPDATE / DELETE)
-       ================================================================ */
     IF p_action IN (2,3) THEN
-
         SELECT role_id INTO v_user_role_id
         FROM master_user
-        WHERE email = p_created_by AND is_deleted = 0
+        WHERE email = p_created_by AND deleted_at IS NULL
         LIMIT 1;
 
         IF v_user_role_id IS NULL THEN
@@ -87,20 +72,12 @@ proc_body: BEGIN
             SET p_error_message = 'You are not allowed to perform this action.';
             LEAVE proc_body;
         END IF;
-
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 1: CREATE OWNER
-       ================================================================ */
     IF p_action = 1 THEN
-
-        /* Fetch OWNER role ID */
         SELECT master_role_type_id INTO v_owner_role_id
         FROM master_role_type
-        WHERE code = 'OWNER' AND is_deleted = 0
+        WHERE code = 'OWNER'
         LIMIT 1;
 
         IF v_owner_role_id IS NULL THEN
@@ -109,10 +86,9 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
-        /* Check duplicate email */
         SELECT COUNT(*) INTO v_existing_owner
         FROM master_user
-        WHERE email = p_owner_email AND is_deleted = 0;
+        WHERE email = p_owner_email AND deleted_at IS NULL;
 
         IF v_existing_owner > 0 THEN
             SET p_error_code = 'ERR_EMAIL_EXISTS';
@@ -120,15 +96,31 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
+        SET v_default_password = SHA2(CONCAT('TEMP_', p_owner_email, '_', UNIX_TIMESTAMP()), 256);
+
         START TRANSACTION;
 
         INSERT INTO master_user (
-            business_id, branch_id, role_id, name, email,
-            contact_number, is_owner, created_by
+            business_id, 
+            branch_id, 
+            role_id, 
+            name, 
+            email,
+            hash_password,
+            contact_number, 
+            is_owner, 
+            created_by
         )
         VALUES (
-            p_business_id, p_branch_id, v_owner_role_id, p_owner_name,
-            p_owner_email, p_owner_contact_number, TRUE, p_created_by
+            p_business_id, 
+            p_branch_id, 
+            v_owner_role_id, 
+            p_owner_name,
+            p_owner_email,
+            v_default_password,
+            p_owner_contact_number, 
+            TRUE, 
+            p_created_by
         );
 
         SET p_id = LAST_INSERT_ID();
@@ -141,13 +133,7 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 2: UPDATE OWNER
-       ================================================================ */
     IF p_action = 2 THEN
-
         START TRANSACTION;
 
         UPDATE master_user
@@ -157,9 +143,9 @@ proc_body: BEGIN
             contact_number = p_owner_contact_number,
             updated_by = p_created_by,
             updated_at = UTC_TIMESTAMP(6)
-        WHERE user_id = p_owner_id
+        WHERE master_user_id = p_owner_id
           AND is_owner = TRUE
-          AND is_deleted = 0;
+          AND deleted_at IS NULL;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -177,25 +163,18 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 3: DELETE OWNER (Soft Delete)
-       ================================================================ */
     IF p_action = 3 THEN
-
         START TRANSACTION;
 
         UPDATE master_user
         SET 
-            is_deleted = 1,
             is_active = 0,
             deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_created_by,
             updated_at = UTC_TIMESTAMP(6)
-        WHERE user_id = p_owner_id
+        WHERE master_user_id = p_owner_id
           AND is_owner = TRUE
-          AND is_deleted = 0;
+          AND deleted_at IS NULL;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -213,15 +192,9 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 4: GET OWNER DETAILS
-       ================================================================ */
     IF p_action = 4 THEN
-
         SELECT JSON_OBJECT(
-            'user_id', user_id,
+            'user_id', master_user_id,
             'business_id', business_id,
             'branch_id', branch_id,
             'role_id', role_id,
@@ -237,9 +210,9 @@ proc_body: BEGIN
         )
         INTO p_data
         FROM master_user
-        WHERE user_id = p_owner_id
+        WHERE master_user_id = p_owner_id
           AND is_owner = TRUE
-          AND is_deleted = 0
+          AND deleted_at IS NULL
         LIMIT 1;
 
         IF p_data IS NULL THEN
@@ -255,11 +228,6 @@ proc_body: BEGIN
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       INVALID ACTION
-       ================================================================ */
     SET p_error_code = 'ERR_INVALID_ACTION';
     SET p_error_message = 'Invalid action specified.';
 
