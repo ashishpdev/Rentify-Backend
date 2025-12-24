@@ -399,12 +399,12 @@ CREATE TABLE product_model_images (
   branch_id INT UNSIGNED NOT NULL,
   product_model_id INT UNSIGNED NOT NULL,
 
+  file_id VARCHAR(100) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
   url VARCHAR(1024) NOT NULL,
+  original_file_name VARCHAR(255) NOT NULL,
+  file_size INT UNSIGNED NOT NULL,
   thumbnail_url VARCHAR(1024),
-  alt_text VARCHAR(512),
-  file_size_bytes INT UNSIGNED,
-  width_px SMALLINT UNSIGNED,
-  height_px SMALLINT UNSIGNED,
 
   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
   image_order TINYINT UNSIGNED NOT NULL DEFAULT 0,

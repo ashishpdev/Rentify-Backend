@@ -64,14 +64,16 @@ class ModelService {
         roleId: userData.role_id,
       });
 
-      // If images were marked for deletion in the payload, opts.fileIdsMarkedForDelete contains drive IDs parsed at controller
+      // Delete files from Drive if marked for deletion
       if (
         result.success &&
         Array.isArray(opts.fileIdsMarkedForDelete) &&
         opts.fileIdsMarkedForDelete.length
       ) {
         await Promise.allSettled(
-          opts.fileIdsMarkedForDelete.map((id) => driveService.deleteImage(id))
+          opts.fileIdsMarkedForDelete.map((fileId) =>
+            driveService.deleteImage(fileId)
+          )
         );
       }
 
@@ -115,6 +117,7 @@ class ModelService {
           message: "Product model not found",
           data: null,
         };
+
       return {
         success: true,
         message: "Product model retrieved",
@@ -197,22 +200,26 @@ class ModelService {
         roleId: userData.role_id,
       });
 
+      // Delete images from Drive
       if (result.success && result.data) {
-        // result.data contains images JSON returned by SP; try to extract drive file ids and delete them (best-effort)
         const imgs = result.data;
-        let urls = [];
-        if (Array.isArray(imgs))
-          urls = imgs.map((i) => (i && i.url ? i.url : null)).filter(Boolean);
-        else if (imgs && imgs.product_model_images)
-          urls = imgs.product_model_images.map((i) => i.url).filter(Boolean);
+        let fileIds = [];
 
-        const fileIds = urls
-          .map((u) => driveService.extractDriveFileId(u))
-          .filter(Boolean);
-        if (fileIds.length)
+        if (Array.isArray(imgs)) {
+          fileIds = imgs
+            .map((i) => (i && i.file_id ? i.file_id : null))
+            .filter(Boolean);
+        } else if (imgs && imgs.product_model_images) {
+          fileIds = imgs.product_model_images
+            .map((i) => i.file_id)
+            .filter(Boolean);
+        }
+
+        if (fileIds.length) {
           await Promise.allSettled(
             fileIds.map((id) => driveService.deleteImage(id))
           );
+        }
       }
 
       return {
