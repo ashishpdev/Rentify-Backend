@@ -6,7 +6,7 @@ const {
 
 const router = express.Router();
 
-// Model Routes - All data from request body
+// All routes now accept JSON body instead of multipart/form-data
 router.post("/create", requireBothTokens, ModelController.createModel);
 router.post("/update", requireBothTokens, ModelController.updateModel);
 router.post("/get", requireBothTokens, ModelController.getModel);

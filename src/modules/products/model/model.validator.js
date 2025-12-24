@@ -1,8 +1,21 @@
 // src/modules/products/model/model.validator.js
 const Joi = require("joi");
 
-const base64DataRegex =
-  /^(?:data:[\w-]+\/[\w+.-]+;base64,)?(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/;
+const imageSchema = Joi.object({
+  file_id: Joi.string().max(100).required(),
+  file_name: Joi.string().max(255).required(),
+  url: Joi.string().uri().max(1024).required(),
+  original_file_name: Joi.string().max(255).required(),
+  file_size: Joi.number().integer().positive().required(),
+  thumbnail_url: Joi.string().uri().max(1024).allow(null, "").optional(),
+  is_primary: Joi.boolean().default(false),
+  image_order: Joi.number().integer().min(0).default(0),
+  product_model_image_category_id: Joi.number()
+    .integer()
+    .min(0)
+    .default(0)
+    .optional(),
+});
 
 const createModelSchema = Joi.object({
   product_segment_id: Joi.number().integer().positive().required().messages({
@@ -25,39 +38,6 @@ const createModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_model_images: Joi.array()
-    .items(
-      Joi.object({
-        // allow either a standard URI or base64 data (raw or data URI)
-        url: Joi.alternatives()
-          .try(Joi.string().uri(), Joi.string().pattern(base64DataRegex))
-          .required()
-          .messages({
-            "string.base": "Image URL must be a string",
-            "alternatives.match":
-              "Image must be a valid URI or base64 data (raw base64 or data URI)",
-            "string.pattern.base":
-              "Image must be valid base64 data or data URI",
-            "any.required": "Image URL is required",
-          }),
-        alt_text: Joi.string().max(512).optional().messages({
-          "string.base": "Alt text must be a string",
-          "string.max": "Alt text must be at most 512 characters",
-        }),
-        is_primary: Joi.boolean().optional().messages({
-          "boolean.base": "Is primary must be a boolean",
-        }),
-        image_order: Joi.number().integer().positive().optional().messages({
-          "number.base": "Image order must be a number",
-          "number.integer": "Image order must be an integer",
-          "number.positive": "Image order must be positive",
-        }),
-      })
-    )
-    .optional()
-    .messages({
-      "array.base": "Product model images must be an array",
-    }),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",
@@ -68,6 +48,15 @@ const createModelSchema = Joi.object({
     "number.min": "Default deposit must be at least 0",
     "any.required": "Default deposit is required",
   }),
+  default_sell: Joi.number()
+    .precision(2)
+    .min(0)
+    .allow(null)
+    .optional()
+    .messages({
+      "number.base": "Default sell price must be a number",
+      "number.min": "Default sell price must be at least 0",
+    }),
   default_warranty_days: Joi.number()
     .integer()
     .min(0)
@@ -78,6 +67,7 @@ const createModelSchema = Joi.object({
       "number.integer": "Default warranty days must be an integer",
       "number.min": "Default warranty days must be at least 0",
     }),
+  product_model_images: Joi.array().items(imageSchema).optional().default([]),
 });
 
 const updateModelSchema = Joi.object({
@@ -106,38 +96,6 @@ const updateModelSchema = Joi.object({
     "string.base": "Description must be text",
     "string.max": "Description must be at most 2000 characters",
   }),
-  product_model_images: Joi.array()
-    .items(
-      Joi.object({
-        url: Joi.alternatives()
-          .try(Joi.string().uri(), Joi.string().pattern(base64DataRegex))
-          .required()
-          .messages({
-            "string.base": "Image URL must be a string",
-            "alternatives.match":
-              "Image must be a valid URI or base64 data (raw base64 or data URI)",
-            "string.pattern.base":
-              "Image must be valid base64 data or data URI",
-            "any.required": "Image URL is required",
-          }),
-        alt_text: Joi.string().max(512).optional().messages({
-          "string.base": "Alt text must be a string",
-          "string.max": "Alt text must be at most 512 characters",
-        }),
-        is_primary: Joi.boolean().optional().messages({
-          "boolean.base": "Is primary must be a boolean",
-        }),
-        image_order: Joi.number().integer().positive().optional().messages({
-          "number.base": "Image order must be a number",
-          "number.integer": "Image order must be an integer",
-          "number.positive": "Image order must be positive",
-        }),
-      })
-    )
-    .optional()
-    .messages({
-      "array.base": "Product model images must be an array",
-    }),
   default_rent: Joi.number().precision(2).min(0).required().messages({
     "number.base": "Default rent must be a number",
     "number.min": "Default rent must be at least 0",
@@ -148,6 +106,15 @@ const updateModelSchema = Joi.object({
     "number.min": "Default deposit must be at least 0",
     "any.required": "Default deposit is required",
   }),
+  default_sell: Joi.number()
+    .precision(2)
+    .min(0)
+    .allow(null)
+    .optional()
+    .messages({
+      "number.base": "Default sell price must be a number",
+      "number.min": "Default sell price must be at least 0",
+    }),
   default_warranty_days: Joi.number()
     .integer()
     .min(0)
@@ -158,6 +125,7 @@ const updateModelSchema = Joi.object({
       "number.integer": "Default warranty days must be an integer",
       "number.min": "Default warranty days must be at least 0",
     }),
+  product_model_images: Joi.array().items(imageSchema).optional().default([]),
 });
 
 const getModelSchema = Joi.object({
@@ -177,7 +145,6 @@ const deleteModelSchema = Joi.object({
 });
 
 const listModelsSchema = Joi.object({
-  // Optional filters for listing
   page: Joi.number().integer().positive().optional().default(1),
   limit: Joi.number().integer().positive().max(100).optional().default(50),
 });
@@ -212,5 +179,6 @@ module.exports = {
     getModelSchema,
     deleteModelSchema,
     listModelsSchema,
+    imageSchema,
   },
 };

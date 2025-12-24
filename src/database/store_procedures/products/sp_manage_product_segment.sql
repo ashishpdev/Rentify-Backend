@@ -20,7 +20,7 @@ proc_body: BEGIN
 
     /* ================================================================
        DECLARATIONS
-       ================================================================ */
+    ================================================================ */
     DECLARE v_role_id INT DEFAULT NULL;
     DECLARE v_exist INT DEFAULT 0;
     DECLARE v_cno INT DEFAULT 0;
@@ -30,7 +30,7 @@ proc_body: BEGIN
 
     /* ================================================================
        SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-       ================================================================ */
+    ================================================================ */
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
@@ -101,8 +101,7 @@ proc_body: BEGIN
         SELECT COUNT(*) INTO v_exist FROM product_segment
         WHERE business_id = p_business_id
           AND branch_id = p_branch_id
-          AND (code = p_code OR name = p_name)
-          AND is_deleted = 0;
+          AND (code = p_code OR name = p_name);
 
         IF v_exist > 0 THEN
             SET p_error_code='ERR_DUPLICATE';
@@ -140,8 +139,8 @@ proc_body: BEGIN
 
         -- Check if segment exists
         SELECT COUNT(*) INTO v_exist FROM product_segment
-        WHERE product_segment_id = p_product_segment_id
-          AND is_deleted = 0;
+        WHERE product_segment_id = p_product_segment_id 
+          AND is_active = 1;
 
         IF v_exist = 0 THEN
             SET p_error_code='ERR_NOT_FOUND';
@@ -154,8 +153,7 @@ proc_body: BEGIN
         WHERE business_id = p_business_id
           AND branch_id = p_branch_id
           AND code = p_code
-          AND product_segment_id != p_product_segment_id
-          AND is_deleted = 0;
+          AND product_segment_id != p_product_segment_id;
 
         IF v_exist > 0 THEN
             SET p_error_code='ERR_DUPLICATE';
@@ -172,8 +170,7 @@ proc_body: BEGIN
             description = p_description,
             updated_by = p_user_id,
             updated_at = UTC_TIMESTAMP(6)
-        WHERE product_segment_id = p_product_segment_id
-          AND is_deleted = 0;
+        WHERE product_segment_id = p_product_segment_id;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -202,12 +199,10 @@ proc_body: BEGIN
 
         UPDATE product_segment
         SET
-            is_deleted = 1,
-            is_active = 0,
             deleted_at = UTC_TIMESTAMP(6),
+            is_active = 0,
             updated_by = p_user_id
-        WHERE product_segment_id = p_product_segment_id
-          AND is_deleted = 0;
+        WHERE product_segment_id = p_product_segment_id;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -239,7 +234,6 @@ proc_body: BEGIN
             'code', code,
             'name', name,
             'description', description,
-            'is_active', is_active,
             'created_by', created_by,
             'created_at', created_at,
             'updated_by', updated_by,
@@ -247,8 +241,8 @@ proc_body: BEGIN
         )
         INTO p_data
         FROM product_segment
-        WHERE product_segment_id = p_product_segment_id
-          AND is_deleted=0
+        WHERE product_segment_id = p_product_segment_id 
+            AND is_active = 1
         LIMIT 1;
 
         IF p_data IS NULL THEN
@@ -284,7 +278,7 @@ proc_body: BEGIN
         FROM product_segment
         WHERE business_id=p_business_id
           AND branch_id=p_branch_id
-          AND is_deleted=0
+          and is_active = 1
         ORDER BY created_at DESC;
 
         SET p_success=TRUE;

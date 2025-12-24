@@ -30,6 +30,8 @@ proc_body: BEGIN
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
+    DECLARE p_subscription_end_date DATETIME DEFAULT NULL;
+    DECLARE p_subscription_start_date DATETIME DEFAULT NULL;
 
     -- =============================================
     -- Exception Handling
@@ -53,7 +55,6 @@ proc_body: BEGIN
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-
         IF v_cno > 0 THEN
             GET DIAGNOSTICS CONDITION 1
                 v_errno     = MYSQL_ERRNO,
@@ -67,28 +68,21 @@ proc_body: BEGIN
 
         ROLLBACK;
 
-        -- Log error details
-        INSERT INTO proc_error_log(
-            proc_name, 
-            proc_args, 
-            mysql_errno, 
-            sql_state, 
-            error_message
-        )
-        VALUES (
-            'sp_action_login_with_otp',
-            CONCAT('p_business_email=', LEFT(p_business_email, 200), ', p_ip=', IFNULL(p_ip_address, 'NULL')),
+        -- -> use the single robust logging proc instead of a direct INSERT
+        CALL sp_log_proc_error(
+            'sp_manage_business',
+            CONCAT('p_business_email=', LEFT(p_business_email,200), ', p_created_by=', IFNULL(p_created_by,'NULL')),
             v_errno,
             v_sql_state,
-            LEFT(v_error_msg, 2000)
+            LEFT(v_error_msg,2000)
         );
 
-        -- Safe return message
         SET p_error_message = CONCAT(
             'Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'),
             ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.'
         );
     END;
+
 
     /* ================================================================
        RESET OUTPUT PARAMETERS
@@ -108,7 +102,7 @@ proc_body: BEGIN
 
         SELECT role_id INTO v_user_role_id
         FROM master_user
-        WHERE email = p_created_by AND is_deleted = 0
+        WHERE email = p_created_by
         LIMIT 1;
 
         IF v_user_role_id IS NULL THEN
@@ -135,41 +129,46 @@ proc_body: BEGIN
         /* Fetch ACTIVE status ID */
         SELECT master_business_status_id INTO v_business_status_id
         FROM master_business_status
-        WHERE code = 'ACTIVE' AND is_deleted = 0
+        WHERE code = 'ACTIVE' 
         LIMIT 1;
+
+        /* Fetch TRIAL subscription type */
+        SELECT master_subscription_type_id INTO v_subscription_type_id
+        FROM master_subscription_type
+        WHERE code = 'TRIAL'
+        LIMIT 1;
+
+        /* Fetch ACTIVE subscription status */
+        SELECT master_subscription_status_id INTO v_subscription_status_id
+        FROM master_subscription_status
+        WHERE code = 'ACTIVE' 
+        LIMIT 1;
+
+        /* Fetch MONTHLY billing cycle */
+        SELECT master_billing_cycle_id INTO v_billing_cycle_id
+        FROM master_billing_cycle
+        WHERE code = 'MONTHLY' 
+        LIMIT 1;
+
+        /* Ensure required foreign key references exist */
         IF v_business_status_id IS NULL THEN
             SET p_error_code = 'ERR_INVALID_STATUS';
             SET p_error_message = 'Business status ACTIVE not found.';
             LEAVE proc_body;
         END IF;
 
-        /* Fetch TRIAL subscription type */
-        SELECT master_subscription_type_id INTO v_subscription_type_id
-        FROM master_subscription_type
-        WHERE code = 'TRIAL' AND is_deleted = 0
-        LIMIT 1;
         IF v_subscription_type_id IS NULL THEN
             SET p_error_code = 'ERR_INVALID_SUBSCRIPTION';
             SET p_error_message = 'Subscription type TRIAL not found.';
             LEAVE proc_body;
         END IF;
 
-        /* Fetch ACTIVE subscription status */
-        SELECT master_subscription_status_id INTO v_subscription_status_id
-        FROM master_subscription_status
-        WHERE code = 'ACTIVE' AND is_deleted = 0
-        LIMIT 1;
         IF v_subscription_status_id IS NULL THEN
             SET p_error_code = 'ERR_INVALID_SUBSCRIPTION_STATUS';
             SET p_error_message = 'Subscription status ACTIVE not found.';
             LEAVE proc_body;
         END IF;
 
-        /* Fetch MONTHLY billing cycle */
-        SELECT master_billing_cycle_id INTO v_billing_cycle_id
-        FROM master_billing_cycle
-        WHERE code = 'MONTHLY' AND is_deleted = 0
-        LIMIT 1;
         IF v_billing_cycle_id IS NULL THEN
             SET p_error_code = 'ERR_INVALID_BILLING_CYCLE';
             SET p_error_message = 'Billing cycle MONTHLY not found.';
@@ -179,7 +178,7 @@ proc_body: BEGIN
         /* Check duplicate email */
         SELECT COUNT(*) INTO v_existing_business
         FROM master_business
-        WHERE email = p_business_email AND is_deleted = 0;
+        WHERE email = p_business_email;
 
         IF v_existing_business > 0 THEN
             SET p_error_code = 'ERR_EMAIL_EXISTS';
@@ -187,6 +186,25 @@ proc_body: BEGIN
             LEAVE proc_body;
         END IF;
 
+        /* Log duplicate email issue */
+        IF v_existing_business > 0 THEN
+            INSERT INTO proc_error_log(proc_name, proc_args, error_message)
+            VALUES (
+                'sp_manage_business',
+                CONCAT('Duplicate email: ', p_business_email),
+                'Unique constraint violation: uq_business_email'
+            );
+        END IF;
+
+        /* Log subscription date issues */
+        IF p_subscription_end_date IS NOT NULL AND p_subscription_end_date < p_subscription_start_date THEN
+            INSERT INTO proc_error_log(proc_name, proc_args, error_message)
+            VALUES (
+                'sp_manage_business',
+                CONCAT('Invalid subscription dates: start=', p_subscription_start_date, ', end=', p_subscription_end_date),
+                'Check constraint violation: chk_business_dates'
+            );
+        END IF;
 
         /* Insert business */
         START TRANSACTION;
@@ -203,6 +221,23 @@ proc_body: BEGIN
         );
 
         SET p_id = LAST_INSERT_ID();
+
+        /* Log values being inserted */
+        INSERT INTO proc_error_log(proc_name, proc_args, error_message)
+        VALUES (
+            'sp_manage_business',
+            CONCAT(
+                'business_name=', p_business_name, ', ',
+                'business_email=', p_business_email, ', ',
+                'contact_person=', p_contact_person, ', ',
+                'contact_number=', p_contact_number, ', ',
+                'status_id=', v_business_status_id, ', ',
+                'subscription_type_id=', v_subscription_type_id, ', ',
+                'subscription_status_id=', v_subscription_status_id, ', ',
+                'billing_cycle_id=', v_billing_cycle_id
+            ),
+            'Logging values before INSERT INTO master_business'
+        );
 
         COMMIT;
 
@@ -222,7 +257,7 @@ proc_body: BEGIN
         /* Fetch required status */
         SELECT master_business_status_id INTO v_business_status_id
         FROM master_business_status
-        WHERE code = p_status_code AND is_deleted = 0
+        WHERE code = p_status_code
         LIMIT 1;
 
         IF v_business_status_id IS NULL THEN
@@ -241,7 +276,7 @@ proc_body: BEGIN
             contact_number = p_contact_number,
             status_id = v_business_status_id,
             updated_by = p_created_by
-        WHERE business_id = p_business_id AND is_deleted = 0;
+        WHERE business_id = p_business_id;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -270,10 +305,9 @@ proc_body: BEGIN
 
         UPDATE master_business
         SET 
-            is_deleted = 1,
             deleted_at = UTC_TIMESTAMP(6),
             updated_by = p_created_by
-        WHERE business_id = p_business_id AND is_deleted = 0;
+        WHERE business_id = p_business_id;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
@@ -315,7 +349,7 @@ proc_body: BEGIN
         )
         INTO p_data
         FROM master_business
-        WHERE business_id = p_business_id AND is_deleted = 0
+        WHERE business_id = p_business_id
         LIMIT 1;
 
         IF p_data IS NULL THEN

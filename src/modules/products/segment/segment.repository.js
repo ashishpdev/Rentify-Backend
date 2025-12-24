@@ -42,7 +42,7 @@ class SegmentRepository {
             : output.data;
         } catch (err) {
           logger.warn("Failed to parse product segment JSON", { error: err.message });
-          parsedData = [];
+          parsedData = null;
         }
       }
 
@@ -50,16 +50,16 @@ class SegmentRepository {
         logger.warn("Stored procedure returned error", {
           action: params.action,
           errorCode: output.error_code,
-          errorMessage: output.error_message
+          errorMessage: output.error_message,
         });
       }
 
       return {
         success,
-        productSegmentId: output.product_segment_id,
+        productSegmentId: output.product_segment_id || null,
         data: parsedData,
-        errorCode: output.error_code,
-        message: output.error_message || "Operation completed"
+        errorCode: output.error_code || null,
+        message: output.error_message || null
       };
 
     } catch (error) {

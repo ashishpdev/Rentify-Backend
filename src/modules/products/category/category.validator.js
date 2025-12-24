@@ -71,7 +71,6 @@ const deleteCategorySchema = Joi.object({
 });
 
 const listCategoriesSchema = Joi.object({
-  // Optional filters for listing
   page: Joi.number().integer().positive().optional().default(1),
   limit: Joi.number().integer().positive().max(100).optional().default(50),
 });
@@ -80,19 +79,15 @@ class CategoryValidator {
   static validateCreateCategory(data) {
     return createCategorySchema.validate(data);
   }
-
   static validateUpdateCategory(data) {
     return updateCategorySchema.validate(data);
   }
-
   static validateGetCategory(data) {
     return getCategorySchema.validate(data);
   }
-
   static validateDeleteCategory(data) {
     return deleteCategorySchema.validate(data);
   }
-
   static validateListCategories(data) {
     return listCategoriesSchema.validate(data);
   }

@@ -1,124 +1,127 @@
-/* AFTER UPDATE */
-DROP TRIGGER IF EXISTS trg_asset_status_change;
+-- Trigger: Track asset status changes
+DROP TRIGGER IF EXISTS trg_asset_status_change$$
 CREATE TRIGGER trg_asset_status_change
 AFTER UPDATE ON asset
 FOR EACH ROW
 BEGIN
-  -- only when status actually changes (NULL-safe)
+  DECLARE v_movement_type TINYINT UNSIGNED;
+  
+  -- Only log if status actually changed
   IF NOT (OLD.product_status_id <=> NEW.product_status_id) THEN
-
-    -- insert a status-change movement into asset_movements
-    INSERT INTO asset_movements (
-      business_id,
-      branch_id,
-      product_model_id,
-      asset_id,
-      inventory_movement_type_id,
-      from_branch_id,
-      to_branch_id,
-      from_product_status_id,
-      to_product_status_id,
-      created_by,
-      note,
-      metadata
-    )
-    VALUES (
-      NEW.business_id,
-      NEW.branch_id,
-      NEW.product_model_id,
-      NEW.asset_id,
-      -- lookup STATUS_CHANGE id; ensure the row exists (seed above)
-      (SELECT inventory_movement_type_id FROM inventory_movement_type LIMIT 1),
-      NEW.branch_id,    -- status-change does not move branch; keep branch context
-      NEW.branch_id,
-      OLD.product_status_id,
-      NEW.product_status_id,
-      COALESCE(NEW.updated_by, 'system'),
-      CONCAT('Status changed from ', COALESCE(OLD.product_status_id,'NULL'), ' -> ', COALESCE(NEW.product_status_id,'NULL')),
-      JSON_OBJECT('origin','db-trigger','reason','status change via asset update')
-    );
-
+    
+    -- Get a generic movement type ID (use first available)
+    SELECT inventory_movement_type_id INTO v_movement_type
+    FROM inventory_movement_type
+    LIMIT 1;
+    
+    IF v_movement_type IS NOT NULL THEN
+      INSERT INTO asset_movements (
+        business_id,
+        branch_id,
+        product_model_id,
+        asset_id,
+        inventory_movement_type_id,
+        from_branch_id,
+        to_branch_id,
+        from_product_status_id,
+        to_product_status_id,
+        created_by,
+        note,
+        metadata
+      ) VALUES (
+        NEW.business_id,
+        NEW.branch_id,
+        NEW.product_model_id,
+        NEW.asset_id,
+        v_movement_type,
+        NEW.branch_id,
+        NEW.branch_id,
+        OLD.product_status_id,
+        NEW.product_status_id,
+        COALESCE(NEW.updated_by, 'system'),
+        CONCAT('Status changed: ', COALESCE(OLD.product_status_id, 'NULL'), ' → ', COALESCE(NEW.product_status_id, 'NULL')),
+        JSON_OBJECT(
+          'origin', 'trigger',
+          'trigger_name', 'trg_asset_status_change',
+          'old_status', OLD.product_status_id,
+          'new_status', NEW.product_status_id
+        )
+      );
+    END IF;
   END IF;
-END;
+END$$
 
-/* AFTER INSERT */
--- when a new asset row is created we should record an 'ADD' movement and update stock 
-DROP TRIGGER IF EXISTS trg_asset_after_insert;
-
-CREATE TRIGGER trg_asset_after_insert
+-- Trigger: Initialize stock when asset is created
+DROP TRIGGER IF EXISTS trg_asset_ai$$
+CREATE TRIGGER trg_asset_ai
 AFTER INSERT ON asset
 FOR EACH ROW
 BEGIN
-  DECLARE v_add_type INT DEFAULT NULL;
-
-  SELECT inventory_movement_type_id
-    INTO v_add_type
-    FROM inventory_movement_type
-    WHERE code = 'ADD'
-    LIMIT 1;
-
-  -- only proceed if the ADD movement type exists
+  DECLARE v_add_type TINYINT UNSIGNED;
+  DECLARE v_seg INT UNSIGNED;
+  DECLARE v_cat INT UNSIGNED;
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    INSERT INTO proc_error_log (proc_name, proc_args, error_message)
+    VALUES ('trg_asset_ai', JSON_OBJECT('asset_id', NEW.asset_id), 
+            'Error in asset insert trigger');
+  END;
+  
+  -- Get ADD movement type
+  SELECT inventory_movement_type_id INTO v_add_type
+  FROM inventory_movement_type
+  WHERE code = 'ADD'
+  LIMIT 1;
+  
+  -- Get segment and category
+  SELECT product_segment_id, product_category_id
+    INTO v_seg, v_cat
+    FROM product_model
+   WHERE product_model_id = NEW.product_model_id;
+  
+  IF v_seg IS NULL OR v_cat IS NULL THEN
+    SIGNAL SQLSTATE '45000' 
+    SET MESSAGE_TEXT = 'Invalid product_model for asset';
+  END IF;
+  
+  -- Log asset movement
   IF v_add_type IS NOT NULL THEN
-
     INSERT INTO asset_movements (
-      business_id,
-      branch_id,
-      product_model_id,
-      asset_id,
-      inventory_movement_type_id,
-      to_branch_id,
-      to_product_status_id,
-      created_by,
-      note,
-      metadata
+      business_id, branch_id, product_model_id, asset_id,
+      inventory_movement_type_id, to_branch_id, to_product_status_id,
+      created_by, note, metadata
     ) VALUES (
-      NEW.business_id,
-      NEW.branch_id,
-      NEW.product_model_id,
-      NEW.asset_id,
-      v_add_type,
-      NEW.branch_id,
-      NEW.product_status_id,
+      NEW.business_id, NEW.branch_id, NEW.product_model_id, NEW.asset_id,
+      v_add_type, NEW.branch_id, NEW.product_status_id,
       COALESCE(NEW.created_by, 'system'),
-      'Initial asset record created',
-      JSON_OBJECT('origin','db-trigger','action','asset create')
+      'Initial asset creation',
+      JSON_OBJECT('origin', 'trigger', 'action', 'asset_insert')
     );
-
-    UPDATE stock s
-    SET s.quantity_available = s.quantity_available + 1,
-        s.last_updated_by = COALESCE(NEW.created_by, 'system')
-    WHERE s.business_id = NEW.business_id
-      AND s.branch_id = NEW.branch_id
-      AND s.product_model_id = NEW.product_model_id;
-
-    IF ROW_COUNT() = 0 THEN
-      INSERT IGNORE INTO stock (
-        business_id, branch_id, product_segment_id, product_category_id, product_model_id,
-        quantity_available, quantity_reserved, quantity_on_rent, quantity_in_maintenance, quantity_damaged, quantity_lost,
-        created_by
-      ) VALUES (
-        NEW.business_id, NEW.branch_id, NEW.product_segment_id, NEW.product_category_id, NEW.product_model_id,
-        1, 0, 0, 0, 0, 0,
-        COALESCE(NEW.created_by, 'system')
-      );
-    END IF;
-
+    
+    -- Update stock (increment available)
+    INSERT INTO stock (
+      business_id, branch_id, product_segment_id, product_category_id, 
+      product_model_id, quantity_available, created_by
+    ) VALUES (
+      NEW.business_id, NEW.branch_id, v_seg, v_cat, NEW.product_model_id, 
+      1, COALESCE(NEW.created_by, 'system')
+    )
+    ON DUPLICATE KEY UPDATE
+      quantity_available = quantity_available + 1,
+      last_updated_by = COALESCE(NEW.created_by, 'system');
+    
+    -- Log stock movement
     INSERT INTO stock_movements (
       business_id, branch_id, product_model_id, inventory_movement_type_id,
       quantity, to_branch_id, to_product_status_id, created_by, note, metadata
     ) VALUES (
-      NEW.business_id,
-      NEW.branch_id,
-      NEW.product_model_id,
-      v_add_type,
-      1,
-      NEW.branch_id,
-      NEW.product_status_id,
+      NEW.business_id, NEW.branch_id, NEW.product_model_id, v_add_type,
+      1, NEW.branch_id, NEW.product_status_id,
       COALESCE(NEW.created_by, 'system'),
       'Stock added for new asset',
-      JSON_OBJECT('origin','db-trigger','asset_id', NEW.asset_id)
+      JSON_OBJECT('origin', 'trigger', 'asset_id', NEW.asset_id)
     );
-
   END IF;
+END$$
 
-END;
+DELIMITER ;
