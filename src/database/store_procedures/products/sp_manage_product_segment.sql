@@ -1,6 +1,6 @@
 DROP PROCEDURE IF EXISTS sp_manage_product_segment;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_segment`(
-    IN p_action INT,                        -- 1=Create,2=Update,3=Delete,4=Get Single,5=Get List
+CREATE PROCEDURE sp_manage_product_segment(
+    IN p_action INT,
     IN p_product_segment_id INT,
     IN p_business_id INT,
     IN p_branch_id INT,
@@ -8,7 +8,6 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_segment`(
     IN p_name VARCHAR(255),
     IN p_description TEXT,
     IN p_user_id INT,
-    IN p_role_id INT,
 
     OUT p_success BOOLEAN,
     OUT p_id INT,
@@ -18,279 +17,186 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_product_segment`(
 )
 proc_body: BEGIN
 
-    /* ================================================================
-       DECLARATIONS
-    ================================================================ */
-    DECLARE v_role_id INT DEFAULT NULL;
     DECLARE v_exist INT DEFAULT 0;
+    DECLARE v_has_permission BOOLEAN DEFAULT FALSE;
+    DECLARE v_perm_error_code VARCHAR(50);
+    DECLARE v_perm_error_msg VARCHAR(500);
+    DECLARE v_required_permission VARCHAR(100);
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
 
-    /* ================================================================
-       SPECIFIC ERROR HANDLER FOR FOREIGN KEY VIOLATIONS (Error 1452)
-    ================================================================ */
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
         SET p_success = FALSE;
         SET p_error_code = 'ERR_INVALID_REFERENCE';
-        SET p_error_message = 'Operation failed: Invalid Segment, Category or Model name provided.';
+        SET p_error_message = 'Invalid reference provided';
     END;
 
-    /* ================================================================
-       ERROR HANDLER
-    ================================================================ */
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
-            GET DIAGNOSTICS CONDITION v_cno
-            v_errno = MYSQL_ERRNO,
-            v_sql_state = RETURNED_SQLSTATE,
-            v_error_msg = MESSAGE_TEXT;
-        ROLLBACK;
-
-        SET p_success = FALSE;
-        IF p_error_code IS NULL THEN
-            SET p_error_code = 'ERR_SQL_EXCEPTION';
-            SET p_error_message = 'Unexpected database error occurred.';
+        IF v_cno > 0 THEN
+            GET DIAGNOSTICS CONDITION 1
+                v_errno = MYSQL_ERRNO,
+                v_sql_state = RETURNED_SQLSTATE,
+                v_error_msg = MESSAGE_TEXT;
         END IF;
+        ROLLBACK;
+        INSERT IGNORE INTO proc_error_log(proc_name, proc_args, mysql_errno, sql_state, error_message)
+        VALUES ('sp_manage_product_segment', CONCAT('action=', p_action), v_errno, v_sql_state, LEFT(v_error_msg, 2000));
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_SQL_EXCEPTION';
+        SET p_error_message = 'Database error occurred';
     END;
 
-
-    /* ================================================================
-        RESET OUTPUT PARAMETERS
-    ================================================================ */
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-
-    /* ================================================================
-       ROLE VALIDATION
-    ================================================================ */
-    SELECT role_id INTO v_role_id
-    FROM master_user
-    WHERE role_id = p_role_id
-    LIMIT 1;
-
-    IF v_role_id IS NULL THEN
-        SET p_error_code = 'ERR_ROLE_NOT_FOUND';
-        SET p_error_message = 'Role not found.';
+    IF p_user_id IS NULL OR p_user_id <= 0 THEN
+        SET p_error_code = 'ERR_INVALID_USER';
+        SET p_error_message = 'Valid user ID required';
         LEAVE proc_body;
     END IF;
 
-    /* Only Admin/Manager can modify */
-    IF p_action IN (1,2,3) AND v_role_id NOT IN (1,2,3) THEN
-        SET p_error_code = 'ERR_PERMISSION_DENIED';
-        SET p_error_message = 'User has no permission to modify product segment.';
+    -- Determine required permission
+    SET v_required_permission = CASE p_action
+        WHEN 1 THEN 'CREATE_PRODUCT_SEGMENT'
+        WHEN 2 THEN 'UPDATE_PRODUCT_SEGMENT'
+        WHEN 3 THEN 'DELETE_PRODUCT_SEGMENT'
+        WHEN 4 THEN 'READ_PRODUCT_SEGMENT'
+        WHEN 5 THEN 'READ_PRODUCT_SEGMENT'
+        ELSE NULL
+    END;
+
+    IF v_required_permission IS NULL THEN
+        SET p_error_code = 'ERR_INVALID_ACTION';
+        SET p_error_message = 'Invalid action';
         LEAVE proc_body;
     END IF;
 
+    -- Check permission
+    CALL sp_check_permission(p_user_id, v_required_permission, v_has_permission, v_perm_error_code, v_perm_error_msg);
 
+    IF NOT v_has_permission THEN
+        SET p_error_code = v_perm_error_code;
+        SET p_error_message = v_perm_error_msg;
+        LEAVE proc_body;
+    END IF;
 
-    /* ================================================================
-       ACTION 1: CREATE
-    ================================================================ */
+    -- ACTION 1: CREATE
     IF p_action = 1 THEN
-
-        -- Unique validation
         SELECT COUNT(*) INTO v_exist FROM product_segment
-        WHERE business_id = p_business_id
-          AND branch_id = p_branch_id
-          AND (code = p_code OR name = p_name);
+        WHERE business_id = p_business_id AND branch_id = p_branch_id
+          AND (code = p_code OR name = p_name) AND is_active = 1;
 
         IF v_exist > 0 THEN
             SET p_error_code='ERR_DUPLICATE';
-            SET p_error_message='Product segment code already exists.';
+            SET p_error_message='Product segment already exists';
             LEAVE proc_body;
         END IF;
 
         START TRANSACTION;
-
-        INSERT INTO product_segment (
-            business_id, branch_id, code, name, description,
-            created_by
-        )
-        VALUES (
-            p_business_id, p_branch_id, p_code, p_name, p_description,
-            p_user_id
-        );
-
+        INSERT INTO product_segment (business_id, branch_id, code, name, description, created_by, created_at, is_active)
+        VALUES (p_business_id, p_branch_id, p_code, p_name, p_description, p_user_id, UTC_TIMESTAMP(6), 1);
         SET p_id = LAST_INSERT_ID();
-
         COMMIT;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Product segment created successfully.';
+        SET p_error_message = 'Product segment created';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 2: UPDATE
-    ================================================================ */
+    -- ACTION 2: UPDATE
     IF p_action = 2 THEN
-
-        -- Check if segment exists
         SELECT COUNT(*) INTO v_exist FROM product_segment
-        WHERE product_segment_id = p_product_segment_id 
-          AND is_active = 1;
+        WHERE product_segment_id = p_product_segment_id AND is_active = 1;
 
         IF v_exist = 0 THEN
             SET p_error_code='ERR_NOT_FOUND';
-            SET p_error_message='Product segment not found or deleted.';
-            LEAVE proc_body;
-        END IF;
-
-        -- Check for duplicate code (excluding current record)
-        SELECT COUNT(*) INTO v_exist FROM product_segment
-        WHERE business_id = p_business_id
-          AND branch_id = p_branch_id
-          AND code = p_code
-          AND product_segment_id != p_product_segment_id;
-
-        IF v_exist > 0 THEN
-            SET p_error_code='ERR_DUPLICATE';
-            SET p_error_message='Product segment code already exists.';
+            SET p_error_message='Product segment not found';
             LEAVE proc_body;
         END IF;
 
         START TRANSACTION;
-
         UPDATE product_segment
-        SET
-            code = p_code,
-            name = p_name,
-            description = p_description,
-            updated_by = p_user_id,
-            updated_at = UTC_TIMESTAMP(6)
+        SET code = p_code, name = p_name, description = p_description,
+            updated_by = p_user_id, updated_at = UTC_TIMESTAMP(6)
         WHERE product_segment_id = p_product_segment_id;
-
-        IF ROW_COUNT() = 0 THEN
-            ROLLBACK;
-            SET p_error_code='ERR_NOT_FOUND';
-            SET p_error_message='Product segment not found or deleted.';
-            LEAVE proc_body;
-        END IF;
-
         COMMIT;
 
         SET p_id = p_product_segment_id;
         SET p_success=TRUE;
         SET p_error_code='SUCCESS';
-        SET p_error_message='Product segment updated successfully.';
+        SET p_error_message='Product segment updated';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 3: DELETE (Soft Delete)
-    ================================================================ */
+    -- ACTION 3: DELETE
     IF p_action = 3 THEN
-
         START TRANSACTION;
-
         UPDATE product_segment
-        SET
-            deleted_at = UTC_TIMESTAMP(6),
-            is_active = 0,
-            updated_by = p_user_id
-        WHERE product_segment_id = p_product_segment_id;
+        SET deleted_at = UTC_TIMESTAMP(6), is_active = 0, updated_by = p_user_id, updated_at = UTC_TIMESTAMP(6)
+        WHERE product_segment_id = p_product_segment_id AND is_active = 1;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
             SET p_error_code='ERR_NOT_FOUND';
-            SET p_error_message='Product segment not found or already deleted.';
+            SET p_error_message='Product segment not found';
             LEAVE proc_body;
         END IF;
-
         COMMIT;
 
         SET p_id = p_product_segment_id;
         SET p_success=TRUE;
         SET p_error_code='SUCCESS';
-        SET p_error_message='Product segment deleted successfully.';
+        SET p_error_message='Product segment deleted';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 4: GET SINGLE
-    ================================================================ */
+    -- ACTION 4: GET SINGLE
     IF p_action = 4 THEN
-
         SELECT JSON_OBJECT(
-            'product_segment_id', product_segment_id,
-            'business_id', business_id,
-            'branch_id', branch_id,
-            'code', code,
-            'name', name,
-            'description', description,
-            'created_by', created_by,
-            'created_at', created_at,
-            'updated_by', updated_by,
-            'updated_at', updated_at
+            'product_segment_id', product_segment_id, 'business_id', business_id, 'branch_id', branch_id,
+            'code', code, 'name', name, 'description', description,
+            'created_by', created_by, 'created_at', created_at
         )
-        INTO p_data
-        FROM product_segment
-        WHERE product_segment_id = p_product_segment_id 
-            AND is_active = 1
-        LIMIT 1;
+        INTO p_data FROM product_segment
+        WHERE product_segment_id = p_product_segment_id AND is_active = 1 LIMIT 1;
 
         IF p_data IS NULL THEN
             SET p_error_code='ERR_NOT_FOUND';
-            SET p_error_message='Product segment not found.';
+            SET p_error_message='Product segment not found';
             LEAVE proc_body;
         END IF;
 
         SET p_success=TRUE;
         SET p_id=p_product_segment_id;
         SET p_error_code='SUCCESS';
-        SET p_error_message='Product segment fetched successfully.';
+        SET p_error_message='Product segment retrieved';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 5: GET ALL LIST
-    ================================================================ */
+    -- ACTION 5: GET LIST
     IF p_action=5 THEN
-
-        SELECT JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'product_segment_id', product_segment_id,
-                'code', code,
-                'name', name,
-                'description', description,
-                'created_at', created_at
-            )
-        )
-        INTO p_data
-        FROM product_segment
-        WHERE business_id=p_business_id
-          AND branch_id=p_branch_id
-          and is_active = 1
+        SELECT JSON_ARRAYAGG(JSON_OBJECT(
+            'product_segment_id', product_segment_id, 'code', code, 'name', name,
+            'description', description, 'created_at', created_at
+        ))
+        INTO p_data FROM product_segment
+        WHERE business_id=p_business_id AND branch_id=p_branch_id AND is_active = 1
         ORDER BY created_at DESC;
 
         SET p_success=TRUE;
         SET p_error_code='SUCCESS';
-        SET p_error_message='Product segment list fetched.';
+        SET p_error_message='Product segments retrieved';
         LEAVE proc_body;
     END IF;
-
-
-
-    /* INVALID ACTION */
-    SET p_error_code='ERR_INVALID_ACTION';
-    SET p_error_message='Invalid action number provided.';
 
 END;

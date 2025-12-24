@@ -44,9 +44,9 @@ CREATE TABLE schema_version (
 INSERT INTO schema_version (version_number, description, applied_by, checksum) 
 VALUES ('1.0.0', 'Initial version with basic rental management features', 'system', SHA2('v1.0', 256));
 
--- =========================================================
--- MASTER ENUM TABLES
--- =========================================================
+-- ========================================================
+  /* MASTER ENUM TABLES */
+-- ========================================================
 
 CREATE TABLE master_business_status (
     master_business_status_id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -536,7 +536,7 @@ INSERT INTO master_otp_status (code, name, is_terminal, created_at) VALUES
 ON DUPLICATE KEY UPDATE name=VALUES(name);
 
 -- =========================================================
-    /* SEED PRODUCT/ASSET ENUM */
+    /* SEED ENUM */
 -- =========================================================
 
 -- Product Status
@@ -871,3 +871,138 @@ INSERT INTO order_progress_stage (code, name, description, sequence_order) VALUE
 ('COMPLETED',           'Completed',            'Order process completed successfully',        80),
 ('CANCELLED',           'Cancelled',            'Order has been cancelled',                     90)
 ON DUPLICATE KEY UPDATE name=VALUES(name), description=VALUES(description), sequence_order=VALUES(sequence_order);
+
+-- ============================================
+  /* INSERT MASTER PERMISSIONS */
+-- ============================================
+INSERT INTO master_permission (code, name, module, action, description) VALUES
+-- Business Module
+('CREATE_BUSINESS', 'Create Business', 'BUSINESS', 'CREATE', 'Create new business entity'),
+('READ_BUSINESS', 'View Business', 'BUSINESS', 'READ', 'View business details'),
+('UPDATE_BUSINESS', 'Update Business', 'BUSINESS', 'UPDATE', 'Update business information'),
+('DELETE_BUSINESS', 'Delete Business', 'BUSINESS', 'DELETE', 'Delete/deactivate business'),
+('MANAGE_BUSINESS', 'Manage Business', 'BUSINESS', 'MANAGE', 'Full business management rights'),
+-- Owner Module
+('CREATE_OWNER', 'Create Owner', 'OWNER', 'CREATE', 'Create new business owner'),
+('READ_OWNER', 'View Owner', 'OWNER', 'READ', 'View owner details'),
+('UPDATE_OWNER', 'Update Owner', 'OWNER', 'UPDATE', 'Update owner information'),
+('DELETE_OWNER', 'Delete Owner', 'OWNER', 'DELETE', 'Delete/deactivate owner'),
+('MANAGE_OWNER', 'Manage Owner', 'OWNER', 'MANAGE', 'Full owner management rights'),
+-- Product Segment Module
+('CREATE_PRODUCT_SEGMENT', 'Create Product Segment', 'PRODUCT_SEGMENT', 'CREATE', 'Create product segment'),
+('READ_PRODUCT_SEGMENT', 'View Product Segment', 'PRODUCT_SEGMENT', 'READ', 'View product segment'),
+('UPDATE_PRODUCT_SEGMENT', 'Update Product Segment', 'PRODUCT_SEGMENT', 'UPDATE', 'Update product segment'),
+('DELETE_PRODUCT_SEGMENT', 'Delete Product Segment', 'PRODUCT_SEGMENT', 'DELETE', 'Delete product segment'),
+('MANAGE_PRODUCT_SEGMENT', 'Manage Product Segment', 'PRODUCT_SEGMENT', 'MANAGE', 'Full product segment management'),
+-- Product Category Module
+('CREATE_PRODUCT_CATEGORY', 'Create Product Category', 'PRODUCT_CATEGORY', 'CREATE', 'Create product category'),
+('READ_PRODUCT_CATEGORY', 'View Product Category', 'PRODUCT_CATEGORY', 'READ', 'View product category'),
+('UPDATE_PRODUCT_CATEGORY', 'Update Product Category', 'PRODUCT_CATEGORY', 'UPDATE', 'Update product category'),
+('DELETE_PRODUCT_CATEGORY', 'Delete Product Category', 'PRODUCT_CATEGORY', 'DELETE', 'Delete product category'),
+('MANAGE_PRODUCT_CATEGORY', 'Manage Product Category', 'PRODUCT_CATEGORY', 'MANAGE', 'Full category management'),
+-- Product Model Module
+('CREATE_PRODUCT_MODEL', 'Create Product Model', 'PRODUCT_MODEL', 'CREATE', 'Create product model'),
+('READ_PRODUCT_MODEL', 'View Product Model', 'PRODUCT_MODEL', 'READ', 'View product model'),
+('UPDATE_PRODUCT_MODEL', 'Update Product Model', 'PRODUCT_MODEL', 'UPDATE', 'Update product model'),
+('DELETE_PRODUCT_MODEL', 'Delete Product Model', 'PRODUCT_MODEL', 'DELETE', 'Delete product model'),
+('MANAGE_PRODUCT_MODEL', 'Manage Product Model', 'PRODUCT_MODEL', 'MANAGE', 'Full model management'),
+-- Product Model Images Module
+('CREATE_PRODUCT_IMAGE', 'Upload Product Image', 'PRODUCT_IMAGE', 'CREATE', 'Upload product images'),
+('READ_PRODUCT_IMAGE', 'View Product Image', 'PRODUCT_IMAGE', 'READ', 'View product images'),
+('UPDATE_PRODUCT_IMAGE', 'Update Product Image', 'PRODUCT_IMAGE', 'UPDATE', 'Update product images'),
+('DELETE_PRODUCT_IMAGE', 'Delete Product Image', 'PRODUCT_IMAGE', 'DELETE', 'Delete product images'),
+('MANAGE_PRODUCT_IMAGE', 'Manage Product Image', 'PRODUCT_IMAGE', 'MANAGE', 'Full image management'),
+-- User Management
+('CREATE_USER', 'Create User', 'USER', 'CREATE', 'Create new user'),
+('READ_USER', 'View User', 'USER', 'READ', 'View user details'),
+('UPDATE_USER', 'Update User', 'USER', 'UPDATE', 'Update user information'),
+('DELETE_USER', 'Delete User', 'USER', 'DELETE', 'Delete/deactivate user'),
+('MANAGE_USER', 'Manage User', 'USER', 'MANAGE', 'Full user management rights'),
+-- Session Management
+('MANAGE_SESSION', 'Manage Sessions', 'SESSION', 'MANAGE', 'Manage user sessions'),
+-- OTP Management
+('MANAGE_OTP', 'Manage OTP', 'OTP', 'MANAGE', 'Manage OTP generation and verification');
+
+-- ============================================
+  /* ASSIGN PERMISSIONS TO ROLES */
+-- ============================================
+
+-- SUPER_ADMIN - Full Platform Access to Everything
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'SUPER_ADMIN'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1;
+
+-- OWNER - Full Access to All Business Operations
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'OWNER'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1;
+
+-- ADMIN - Full Access Except Owner Management
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'ADMIN'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1
+  AND code NOT LIKE '%_OWNER';
+
+-- MANAGER - Product, Category and User Management
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'MANAGER'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1
+  AND (
+    code LIKE 'MANAGE_PRODUCT_%'
+    OR code LIKE 'CREATE_PRODUCT_%'
+    OR code LIKE 'UPDATE_PRODUCT_%'
+    OR code LIKE 'DELETE_PRODUCT_%'
+    OR code LIKE 'READ_PRODUCT_%'
+    OR code IN (
+      'READ_BUSINESS',
+      'READ_USER',
+      'CREATE_USER',
+      'UPDATE_USER',
+      'MANAGE_SESSION',
+      'MANAGE_OTP'
+    )
+  );
+
+-- STAFF - Basic Operational Access (Read + Some Create)
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'STAFF'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1
+  AND (
+    action = 'READ'
+    OR code IN (
+      'CREATE_PRODUCT_MODEL',
+      'UPDATE_PRODUCT_MODEL',
+      'MANAGE_SESSION',
+      'MANAGE_OTP'
+    )
+  );
+
+-- VIEWER - Read-Only Access
+INSERT INTO role_permission (role_id, permission_id, is_granted)
+SELECT
+  (SELECT master_role_type_id FROM master_role_type WHERE code = 'VIEWER'),
+  master_permission_id,
+  1
+FROM master_permission
+WHERE is_active = 1
+  AND action = 'READ';
