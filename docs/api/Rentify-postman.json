@@ -1375,6 +1375,26 @@
             "description": "Handler: controller.delete\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
           },
           "response": []
+        },
+        {
+          "name": "POST /api/drive/upload-invoice",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/drive/upload-invoice",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "drive",
+                "upload-invoice"
+              ]
+            },
+            "description": "Handler: controller.uploadInvoicePdf\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": []
         }
       ]
     },
@@ -1585,6 +1605,119 @@
           },
           "response": [],
           "_fieldDesc": "Fields (required vs optional):\n- rental_id: number (required) — example: 123\n- end_date: any (required) — example: null\n- notes: string (optional) — example: null"
+        }
+      ]
+    },
+    {
+      "name": "Device",
+      "item": [
+        {
+          "name": "POST /api/device/system-info",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/device/system-info",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "device",
+                "system-info"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: DeviceController.getSystemInfo\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- device_id: string (required) — example: \"string\""
+        },
+        {
+          "name": "POST /api/device/location",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/device/location",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "device",
+                "location"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: DeviceController.getLocation\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- device_id: string (required) — example: \"string\""
+        },
+        {
+          "name": "POST /api/device/full-report",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/device/full-report",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "device",
+                "full-report"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_id\": \"string\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Handler: DeviceController.getFullReport\n🔒 Protected endpoint - Requires session_token and access_token cookies (set automatically on login)"
+          },
+          "response": [],
+          "_fieldDesc": "Fields (required vs optional):\n- device_id: string (required) — example: \"string\""
         }
       ]
     }
