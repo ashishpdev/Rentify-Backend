@@ -2,13 +2,71 @@
 const db = require("../../database/connection");
 
 class AuthRepository {
+  
+  // ========================= PERMISSION CHECKING =========================
+  /**
+   * Check if user has specific permission
+   */
+  async checkPermission(userId, permissionCode) {
+    try {
+      await db.executeSP(
+        `CALL sp_check_permission(?, ?, @p_has_permission, @p_error_code, @p_error_message)`,
+        [userId, permissionCode]
+      );
+
+      const output = await db.executeSelect(`
+        SELECT @p_has_permission AS has_permission,
+               @p_error_code AS error_code,
+               @p_error_message AS error_message
+      `);
+
+      return {
+        hasPermission: !!output.has_permission,
+        errorCode: output.error_code,
+        errorMessage: output.error_message,
+      };
+    } catch (error) {
+      throw new Error(`Permission check failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get all permissions for a user
+   */
+  async getUserPermissions(userId) {
+    try {
+      const query = `
+        SELECT DISTINCT
+          mp.master_permission_id as permission_id,
+          mp.code,
+          mp.name,
+          mp.module,
+          mp.action
+        FROM master_user u
+        JOIN role_permission rp ON u.role_id = rp.role_id
+        JOIN master_permission mp ON rp.permission_id = mp.master_permission_id
+        WHERE u.master_user_id = ?
+          AND u.is_active = 1
+          AND u.deleted_at IS NULL
+          AND rp.is_granted = 1
+          AND mp.is_active = 1
+        ORDER BY mp.module, mp.action
+      `;
+
+      const permissions = await db.executeSelect(query, [userId]);
+      return permissions || [];
+    } catch (error) {
+      throw new Error(`Failed to get user permissions: ${error.message}`);
+    }
+  }
+
   // ========================= OTP MANAGEMENT =========================
   async saveOTP(otpData) {
     try {
       await db.executeSP(
         `CALL sp_manage_otp(?, ?, ?, ?, ?, ?, ?, @p_success, @p_id, @p_expires_at, @p_error_code, @p_error_message)`,
         [
-          1, // action: 1=Create
+          1,
           otpData.targetIdentifier,
           otpData.otpCodeHash,
           otpData.otp_type_id,
@@ -122,6 +180,9 @@ class AuthRepository {
         throw new Error(output.error_message || "Login failed");
       }
 
+      // Get user permissions
+      const permissions = await this.getUserPermissions(output.user_id);
+
       return {
         user_id: output.user_id,
         business_id: output.business_id,
@@ -134,15 +195,13 @@ class AuthRepository {
         branch_name: output.branch_name,
         role_name: output.role_name,
         is_owner: !!output.is_owner,
+        permissions: permissions.map(p => p.code), // Array of permission codes
       };
     } catch (error) {
       throw new Error(`Failed to login: ${error.message}`);
     }
   }
 
-  /**
-   * FIXED: Get user credentials using stored procedure
-   */
   async getUserCredentials(email) {
     try {
       await db.executeSP(
@@ -191,9 +250,6 @@ class AuthRepository {
     }
   }
 
-  /**
-   * FIXED: Update last login using stored procedure
-   */
   async updateLastLogin(userId, ipAddress = null) {
     try {
       await db.executeSP(
@@ -231,7 +287,7 @@ class AuthRepository {
         `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
          @p_success, @p_session_id, @p_error_code, @p_error_message)`,
         [
-          1, // action: 1=Create
+          1,
           userId,
           sessionToken,
           deviceId,
@@ -266,7 +322,7 @@ class AuthRepository {
         `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
          @p_success, @p_session_id, @p_error_code, @p_error_message)`,
         [
-          2, // action: 2=Update
+          2,
           userId,
           newSessionToken,
           null,
@@ -303,7 +359,7 @@ class AuthRepository {
         `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
          @p_success, @p_session_id, @p_error_code, @p_error_message)`,
         [
-          3, // action: 3=Delete
+          3,
           userId,
           sessionToken,
           null,
@@ -334,10 +390,6 @@ class AuthRepository {
   }
 
   // ========================= PASSWORD MANAGEMENT =========================
-  
-  /**
-   * FIXED: Get stored password hash using stored procedure
-   */
   async getStoredPasswordHash(userId) {
     try {
       await db.executeSP(
@@ -363,9 +415,6 @@ class AuthRepository {
     }
   }
 
-  /**
-   * FIXED: Update password hash using stored procedure
-   */
   async updatePasswordHash(userId, newPasswordHash, updatedBy) {
     try {
       await db.executeSP(
@@ -388,12 +437,8 @@ class AuthRepository {
     }
   }
 
-  /**
-   * FIXED: Reset password with OTP using stored procedures
-   */
   async resetPasswordWithOTP(email, newPasswordHash, updatedBy) {
     try {
-      // Step 1: Get user by email
       await db.executeSP(
         `CALL sp_get_user_by_email(?, @p_user_id, @p_is_active, @p_error_code, @p_error_message)`,
         [email]
@@ -412,7 +457,6 @@ class AuthRepository {
         throw new Error('Account is inactive');
       }
 
-      // Step 2: Update password
       await db.executeSP(
         `CALL sp_update_password_hash(?, ?, ?, @p_success, @p_error_code, @p_error_message)`,
         [userOutput.user_id, newPasswordHash, updatedBy]
