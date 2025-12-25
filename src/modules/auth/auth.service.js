@@ -280,10 +280,7 @@ class AuthService {
       }
 
       // Step 4: Update last login
-      await authRepository.updateLastLogin(
-        userCredentials.user_id,
-        ipAddress
-      );
+      await authRepository.updateLastLogin(userCredentials.user_id, ipAddress);
 
       // Step 5: Generate session token
       const sessionTokenData = {
@@ -417,7 +414,7 @@ class AuthService {
   }
 
   // ========================= PASSWORD MANAGEMENT =========================
-  
+
   /**
    * FIXED: Change password with bcrypt verification
    */
@@ -426,7 +423,7 @@ class AuthService {
       // Step 1: Validate new password strength
       const validation = PasswordUtil.validatePasswordStrength(newPassword);
       if (!validation.isValid) {
-        throw new ValidationError(validation.errors.join(', '));
+        throw new ValidationError(validation.errors.join(", "));
       }
 
       // Step 2: Get stored password hash
@@ -498,7 +495,7 @@ class AuthService {
       // Step 1: Validate password strength
       const validation = PasswordUtil.validatePasswordStrength(newPassword);
       if (!validation.isValid) {
-        throw new ValidationError(validation.errors.join(', '));
+        throw new ValidationError(validation.errors.join(", "));
       }
 
       // Step 2: Verify OTP (this consumes the OTP)
@@ -513,17 +510,14 @@ class AuthService {
       const newPasswordHash = await PasswordUtil.hashPassword(newPassword);
 
       // Step 4: Update password
-      await authRepository.resetPasswordWithOTP(
-        email,
-        newPasswordHash,
-        email
-      );
+      await authRepository.resetPasswordWithOTP(email, newPasswordHash, email);
 
       logger.info("Password reset successfully", { email });
 
       return {
         success: true,
-        message: "Password reset successfully. Please login with your new password.",
+        message:
+          "Password reset successfully. Please login with your new password.",
       };
     } catch (error) {
       logger.error("AuthService.resetPassword error", {
