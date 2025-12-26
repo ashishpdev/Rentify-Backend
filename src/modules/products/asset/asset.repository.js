@@ -4,30 +4,60 @@ const logger = require("../../../config/logger.config");
 class AssetRepository {
   async manageAsset(params) {
     try {
-      // Call Stored Procedure
+      // Call Stored Procedure - Exactly 35 IN parameters
       await db.executeSP(
-        `CALL sp_manage_asset(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 
-          @p_success, @p_id, @p_data, @p_error_code, @p_error_message)`,
+        `CALL sp_manage_asset(
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?,
+          @p_success, @p_id, @p_data, @p_error_code, @p_error_message
+        )`,
         [
+          // 1-5: Core identifiers
           params.action,
           params.assetId,
           params.businessId,
           params.branchId,
-          params.productSegmentId,
-          params.productCategoryId,
           params.productModelId,
+          
+          // 6-9: Basic asset info
           params.serialNumber,
+          params.assetTag,
           params.productStatusId,
           params.productConditionId,
-          params.purchasePrice,
-          params.purchaseDate,
-          params.currentValue,
+          
+          // 10-17: Pricing and source
           params.rentPrice,
-          params.depositAmount,
+          params.sellPrice,
           params.sourceTypeId,
           params.borrowedFromBusinessName,
           params.borrowedFromBranchName,
-          params.purchaseBillUrl,
+          params.purchaseDate,
+          params.purchasePrice,
+          params.currentValue,
+          
+          // 18-25: Asset-specific fields
+          params.upperBodyMeasurement,
+          params.lowerBodyMeasurement,
+          params.sizeRange,
+          params.colorName,
+          params.fabricType,
+          params.movementCategory,
+          params.manufacturingDate,
+          params.manufacturingCost,
+          
+          // 26-33: Detailed measurements
+          params.chestCm,
+          params.waistCm,
+          params.hipCm,
+          params.shoulderCm,
+          params.sleeveLengthCm,
+          params.lengthCm,
+          params.inseamCm,
+          params.neckCm,
+          
+          // 34-35: User context
           params.userId,
           params.roleId,
         ]
