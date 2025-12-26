@@ -2,7 +2,6 @@
 const db = require("../../database/connection");
 
 class AuthRepository {
-  
   // ========================= PERMISSION CHECKING =========================
   /**
    * Check if user has specific permission
@@ -35,26 +34,13 @@ class AuthRepository {
    */
   async getUserPermissions(userId) {
     try {
-      const query = `
-        SELECT DISTINCT
-          mp.master_permission_id as permission_id,
-          mp.code,
-          mp.name,
-          mp.module,
-          mp.action
-        FROM master_user u
-        JOIN role_permission rp ON u.role_id = rp.role_id
-        JOIN master_permission mp ON rp.permission_id = mp.master_permission_id
-        WHERE u.master_user_id = ?
-          AND u.is_active = 1
-          AND u.deleted_at IS NULL
-          AND rp.is_granted = 1
-          AND mp.is_active = 1
-        ORDER BY mp.module, mp.action
-      `;
+      const [rows] = await db.executeSP(`CALL sp_get_user_permissions(?)`, [
+        userId,
+      ]);
 
-      const permissions = await db.executeSelect(query, [userId]);
-      return permissions || [];
+      // First element of rows contains the result set from SP
+      const permissions = rows[0] || [];
+      return permissions;
     } catch (error) {
       throw new Error(`Failed to get user permissions: ${error.message}`);
     }
@@ -195,7 +181,7 @@ class AuthRepository {
         branch_name: output.branch_name,
         role_name: output.role_name,
         is_owner: !!output.is_owner,
-        permissions: permissions.map(p => p.code), // Array of permission codes
+        permissions: permissions.map((p) => p.code), // Array of permission codes
       };
     } catch (error) {
       throw new Error(`Failed to login: ${error.message}`);
@@ -321,16 +307,7 @@ class AuthRepository {
       await db.executeSP(
         `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
          @p_success, @p_session_id, @p_error_code, @p_error_message)`,
-        [
-          2,
-          userId,
-          newSessionToken,
-          null,
-          null,
-          null,
-          null,
-          newExpiryAt,
-        ]
+        [2, userId, newSessionToken, null, null, null, null, newExpiryAt]
       );
 
       const output = await db.executeSelect(`
@@ -358,16 +335,7 @@ class AuthRepository {
       await db.executeSP(
         `CALL sp_manage_session(?, ?, ?, ?, ?, ?, ?, ?, 
          @p_success, @p_session_id, @p_error_code, @p_error_message)`,
-        [
-          3,
-          userId,
-          sessionToken,
-          null,
-          null,
-          null,
-          null,
-          null,
-        ]
+        [3, userId, sessionToken, null, null, null, null, null]
       );
 
       const output = await db.executeSelect(`
@@ -450,11 +418,11 @@ class AuthRepository {
       `);
 
       if (!userOutput.user_id) {
-        throw new Error(userOutput.error_message || 'User not found');
+        throw new Error(userOutput.error_message || "User not found");
       }
 
       if (!userOutput.is_active) {
-        throw new Error('Account is inactive');
+        throw new Error("Account is inactive");
       }
 
       await db.executeSP(
@@ -468,7 +436,9 @@ class AuthRepository {
       `);
 
       if (!(updateOutput.success == 1)) {
-        throw new Error(`${updateOutput.error_code}: ${updateOutput.error_message}`);
+        throw new Error(
+          `${updateOutput.error_code}: ${updateOutput.error_message}`
+        );
       }
 
       return { success: true, userId: userOutput.user_id };

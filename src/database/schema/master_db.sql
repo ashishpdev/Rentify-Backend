@@ -126,21 +126,20 @@ CREATE TABLE master_branch (
 DROP TABLE IF EXISTS master_permission;
 CREATE TABLE master_permission (
     master_permission_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    code VARCHAR(100) NOT NULL UNIQUE COMMENT 'Unique permission code like CREATE_BUSINESS, UPDATE_PRODUCT',
-    name VARCHAR(255) NOT NULL COMMENT 'Human readable name',
-    module VARCHAR(100) NOT NULL COMMENT 'Module/Resource this permission applies to',
-    action VARCHAR(50) NOT NULL COMMENT 'Action type: CREATE, READ, UPDATE, DELETE, MANAGE',
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    module VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
     description TEXT,
     is_active TINYINT(1) DEFAULT 1,
-    created_at DATETIME(6) DEFAULT UTC_TIMESTAMP(6),
-    updated_at DATETIME(6) DEFAULT UTC_TIMESTAMP(6) ON UPDATE UTC_TIMESTAMP(6),
+    created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     
     INDEX idx_module (module),
     INDEX idx_action (action),
     INDEX idx_code (code),
     INDEX idx_active (is_active)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-COMMENT='Master permissions table - defines all available permissions';
+) ENGINE=InnoDB;
 
 CREATE TABLE master_user (
     master_user_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -195,8 +194,8 @@ CREATE TABLE role_permission (
     role_id TINYINT UNSIGNED NOT NULL,
     permission_id INT UNSIGNED NOT NULL,
     is_granted TINYINT(1) DEFAULT 1 COMMENT 'Whether permission is granted or explicitly denied',
-    created_at DATETIME(6) DEFAULT UTC_TIMESTAMP(6),
-    updated_at DATETIME(6) DEFAULT UTC_TIMESTAMP(6) ON UPDATE UTC_TIMESTAMP(6),
+    created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     
     UNIQUE KEY uq_role_permission (role_id, permission_id),
     FOREIGN KEY fk_role (role_id) REFERENCES master_role_type(master_role_type_id) ON DELETE CASCADE,
