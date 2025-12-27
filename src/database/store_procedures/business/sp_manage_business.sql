@@ -1,13 +1,13 @@
 DROP PROCEDURE IF EXISTS sp_manage_business;
-CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_business`(
-    IN  p_action INT,                      -- 1=Create, 2=Update, 3=Delete, 4=Get Single
+CREATE PROCEDURE sp_manage_business(
+    IN  p_action INT,
     IN  p_business_id INT,
     IN  p_business_name VARCHAR(255),
     IN  p_business_email VARCHAR(255),
     IN  p_contact_person VARCHAR(255),
     IN  p_contact_number VARCHAR(50),
     IN  p_status_code VARCHAR(100),
-    IN  p_created_by VARCHAR(255),
+    IN  p_user_id INT,                        -- Changed from p_created_by to p_user_id
 
     OUT p_success BOOLEAN,
     OUT p_id INT,
@@ -17,271 +17,186 @@ CREATE DEFINER=`u130079017_rentaldb`@`%` PROCEDURE `sp_manage_business`(
 )
 proc_body: BEGIN
 
-    /* ================================================================
-       DECLARATIONS
-       ================================================================ */
     DECLARE v_business_status_id INT DEFAULT NULL;
     DECLARE v_existing_business INT DEFAULT 0;
     DECLARE v_subscription_type_id INT DEFAULT NULL;
     DECLARE v_subscription_status_id INT DEFAULT NULL;
     DECLARE v_billing_cycle_id INT DEFAULT NULL;
-    DECLARE v_user_role_id INT DEFAULT NULL;
+    
+    -- Permission checking variables
+    DECLARE v_has_permission BOOLEAN DEFAULT FALSE;
+    DECLARE v_perm_error_code VARCHAR(50);
+    DECLARE v_perm_error_msg VARCHAR(500);
+    DECLARE v_required_permission VARCHAR(100);
+    
     DECLARE v_cno INT DEFAULT 0;
     DECLARE v_errno INT DEFAULT 0;
     DECLARE v_sql_state CHAR(5) DEFAULT '00000';
     DECLARE v_error_msg TEXT;
-    DECLARE p_subscription_end_date DATETIME DEFAULT NULL;
-    DECLARE p_subscription_start_date DATETIME DEFAULT NULL;
 
-    -- =============================================
-    -- Exception Handling
-    -- =============================================
-    
-    -- Specific Handler: Foreign Key Violation
     DECLARE EXIT HANDLER FOR 1452
     BEGIN
         ROLLBACK;
-        SET p_error_message = 'Foreign key violation (likely missing reference).';
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_INVALID_REFERENCE';
+        SET p_error_message = 'Foreign key violation.';
     END;
 
-    -- Specific Handler: Duplicate Key
     DECLARE EXIT HANDLER FOR 1062
     BEGIN
         ROLLBACK;
-        SET p_error_message = 'Duplicate key error (unique constraint).';
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_DUPLICATE';
+        SET p_error_message = 'Duplicate entry detected.';
     END;
 
-    -- Generic Handler: SQLEXCEPTION
     DECLARE EXIT HANDLER FOR SQLEXCEPTION
     BEGIN
         GET DIAGNOSTICS v_cno = NUMBER;
         IF v_cno > 0 THEN
             GET DIAGNOSTICS CONDITION 1
-                v_errno     = MYSQL_ERRNO,
+                v_errno = MYSQL_ERRNO,
                 v_sql_state = RETURNED_SQLSTATE,
                 v_error_msg = MESSAGE_TEXT;
-        ELSE
-            SET v_errno = NULL;
-            SET v_sql_state = NULL;
-            SET v_error_msg = 'No diagnostics available';
         END IF;
-
         ROLLBACK;
-
-        -- -> use the single robust logging proc instead of a direct INSERT
-        CALL sp_log_proc_error(
-            'sp_manage_business',
-            CONCAT('p_business_email=', LEFT(p_business_email,200), ', p_created_by=', IFNULL(p_created_by,'NULL')),
-            v_errno,
-            v_sql_state,
-            LEFT(v_error_msg,2000)
-        );
-
-        SET p_error_message = CONCAT(
-            'Error logged (errno=', IFNULL(CAST(v_errno AS CHAR), '?'),
-            ', sqlstate=', IFNULL(v_sql_state, '?'), '). See proc_error_log.'
-        );
+        INSERT IGNORE INTO proc_error_log(proc_name, proc_args, mysql_errno, sql_state, error_message)
+        VALUES ('sp_manage_business', CONCAT('action=', p_action, ', user_id=', p_user_id), 
+                v_errno, v_sql_state, LEFT(v_error_msg, 2000));
+        SET p_success = FALSE;
+        SET p_error_code = 'ERR_SQL_EXCEPTION';
+        SET p_error_message = 'Database error occurred';
     END;
 
-
-    /* ================================================================
-       RESET OUTPUT PARAMETERS
-       ================================================================ */
+    -- Reset outputs
     SET p_success = FALSE;
     SET p_id = NULL;
     SET p_data = NULL;
     SET p_error_code = NULL;
     SET p_error_message = NULL;
 
-
-
-    /* ================================================================
-       VALIDATE USER ROLE FOR UPDATE / DELETE
-       ================================================================ */
-    IF p_action IN (2,3) THEN
-
-        SELECT role_id INTO v_user_role_id
-        FROM master_user
-        WHERE email = p_created_by
-        LIMIT 1;
-
-        IF v_user_role_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_ROLE';
-            SET p_error_message = 'Unauthorized user: Role not found.';
-            LEAVE proc_body;
-        END IF;
-
-        IF v_user_role_id != 1 THEN
-            SET p_error_code = 'ERR_PERMISSION_DENIED';
-            SET p_error_message = 'You are not allowed to modify business records.';
-            LEAVE proc_body;
-        END IF;
-
+    -- Validate user_id
+    IF p_user_id IS NULL OR p_user_id <= 0 THEN
+        SET p_error_code = 'ERR_INVALID_USER';
+        SET p_error_message = 'Valid user ID is required';
+        LEAVE proc_body;
     END IF;
 
+    -- Determine required permission based on action
+    SET v_required_permission = CASE p_action
+        WHEN 1 THEN 'CREATE_BUSINESS'
+        WHEN 2 THEN 'UPDATE_BUSINESS'
+        WHEN 3 THEN 'DELETE_BUSINESS'
+        WHEN 4 THEN 'READ_BUSINESS'
+        ELSE NULL
+    END;
 
+    IF v_required_permission IS NULL THEN
+        SET p_error_code = 'ERR_INVALID_ACTION';
+        SET p_error_message = 'Invalid action specified';
+        LEAVE proc_body;
+    END IF;
 
-    /* ================================================================
-       ACTION 1: CREATE BUSINESS
-       ================================================================ */
+    -- Check permission
+    CALL sp_check_permission(
+        p_user_id,
+        v_required_permission,
+        v_has_permission,
+        v_perm_error_code,
+        v_perm_error_msg
+    );
+
+    IF NOT v_has_permission THEN
+        SET p_error_code = v_perm_error_code;
+        SET p_error_message = v_perm_error_msg;
+        LEAVE proc_body;
+    END IF;
+
+    -- ACTION 1: CREATE
     IF p_action = 1 THEN
-
-        /* Fetch ACTIVE status ID */
+        
         SELECT master_business_status_id INTO v_business_status_id
-        FROM master_business_status
-        WHERE code = 'ACTIVE' 
-        LIMIT 1;
+        FROM master_business_status WHERE code = 'ACTIVE' LIMIT 1;
 
-        /* Fetch TRIAL subscription type */
         SELECT master_subscription_type_id INTO v_subscription_type_id
-        FROM master_subscription_type
-        WHERE code = 'TRIAL'
-        LIMIT 1;
+        FROM master_subscription_type WHERE code = 'TRIAL' LIMIT 1;
 
-        /* Fetch ACTIVE subscription status */
         SELECT master_subscription_status_id INTO v_subscription_status_id
-        FROM master_subscription_status
-        WHERE code = 'ACTIVE' 
-        LIMIT 1;
+        FROM master_subscription_status WHERE code = 'ACTIVE' LIMIT 1;
 
-        /* Fetch MONTHLY billing cycle */
         SELECT master_billing_cycle_id INTO v_billing_cycle_id
-        FROM master_billing_cycle
-        WHERE code = 'MONTHLY' 
-        LIMIT 1;
+        FROM master_billing_cycle WHERE code = 'MONTHLY' LIMIT 1;
 
-        /* Ensure required foreign key references exist */
-        IF v_business_status_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_STATUS';
-            SET p_error_message = 'Business status ACTIVE not found.';
+        IF v_business_status_id IS NULL OR v_subscription_type_id IS NULL OR 
+           v_subscription_status_id IS NULL OR v_billing_cycle_id IS NULL THEN
+            SET p_error_code = 'ERR_MISSING_REFERENCES';
+            SET p_error_message = 'Required reference data not found';
             LEAVE proc_body;
         END IF;
 
-        IF v_subscription_type_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_SUBSCRIPTION';
-            SET p_error_message = 'Subscription type TRIAL not found.';
-            LEAVE proc_body;
-        END IF;
-
-        IF v_subscription_status_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_SUBSCRIPTION_STATUS';
-            SET p_error_message = 'Subscription status ACTIVE not found.';
-            LEAVE proc_body;
-        END IF;
-
-        IF v_billing_cycle_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_BILLING_CYCLE';
-            SET p_error_message = 'Billing cycle MONTHLY not found.';
-            LEAVE proc_body;
-        END IF;
-
-        /* Check duplicate email */
         SELECT COUNT(*) INTO v_existing_business
-        FROM master_business
-        WHERE email = p_business_email;
+        FROM master_business WHERE email = p_business_email;
 
         IF v_existing_business > 0 THEN
             SET p_error_code = 'ERR_EMAIL_EXISTS';
-            SET p_error_message = 'Business email already exists.';
+            SET p_error_message = 'Business email already exists';
             LEAVE proc_body;
         END IF;
 
-        /* Log duplicate email issue */
-        IF v_existing_business > 0 THEN
-            INSERT INTO proc_error_log(proc_name, proc_args, error_message)
-            VALUES (
-                'sp_manage_business',
-                CONCAT('Duplicate email: ', p_business_email),
-                'Unique constraint violation: uq_business_email'
-            );
-        END IF;
-
-        /* Log subscription date issues */
-        IF p_subscription_end_date IS NOT NULL AND p_subscription_end_date < p_subscription_start_date THEN
-            INSERT INTO proc_error_log(proc_name, proc_args, error_message)
-            VALUES (
-                'sp_manage_business',
-                CONCAT('Invalid subscription dates: start=', p_subscription_start_date, ', end=', p_subscription_end_date),
-                'Check constraint violation: chk_business_dates'
-            );
-        END IF;
-
-        /* Insert business */
         START TRANSACTION;
 
         INSERT INTO master_business (
             business_name, email, contact_person, contact_number,
             status_id, subscription_type_id, subscription_status_id, billing_cycle_id,
-            created_by
+            created_by, created_at
         )
         VALUES (
             p_business_name, p_business_email, p_contact_person, p_contact_number,
             v_business_status_id, v_subscription_type_id, v_subscription_status_id,
-            v_billing_cycle_id, p_created_by
+            v_billing_cycle_id, p_user_id, UTC_TIMESTAMP(6)
         );
 
         SET p_id = LAST_INSERT_ID();
-
-        /* Log values being inserted */
-        INSERT INTO proc_error_log(proc_name, proc_args, error_message)
-        VALUES (
-            'sp_manage_business',
-            CONCAT(
-                'business_name=', p_business_name, ', ',
-                'business_email=', p_business_email, ', ',
-                'contact_person=', p_contact_person, ', ',
-                'contact_number=', p_contact_number, ', ',
-                'status_id=', v_business_status_id, ', ',
-                'subscription_type_id=', v_subscription_type_id, ', ',
-                'subscription_status_id=', v_subscription_status_id, ', ',
-                'billing_cycle_id=', v_billing_cycle_id
-            ),
-            'Logging values before INSERT INTO master_business'
-        );
-
         COMMIT;
 
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Business created successfully.';
+        SET p_error_message = 'Business created successfully';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 2: UPDATE BUSINESS
-       ================================================================ */
+    -- ACTION 2: UPDATE
     IF p_action = 2 THEN
+        
+        IF p_status_code IS NOT NULL THEN
+            SELECT master_business_status_id INTO v_business_status_id
+            FROM master_business_status WHERE code = p_status_code LIMIT 1;
 
-        /* Fetch required status */
-        SELECT master_business_status_id INTO v_business_status_id
-        FROM master_business_status
-        WHERE code = p_status_code
-        LIMIT 1;
-
-        IF v_business_status_id IS NULL THEN
-            SET p_error_code = 'ERR_INVALID_STATUS';
-            SET p_error_message = 'Invalid status code.';
-            LEAVE proc_body;
+            IF v_business_status_id IS NULL THEN
+                SET p_error_code = 'ERR_INVALID_STATUS';
+                SET p_error_message = 'Invalid status code';
+                LEAVE proc_body;
+            END IF;
         END IF;
 
         START TRANSACTION;
 
         UPDATE master_business
         SET 
-            business_name = p_business_name,
-            email = p_business_email,
-            contact_person = p_contact_person,
-            contact_number = p_contact_number,
-            status_id = v_business_status_id,
-            updated_by = p_created_by
-        WHERE business_id = p_business_id;
+            business_name = COALESCE(p_business_name, business_name),
+            email = COALESCE(p_business_email, email),
+            contact_person = COALESCE(p_contact_person, contact_person),
+            contact_number = COALESCE(p_contact_number, contact_number),
+            status_id = COALESCE(v_business_status_id, status_id),
+            updated_by = p_user_id,
+            updated_at = UTC_TIMESTAMP(6)
+        WHERE business_id = p_business_id
+          AND deleted_at IS NULL;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Business not found or already deleted.';
+            SET p_error_message = 'Business not found or already deleted';
             LEAVE proc_body;
         END IF;
 
@@ -290,29 +205,27 @@ proc_body: BEGIN
         SET p_id = p_business_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Business updated successfully.';
+        SET p_error_message = 'Business updated successfully';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 3: DELETE BUSINESS (Soft Delete)
-       ================================================================ */
+    -- ACTION 3: DELETE
     IF p_action = 3 THEN
-
+        
         START TRANSACTION;
 
         UPDATE master_business
         SET 
             deleted_at = UTC_TIMESTAMP(6),
-            updated_by = p_created_by
-        WHERE business_id = p_business_id;
+            updated_by = p_user_id,
+            updated_at = UTC_TIMESTAMP(6)
+        WHERE business_id = p_business_id
+          AND deleted_at IS NULL;
 
         IF ROW_COUNT() = 0 THEN
             ROLLBACK;
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Business not found or already deleted.';
+            SET p_error_message = 'Business not found or already deleted';
             LEAVE proc_body;
         END IF;
 
@@ -321,17 +234,13 @@ proc_body: BEGIN
         SET p_id = p_business_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Business deleted successfully.';
+        SET p_error_message = 'Business deleted successfully';
         LEAVE proc_body;
     END IF;
 
-
-
-    /* ================================================================
-       ACTION 4: GET BUSINESS DETAILS
-       ================================================================ */
+    -- ACTION 4: GET
     IF p_action = 4 THEN
-
+        
         SELECT JSON_OBJECT(
             'business_id', business_id,
             'business_name', business_name,
@@ -350,27 +259,20 @@ proc_body: BEGIN
         INTO p_data
         FROM master_business
         WHERE business_id = p_business_id
+          AND deleted_at IS NULL
         LIMIT 1;
 
         IF p_data IS NULL THEN
             SET p_error_code = 'ERR_NOT_FOUND';
-            SET p_error_message = 'Business not found.';
+            SET p_error_message = 'Business not found';
             LEAVE proc_body;
         END IF;
 
         SET p_id = p_business_id;
         SET p_success = TRUE;
         SET p_error_code = 'SUCCESS';
-        SET p_error_message = 'Business details fetched successfully.';
+        SET p_error_message = 'Business retrieved successfully';
         LEAVE proc_body;
     END IF;
-
-
-
-    /* ================================================================
-       INVALID ACTION
-       ================================================================ */
-    SET p_error_code = 'ERR_INVALID_ACTION';
-    SET p_error_message = 'Invalid action specified.';
 
 END;

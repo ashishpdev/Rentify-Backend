@@ -3,7 +3,7 @@
  *
  * Enhanced Postman collection generator that:
  * - Properly resolves route paths by tracing from main router
- * - Accurately infers request bodies from Joi validators
+ * - Accurately infers request bodies from Joi validators (including nested Joi.object references used inside arrays)
  * - Organizes endpoints by module structure
  * - Generates industry-standard Postman collections
  *
@@ -26,12 +26,7 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const SRC_DIR = process.env.SRC_DIR || path.join(PROJECT_ROOT, "src");
 const BASE_URL = process.env.BASE_URL || "http://localhost:3000";
 const API_PREFIX = process.env.API_PREFIX || "/api";
-const OUTPUT_FILE = path.join(
-  PROJECT_ROOT,
-  "docs",
-  "api",
-  "Rentify-postman.json"
-);
+const OUTPUT_FILE = path.join(PROJECT_ROOT, "docs", "api", "Rentify-postman.json");
 
 // Utility: Read file safely
 function readFile(filePath) {
@@ -257,6 +252,12 @@ function findValidatorFile(controllerFilePath) {
   return null;
 }
 
+/**
+ * Extract Joi schemas from a validator file.
+ * This function performs TWO passes:
+ * 1) Collect all top-level Joi.object(...) variable declarators into localSchemas map (so we can resolve identifiers used later).
+ * 2) Parse each schema into a structured schema map using parseJoiObject/parseJoiChain which can resolve identifier references from localSchemas.
+ */
 function extractJoiSchemas(validatorFilePath) {
   const code = readFile(validatorFilePath);
   if (!code) return {};
@@ -264,8 +265,8 @@ function extractJoiSchemas(validatorFilePath) {
   const ast = parseToAST(code, validatorFilePath);
   if (!ast) return {};
 
-  const schemas = {};
-
+  // First pass: collect Joi.object variable AST nodes
+  const rawSchemas = {}; // name -> ObjectExpression node (AST)
   traverse(ast, {
     VariableDeclarator({ node }) {
       if (
@@ -282,7 +283,314 @@ function extractJoiSchemas(validatorFilePath) {
         const schemaName = node.id.name;
         const schemaObj = node.init.arguments[0];
         if (schemaObj && schemaObj.type === "ObjectExpression") {
-          schemas[schemaName] = parseJoiObject(schemaObj);
+          rawSchemas[schemaName] = schemaObj;
+        } else {
+          // still register the schema name with null to indicate presence
+          rawSchemas[schemaName] = schemaObj || null;
+        }
+      }
+    },
+  });
+
+  // Helper: parse Joi object AST into structured schema entry map, but pass localSchemas for identifier resolution
+  function parseJoiObject(objectExpression, localSchemas) {
+    const schema = {};
+
+    if (!objectExpression || objectExpression.type !== "ObjectExpression") {
+      return schema;
+    }
+
+    objectExpression.properties.forEach((prop) => {
+      if (prop.type === "ObjectProperty") {
+        const key = prop.key.name || prop.key.value;
+        const valueNode = prop.value;
+        const parsed = parseJoiChain(valueNode, localSchemas);
+        schema[key] = parsed;
+      }
+    });
+
+    return schema;
+  }
+
+  // Parse Joi chain AST node into a structured schema entry; can resolve identifier references from localSchemas
+  function parseJoiChain(node, localSchemas) {
+    const chain = [];
+    let current = node;
+
+    // walk call chain (Joi.string().min()....)
+    while (current) {
+      if (
+        current.type === "CallExpression" &&
+        current.callee.type === "MemberExpression"
+      ) {
+        const methodName = current.callee.property.name;
+        const args = current.arguments || [];
+        chain.push({ method: methodName, args });
+        current = current.callee.object;
+      } else if (current.type === "MemberExpression") {
+        const propName = current.property.name;
+        chain.push({ method: propName, args: [] });
+        current = current.object;
+      } else if (current.type === "Identifier") {
+        chain.push({ method: current.name, args: [] });
+        break;
+      } else {
+        break;
+      }
+    }
+
+    chain.reverse(); // base type first
+
+    // collectors
+    let baseType = "any";
+    let defaultValue = undefined;
+    let validValues = [];
+    let isRequired = false;
+    let allowNull = false;
+    let hasEmail = false;
+    let hasPattern = false;
+    let children = null; // for objects
+    let items = null; // for arrays
+
+    for (const { method, args } of chain) {
+      // base types
+      if (
+        [
+          "string",
+          "number",
+          "integer",
+          "boolean",
+          "array",
+          "object",
+          "any",
+        ].includes(method)
+      ) {
+        baseType = method === "integer" ? "number" : method;
+      }
+
+      // default(...)
+
+      if (method === "default" && args.length > 0) {
+        const a = args[0];
+        if (a.type === "StringLiteral") defaultValue = a.value;
+        else if (a.type === "NumericLiteral") defaultValue = a.value;
+        else if (a.type === "BooleanLiteral") defaultValue = a.value;
+      }
+
+      // valid(...)
+      if (method === "valid" && args.length > 0) {
+        args.forEach((a) => {
+          if (a.type === "StringLiteral") validValues.push(a.value);
+          else if (a.type === "NumericLiteral") validValues.push(a.value);
+          else if (a.type === "BooleanLiteral") validValues.push(a.value);
+        });
+      }
+
+      if (method === "required") isRequired = true;
+
+      if (method === "allow" && args.length > 0) {
+        args.forEach((a) => {
+          if (a.type === "NullLiteral") allowNull = true;
+          // we ignore empty-string allowances here (could be added if you need)
+        });
+      }
+
+      if (method === "email") hasEmail = true;
+      if (method === "pattern") hasPattern = true;
+
+      // nested object: Joi.object({ ... })
+      if (
+        method === "object" &&
+        args.length > 0 &&
+        args[0] &&
+        args[0].type === "ObjectExpression"
+      ) {
+        children = parseJoiObject(args[0], localSchemas);
+        baseType = "object";
+      }
+
+      // array items: Joi.array().items(...)
+      if (method === "items" && args.length > 0) {
+        const first = args[0];
+
+        // If items is Joi.object({...})
+        if (
+          first.type === "CallExpression" &&
+          first.callee.type === "MemberExpression" &&
+          first.callee.object &&
+          first.callee.object.name === "Joi"
+        ) {
+          const innerMethod = first.callee.property.name;
+          if (
+            innerMethod === "object" &&
+            first.arguments[0] &&
+            first.arguments[0].type === "ObjectExpression"
+          ) {
+            items = parseJoiObject(first.arguments[0], localSchemas); // items is children map
+          } else {
+            // items could be Joi.string(), Joi.number(), etc.
+            items = parseJoiChain(first, localSchemas);
+          }
+        } else if (first.type === "Identifier") {
+          // items(someSchemaVar) -> try to resolve from localSchemas
+          const refName = first.name;
+          if (localSchemas && localSchemas[refName] && localSchemas[refName].type === "object" && localSchemas[refName].children) {
+            // localSchemas entry already parsed into structured form (children map)
+            items = localSchemas[refName].children;
+          } else if (localSchemas && rawSchemas[refName]) {
+            // parse raw AST into structured map now
+            items = parseJoiObject(rawSchemas[refName], localSchemas);
+          } else {
+            // fallback: unknown identifier => leave as generic
+            items = { type: "any", example: null, required: false };
+          }
+        } else {
+          // fallback: if items is unknown or complex, keep generic
+          items = { type: "any", example: null, required: false };
+        }
+
+        baseType = "array";
+      }
+    }
+
+    // pick example priority: valid > default > type-based
+    let example;
+    if (validValues.length > 0) example = validValues[0];
+    else if (defaultValue !== undefined) example = defaultValue;
+    else {
+      switch (baseType) {
+        case "string":
+          if (hasEmail) example = "user@example.com";
+          else if (hasPattern) example = "pattern_example";
+          else example = "string";
+          break;
+        case "number":
+          example = 123;
+          break;
+        case "boolean":
+          example = true;
+          break;
+        case "array":
+          example = []; // representative array
+          break;
+        case "object":
+          example = {}; // representative object
+          break;
+        default:
+          example = null;
+      }
+    }
+
+    const schemaEntry = {
+      type: baseType || "any",
+      required: !!isRequired,
+      allowNull: !!allowNull,
+      example: example,
+      valid: validValues,
+    };
+
+    if (children) schemaEntry.children = children;
+    if (items) schemaEntry.items = items;
+
+    return schemaEntry;
+  }
+
+  // Second pass: produce final schemas map (name -> parsed structured schema)
+  const schemas = {};
+
+  // localSchemas map stores parsed entries so identifier references can be resolved
+  const localSchemas = {};
+
+  // Parse each collected raw schema AST into structured map and also register as localSchemas
+  for (const [schemaName, objExpr] of Object.entries(rawSchemas)) {
+    if (objExpr && objExpr.type === "ObjectExpression") {
+      const parsedChildren = parseJoiObject(objExpr, localSchemas);
+      // store a wrapper that mimics a top-level Joi.object({ ... }) entry
+      const parsedSchemaWrapper = {
+        type: "object",
+        required: false,
+        children: parsedChildren,
+      };
+      schemas[schemaName] = parsedSchemaWrapper.children;
+      localSchemas[schemaName] = parsedSchemaWrapper;
+    } else {
+      // empty or unknown - mark as empty
+      schemas[schemaName] = {};
+      localSchemas[schemaName] = { type: "object", children: {} };
+    }
+  }
+
+  // Additionally find Joi.object(...) assigned directly in declarations that we haven't captured (e.g., inline)
+  traverse(ast, {
+    VariableDeclarator({ node }) {
+      if (
+        node.id &&
+        node.id.type === "Identifier" &&
+        node.init &&
+        node.init.type === "CallExpression" &&
+        node.init.callee.type === "MemberExpression" &&
+        node.init.callee.object &&
+        node.init.callee.object.name === "Joi" &&
+        node.init.callee.property &&
+        node.init.callee.property.name === "object"
+      ) {
+        const name = node.id.name;
+        // already parsed above, skip
+      }
+    },
+    // Also capture exported schema assignments like module.exports = { createModelSchema: Joi.object({...}) }
+    AssignmentExpression({ node }) {
+      if (
+        node.left &&
+        (node.left.type === "MemberExpression" || node.left.type === "Identifier")
+      ) {
+        // handle cases if needed - but primary coverage is variable declarators above
+      }
+    },
+  });
+
+  // Finally build a simple map of top-level VariableDeclarator-style Joi.object schemas keyed by variable name (strip "Schema" suffix for convenience)
+  // For outward-facing API we want names like createModelSchema etc.
+  // We'll traverse top-level variable declarators again to pick up variable names used as schemas.
+  traverse(ast, {
+    VariableDeclarator({ node }) {
+      if (
+        node.id &&
+        node.id.type === "Identifier" &&
+        node.init &&
+        node.init.type === "CallExpression" &&
+        node.init.callee.type === "MemberExpression" &&
+        node.init.callee.object &&
+        node.init.callee.object.name === "Joi" &&
+        node.init.callee.property &&
+        node.init.callee.property.name === "object"
+      ) {
+        const schemaName = node.id.name;
+        // if we have the parsed version in localSchemas, use it; else, parse now
+        if (localSchemas[schemaName]) {
+          schemas[schemaName] = localSchemas[schemaName].children || {};
+        } else if (rawSchemas[schemaName]) {
+          schemas[schemaName] = parseJoiObject(rawSchemas[schemaName], localSchemas);
+        } else {
+          schemas[schemaName] = {};
+        }
+      }
+    },
+    // Also support `const schemas = { createModelSchema: Joi.object({...}) }` style - object properties assigned to call expressions
+    ObjectProperty({ node }) {
+      if (
+        node.value &&
+        node.value.type === "CallExpression" &&
+        node.value.callee &&
+        node.value.callee.type === "MemberExpression" &&
+        node.value.callee.object &&
+        node.value.callee.object.name === "Joi" &&
+        node.value.callee.property &&
+        node.value.callee.property.name === "object"
+      ) {
+        const keyName = node.key.name || node.key.value;
+        if (node.value.arguments && node.value.arguments[0] && node.value.arguments[0].type === "ObjectExpression") {
+          schemas[keyName] = parseJoiObject(node.value.arguments[0], localSchemas);
         }
       }
     },
@@ -292,190 +600,10 @@ function extractJoiSchemas(validatorFilePath) {
 }
 
 // Parse Joi.object({...}) AST node into a schema map: field -> schemaEntry
-function parseJoiObject(objectExpression) {
-  const schema = {};
-
-  if (!objectExpression || objectExpression.type !== "ObjectExpression") {
-    return schema;
-  }
-
-  objectExpression.properties.forEach((prop) => {
-    if (prop.type === "ObjectProperty") {
-      const key = prop.key.name || prop.key.value;
-      const valueNode = prop.value;
-      const parsed = parseJoiChain(valueNode);
-      schema[key] = parsed;
-    }
-  });
-
-  return schema;
-}
+// (This function is kept for backward compatibility but not used directly anymore.)
 
 // Parse Joi chain AST node into a structured schema entry
-function parseJoiChain(node) {
-  const chain = [];
-  let current = node;
-
-  // walk call chain (Joi.string().min()....)
-  while (current) {
-    if (
-      current.type === "CallExpression" &&
-      current.callee.type === "MemberExpression"
-    ) {
-      const methodName = current.callee.property.name;
-      const args = current.arguments || [];
-      chain.push({ method: methodName, args });
-      current = current.callee.object;
-    } else if (current.type === "MemberExpression") {
-      const propName = current.property.name;
-      chain.push({ method: propName, args: [] });
-      current = current.object;
-    } else if (current.type === "Identifier") {
-      chain.push({ method: current.name, args: [] });
-      break;
-    } else {
-      break;
-    }
-  }
-
-  chain.reverse(); // base type first
-
-  // collectors
-  let baseType = "any";
-  let defaultValue = undefined;
-  let validValues = [];
-  let isRequired = false;
-  let allowNull = false;
-  let hasEmail = false;
-  let hasPattern = false;
-  let children = null; // for objects
-  let items = null; // for arrays
-
-  for (const { method, args } of chain) {
-    // base types
-    if (
-      [
-        "string",
-        "number",
-        "integer",
-        "boolean",
-        "array",
-        "object",
-        "any",
-      ].includes(method)
-    ) {
-      baseType = method === "integer" ? "number" : method;
-    }
-
-    // default(...)
-    if (method === "default" && args.length > 0) {
-      const a = args[0];
-      if (a.type === "StringLiteral") defaultValue = a.value;
-      else if (a.type === "NumericLiteral") defaultValue = a.value;
-      else if (a.type === "BooleanLiteral") defaultValue = a.value;
-    }
-
-    // valid(...)
-    if (method === "valid" && args.length > 0) {
-      args.forEach((a) => {
-        if (a.type === "StringLiteral") validValues.push(a.value);
-        else if (a.type === "NumericLiteral") validValues.push(a.value);
-        else if (a.type === "BooleanLiteral") validValues.push(a.value);
-      });
-    }
-
-    if (method === "required") isRequired = true;
-
-    if (method === "allow" && args.length > 0) {
-      args.forEach((a) => {
-        if (a.type === "NullLiteral") allowNull = true;
-        // we ignore empty-string allowances here (could be added if you need)
-      });
-    }
-
-    if (method === "email") hasEmail = true;
-    if (method === "pattern") hasPattern = true;
-
-    // nested object: Joi.object({ ... })
-    if (
-      method === "object" &&
-      args.length > 0 &&
-      args[0].type === "ObjectExpression"
-    ) {
-      children = parseJoiObject(args[0]);
-      baseType = "object";
-    }
-
-    // array items: Joi.array().items(...)
-    if (method === "items" && args.length > 0) {
-      const first = args[0];
-      // If items is Joi.object({...})
-      if (
-        first.type === "CallExpression" &&
-        first.callee.type === "MemberExpression" &&
-        first.callee.object &&
-        first.callee.object.name === "Joi"
-      ) {
-        const innerMethod = first.callee.property.name;
-        if (
-          innerMethod === "object" &&
-          first.arguments[0] &&
-          first.arguments[0].type === "ObjectExpression"
-        ) {
-          items = parseJoiObject(first.arguments[0]); // items is a children map
-        } else {
-          // items could be Joi.string(), Joi.number(), etc.
-          items = parseJoiChain(first);
-        }
-      } else {
-        // fallback: if items is identifier or unknown, keep generic
-        items = { type: "any", example: null, required: false };
-      }
-      baseType = "array";
-    }
-  }
-
-  // pick example priority: valid > default > type-based
-  let example;
-  if (validValues.length > 0) example = validValues[0];
-  else if (defaultValue !== undefined) example = defaultValue;
-  else {
-    switch (baseType) {
-      case "string":
-        if (hasEmail) example = "user@example.com";
-        else if (hasPattern) example = "pattern_example";
-        else example = "string";
-        break;
-      case "number":
-        example = 123;
-        break;
-      case "boolean":
-        example = true;
-        break;
-      case "array":
-        example = []; // real array sample built in generator
-        break;
-      case "object":
-        example = {}; // real object sample built in generator
-        break;
-      default:
-        example = null;
-    }
-  }
-
-  const schemaEntry = {
-    type: baseType || "any",
-    required: !!isRequired,
-    allowNull: !!allowNull,
-    example: example,
-    valid: validValues,
-  };
-
-  if (children) schemaEntry.children = children;
-  if (items) schemaEntry.items = items;
-
-  return schemaEntry;
-}
+// (This function is kept for backward compatibility but not used directly anymore.)
 
 function generateSampleFromSchema(schemaObj) {
   if (!schemaObj || Object.keys(schemaObj).length === 0) return {};
@@ -524,19 +652,30 @@ function generateSampleFromSchema(schemaObj) {
             // for nested arrays, produce one item
             if (centry.items) {
               if (
+                // items is a children map (plain object of fields)
                 typeof centry.items === "object" &&
-                !Array.isArray(centry.items) &&
+                !centry.items.type &&
                 Object.keys(centry.items).length > 0 &&
                 Object.values(centry.items)[0] &&
                 Object.values(centry.items)[0].type
               ) {
                 childObj[ck] = [generateSampleFromSchema(centry.items)];
-              } else {
-                // centry.items is a schema entry
+              } else if (centry.items && centry.items.type === "object" && centry.items.children) {
+                childObj[ck] = [generateSampleFromSchema(centry.items.children)];
+              } else if (centry.items && centry.items.type) {
                 const it = centry.items;
-                if (it.type === "object" && it.children)
-                  childObj[ck] = [generateSampleFromSchema(it.children)];
-                else childObj[ck] = [];
+                const val = it.required
+                  ? it.example !== undefined
+                    ? it.example
+                    : it.type === "number"
+                      ? 0
+                      : it.type === "boolean"
+                        ? false
+                        : "string"
+                  : null;
+                childObj[ck] = [val];
+              } else {
+                childObj[ck] = [];
               }
             } else {
               childObj[ck] = [];
@@ -576,7 +715,6 @@ function generateSampleFromSchema(schemaObj) {
           !entry.items.type &&
           Object.keys(entry.items).length > 0
         ) {
-          // items is a children map
           out[key] = [generateSampleFromSchema(entry.items)];
         } else if (entry.items.type === "object" && entry.items.children) {
           out[key] = [generateSampleFromSchema(entry.items.children)];
@@ -648,6 +786,8 @@ function buildFieldListDescription(schemaObj) {
         if (entry.items.children)
           return `[ { ${Object.keys(entry.items.children).join(", ")} } ]`;
         if (entry.items.type) return `[ ${entry.items.type} ]`;
+        if (typeof entry.items === "object" && !entry.items.type)
+          return `[ { ${Object.keys(entry.items).join(", ")} } ]`;
       }
       return "null";
     })();
@@ -666,6 +806,8 @@ function buildFieldListDescription(schemaObj) {
         );
       } else if (entry.items && entry.items.type) {
         lines.push(`  - array item type: ${entry.items.type}`);
+      } else if (typeof entry.items === "object" && !entry.items.type) {
+        lines.push(`  - array item fields: ${Object.keys(entry.items).join(", ")}`);
       }
     }
   }
@@ -881,7 +1023,6 @@ function generatePostmanCollection(endpoints) {
         // No manual headers needed - cookies are automatically sent by Postman
 
         // Add Content-Type header for requests with body
-        // Add Content-Type header for requests with body
         if (endpoint.body && Object.keys(endpoint.body).length > 0) {
           request.request.header.push({
             key: "Content-Type",
@@ -904,8 +1045,6 @@ function generatePostmanCollection(endpoints) {
 
           // Add field-level description (required vs optional, example/null)
           const fieldDesc = buildFieldListDescription(endpoint.body);
-          // append to existing description later — but if `description` already exists, we'll append when building request.description
-          // We'll return `fieldDesc` so higher code can append; here attach to request._fieldDesc for later use:
           request._fieldDesc = fieldDesc;
         }
 

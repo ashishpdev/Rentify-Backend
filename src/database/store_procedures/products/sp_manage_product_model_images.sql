@@ -5,12 +5,12 @@ CREATE PROCEDURE sp_manage_product_model_images(
     IN  p_business_id INT,
     IN  p_branch_id INT,
     IN  p_product_model_id INT,
+    IN  p_file_id VARCHAR(100),
+    IN  p_file_name VARCHAR(255),
     IN  p_url VARCHAR(1024),
+    IN  p_original_file_name VARCHAR(255),
+    IN  p_file_size INT,
     IN  p_thumbnail_url VARCHAR(1024),
-    IN  p_alt_text VARCHAR(512),
-    IN  p_file_size_bytes INT,
-    IN  p_width_px SMALLINT,
-    IN  p_height_px SMALLINT,
     IN  p_is_primary TINYINT(1),
     IN  p_image_order INT,
     IN  p_product_model_image_category_id TINYINT UNSIGNED,
@@ -67,7 +67,7 @@ proc_body: BEGIN
 
     /* ACTION 1: CREATE */
     IF p_action = 1 THEN
-        IF p_business_id IS NULL OR p_branch_id IS NULL OR p_product_model_id IS NULL OR p_url IS NULL OR p_url = '' THEN
+        IF p_business_id IS NULL OR p_branch_id IS NULL OR p_product_model_id IS NULL OR p_file_id IS NULL OR p_url IS NULL OR p_url = '' THEN
             SET p_error_code = 'ERR_MISSING_PARAMS';
             SET p_error_message = 'Missing required fields.';
             LEAVE proc_body;
@@ -93,11 +93,11 @@ proc_body: BEGIN
         END IF;
 
         INSERT INTO product_model_images (
-            business_id, branch_id, product_model_id, url, thumbnail_url, alt_text,
-            file_size_bytes, width_px, height_px, is_primary, image_order, product_model_image_category_id, created_by
+            business_id, branch_id, product_model_id, file_id, file_name, url, original_file_name,
+            file_size, thumbnail_url, is_primary, image_order, product_model_image_category_id, created_by
         ) VALUES (
-            p_business_id, p_branch_id, p_product_model_id, p_url, p_thumbnail_url, p_alt_text,
-            p_file_size_bytes, p_width_px, p_height_px, p_is_primary, p_image_order, p_product_model_image_category_id, p_user_id
+            p_business_id, p_branch_id, p_product_model_id, p_file_id, p_file_name, p_url, p_original_file_name,
+            p_file_size, p_thumbnail_url, p_is_primary, p_image_order, p_product_model_image_category_id, p_user_id
         );
 
         SET p_id = LAST_INSERT_ID();
@@ -140,12 +140,12 @@ proc_body: BEGIN
         END IF;
 
         UPDATE product_model_images
-        SET url = COALESCE(p_url, url),
+        SET file_id = COALESCE(p_file_id, file_id),
+            file_name = COALESCE(p_file_name, file_name),
+            url = COALESCE(p_url, url),
+            original_file_name = COALESCE(p_original_file_name, original_file_name),
+            file_size = COALESCE(p_file_size, file_size),
             thumbnail_url = COALESCE(p_thumbnail_url, thumbnail_url),
-            alt_text = COALESCE(p_alt_text, alt_text),
-            file_size_bytes = COALESCE(p_file_size_bytes, file_size_bytes),
-            width_px = COALESCE(p_width_px, width_px),
-            height_px = COALESCE(p_height_px, height_px),
             is_primary = COALESCE(p_is_primary, is_primary),
             image_order = COALESCE(p_image_order, image_order),
             product_model_image_category_id = p_product_model_image_category_id,
@@ -164,7 +164,7 @@ proc_body: BEGIN
 
         START TRANSACTION;
 
-        SELECT image_order, product_model_id, url INTO v_old_order, v_existing_model, p_data
+        SELECT image_order, product_model_id, JSON_OBJECT('file_id', file_id, 'url', url) INTO v_old_order, v_existing_model, p_data
         FROM product_model_images
         WHERE product_model_image_id = p_product_model_image_id AND business_id = p_business_id AND is_active = 1
         LIMIT 1;
@@ -192,12 +192,12 @@ proc_body: BEGIN
             'business_id', business_id,
             'branch_id', branch_id,
             'product_model_id', product_model_id,
+            'file_id', file_id,
+            'file_name', file_name,
             'url', url,
+            'original_file_name', original_file_name,
+            'file_size', file_size,
             'thumbnail_url', thumbnail_url,
-            'alt_text', alt_text,
-            'file_size_bytes', file_size_bytes,
-            'width_px', width_px,
-            'height_px', height_px,
             'is_primary', is_primary,
             'image_order', image_order,
             'product_model_image_category_id', product_model_image_category_id,
@@ -226,12 +226,12 @@ proc_body: BEGIN
                 'business_id', business_id,
                 'branch_id', branch_id,
                 'product_model_id', product_model_id,
+                'file_id', file_id,
+                'file_name', file_name,
                 'url', url,
+                'original_file_name', original_file_name,
+                'file_size', file_size,
                 'thumbnail_url', thumbnail_url,
-                'alt_text', alt_text,
-                'file_size_bytes', file_size_bytes,
-                'width_px', width_px,
-                'height_px', height_px,
                 'is_primary', is_primary,
                 'image_order', image_order,
                 'product_model_image_category_id', product_model_image_category_id,

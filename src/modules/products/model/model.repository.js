@@ -55,6 +55,10 @@ class ModelRepository {
             typeof output.data === "string"
               ? JSON.parse(output.data)
               : output.data;
+          
+          // Handle nested JSON strings recursively
+          parsedData = this._parseNestedJson(parsedData);
+          
         } catch (err) {
           logger.warn("Failed to parse model p_data JSON", {
             err: err.message,
@@ -91,6 +95,52 @@ class ModelRepository {
         message: err.message || "Database error",
       };
     }
+  }
+
+  /**
+   * Recursively parse nested JSON strings in an object
+   */
+  _parseNestedJson(obj) {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+
+    // If it's a string, try to parse it as JSON
+    if (typeof obj === 'string') {
+      // Check if it looks like JSON
+      const trimmed = obj.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(obj);
+          // Recursively parse the result
+          return this._parseNestedJson(parsed);
+        } catch (e) {
+          // Not valid JSON, return as-is
+          return obj;
+        }
+      }
+      return obj;
+    }
+
+    // If it's an array, parse each element
+    if (Array.isArray(obj)) {
+      return obj.map(item => this._parseNestedJson(item));
+    }
+
+    // If it's an object, parse each property
+    if (typeof obj === 'object') {
+      const result = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          result[key] = this._parseNestedJson(obj[key]);
+        }
+      }
+      return result;
+    }
+
+    // Primitive value, return as-is
+    return obj;
   }
 }
 

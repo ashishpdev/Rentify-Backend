@@ -99,12 +99,12 @@ proc_body: BEGIN
                 SET v_img = JSON_EXTRACT(p_product_model_images, CONCAT('$[', v_idx, ']'));
                 CALL sp_manage_product_model_images(
                     1, NULL, p_business_id, p_branch_id, v_product_id,
+                    JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_id')),
+                    JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_name')),
                     JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.url')),
+                    JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.original_file_name')),
+                    CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_size')) AS UNSIGNED),
                     JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.thumbnail_url')),
-                    JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.alt_text')),
-                    CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_size_bytes')) AS UNSIGNED),
-                    CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.width_px')) AS SIGNED),
-                    CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.height_px')) AS SIGNED),
                     CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.is_primary')) AS SIGNED),
                     CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.image_order')) AS SIGNED),
                     CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.product_model_image_category_id')) AS UNSIGNED),
@@ -155,28 +155,25 @@ proc_body: BEGIN
             updated_at = UTC_TIMESTAMP(6)
         WHERE product_model_id = p_product_model_id;
 
-        IF ROW_COUNT() = 0 THEN ROLLBACK; SET p_error_code='ERR_NOT_FOUND'; SET p_error_message='Model not found or not active.'; LEAVE proc_body; END IF;
-
-        -- images payload processing (create/update/delete)
+        -- handle images if passed
         IF p_product_model_images IS NOT NULL AND JSON_LENGTH(p_product_model_images) > 0 THEN
             SET v_len = JSON_LENGTH(p_product_model_images);
             SET v_idx = 0;
             WHILE v_idx < v_len DO
                 SET v_img = JSON_EXTRACT(p_product_model_images, CONCAT('$[', v_idx, ']'));
 
-                -- existing image id?
-                IF JSON_EXTRACT(v_img, '$.product_model_image_id') IS NOT NULL THEN
+                IF JSON_CONTAINS_PATH(v_img, 'one', '$.product_model_image_id') THEN
                     SET @img_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.product_model_image_id')) AS SIGNED);
                 ELSE
                     SET @img_id = NULL;
                 END IF;
 
+                SET @file_id = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_id'));
+                SET @file_name = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_name'));
                 SET @img_url = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.url'));
+                SET @orig_name = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.original_file_name'));
+                SET @fsz = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_size'));
                 SET @thumb = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.thumbnail_url'));
-                SET @alt = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.alt_text'));
-                SET @fsz = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.file_size_bytes'));
-                SET @w = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.width_px'));
-                SET @h = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.height_px'));
                 SET @is_primary = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.is_primary'));
                 SET @order = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.image_order'));
                 SET @catid = JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.product_model_image_category_id'));
@@ -184,17 +181,17 @@ proc_body: BEGIN
                 -- deletion flag?
                 IF JSON_EXTRACT(v_img, '$.is_deleted') = 1 OR JSON_EXTRACT(v_img, '$.is_deleted') = '1' THEN
                     IF @img_id IS NOT NULL THEN
-                        CALL sp_manage_product_model_images(3, @img_id, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
+                        CALL sp_manage_product_model_images(3, @img_id, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
                         SELECT @img_success INTO p_success;
                         IF p_success IS NULL OR p_success = 0 THEN ROLLBACK; SET p_error_code=@img_code; SET p_error_message=@img_msg; LEAVE proc_body; END IF;
                     END IF;
                 ELSE
                     IF @img_id IS NOT NULL THEN
-                        CALL sp_manage_product_model_images(2, @img_id, p_business_id, p_branch_id, p_product_model_id, @img_url, @thumb, @alt, CAST(@fsz AS UNSIGNED), CAST(@w AS SIGNED), CAST(@h AS SIGNED), CAST(@is_primary AS SIGNED), CAST(@order AS SIGNED), CAST(@catid AS UNSIGNED), p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
+                        CALL sp_manage_product_model_images(2, @img_id, p_business_id, p_branch_id, p_product_model_id, @file_id, @file_name, @img_url, @orig_name, CAST(@fsz AS UNSIGNED), @thumb, CAST(@is_primary AS SIGNED), CAST(@order AS SIGNED), CAST(@catid AS UNSIGNED), p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
                         SELECT @img_success INTO p_success;
                         IF p_success IS NULL OR p_success = 0 THEN ROLLBACK; SET p_error_code=@img_code; SET p_error_message=@img_msg; LEAVE proc_body; END IF;
                     ELSE
-                        CALL sp_manage_product_model_images(1, NULL, p_business_id, p_branch_id, p_product_model_id, @img_url, @thumb, @alt, CAST(@fsz AS UNSIGNED), CAST(@w AS SIGNED), CAST(@h AS SIGNED), CAST(@is_primary AS SIGNED), CAST(@order AS SIGNED), CAST(@catid AS UNSIGNED), p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
+                        CALL sp_manage_product_model_images(1, NULL, p_business_id, p_branch_id, p_product_model_id, @file_id, @file_name, @img_url, @orig_name, CAST(@fsz AS UNSIGNED), @thumb, CAST(@is_primary AS SIGNED), CAST(@order AS SIGNED), CAST(@catid AS UNSIGNED), p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
                         SELECT @img_success INTO p_success;
                         IF p_success IS NULL OR p_success = 0 THEN ROLLBACK; SET p_error_code=@img_code; SET p_error_message=@img_msg; LEAVE proc_body; END IF;
                     END IF;
@@ -221,7 +218,7 @@ proc_body: BEGIN
         IF v_exist = 0 THEN ROLLBACK; SET p_error_code='ERR_NOT_FOUND'; SET p_error_message='Model not found or already deleted.'; LEAVE proc_body; END IF;
 
         -- fetch images to return so caller can delete from Drive
-        CALL sp_manage_product_model_images(5, NULL, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
+        CALL sp_manage_product_model_images(5, NULL, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_data, @img_code, @img_msg);
         SELECT @img_success, @img_data INTO @imgs_ok, v_images_json;
 
         UPDATE product_model
@@ -236,7 +233,7 @@ proc_body: BEGIN
                 SET v_img = JSON_EXTRACT(v_images_json, CONCAT('$[', v_idx, ']'));
                 SET @img_id = CAST(JSON_UNQUOTE(JSON_EXTRACT(v_img, '$.product_model_image_id')) AS SIGNED);
                 IF @img_id IS NOT NULL THEN
-                    CALL sp_manage_product_model_images(3, @img_id, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @d_success, @d_id, @d_data, @d_code, @d_msg);
+                    CALL sp_manage_product_model_images(3, @img_id, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @d_success, @d_id, @d_data, @d_code, @d_msg);
                     SELECT @d_success INTO @dok;
                 END IF;
                 SET v_idx = v_idx + 1;
@@ -265,12 +262,8 @@ proc_body: BEGIN
             'default_sell_price', default_sell_price,
             'default_warranty_days', default_warranty_days,
             'primary_image_url', primary_image_url,
-            'is_active', is_active,
             'created_by', created_by,
-            'created_at', created_at,
-            'updated_by', updated_by,
-            'updated_at', updated_at,
-            'deleted_at', deleted_at
+            'created_at', created_at
         ) INTO p_data
         FROM product_model
         WHERE product_model_id = p_product_model_id
@@ -279,7 +272,7 @@ proc_body: BEGIN
         IF p_data IS NULL THEN SET p_error_code='ERR_NOT_FOUND'; SET p_error_message='Model not found.'; LEAVE proc_body; END IF;
 
         -- attach images
-        CALL sp_manage_product_model_images(5, NULL, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_list, @img_code, @img_msg);
+        CALL sp_manage_product_model_images(5, NULL, p_business_id, p_branch_id, p_product_model_id, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, p_user_id, @img_success, @img_id_out, @img_list, @img_code, @img_msg);
         SELECT @img_list INTO v_images_json;
         IF v_images_json IS NULL THEN SET v_images_json = JSON_ARRAY(); END IF;
 
@@ -301,8 +294,7 @@ proc_body: BEGIN
                 'product_segment_id', pm.product_segment_id,
                 'segment_name', ps.name,
                 'primary_image_url', pm.primary_image_url,
-                'created_at', pm.created_at,
-                'is_active', pm.is_active
+                'created_at', pm.created_at
             )
         ), JSON_ARRAY()) INTO p_data
         FROM product_model pm

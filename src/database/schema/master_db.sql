@@ -123,17 +123,23 @@ CREATE TABLE master_branch (
 -- ENHANCED USER MANAGEMENT
 -- =========================================================
 
+DROP TABLE IF EXISTS master_permission;
 CREATE TABLE master_permission (
-  permission_id SMALLINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  code VARCHAR(100) NOT NULL UNIQUE,
-  name VARCHAR(200) NOT NULL,
-  module VARCHAR(100) NOT NULL COMMENT 'billing, asset, customer, etc',
-  description TEXT,
-  is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  
-  INDEX idx_perm_module (module, is_active)
-) ENGINE=InnoDB ROW_FORMAT=COMPRESSED;
+    master_permission_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    module VARCHAR(100) NOT NULL,
+    action VARCHAR(50) NOT NULL,
+    description TEXT,
+    is_active TINYINT(1) DEFAULT 1,
+    created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    
+    INDEX idx_module (module),
+    INDEX idx_action (action),
+    INDEX idx_code (code),
+    INDEX idx_active (is_active)
+) ENGINE=InnoDB;
 
 CREATE TABLE master_user (
     master_user_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -182,22 +188,23 @@ CREATE TABLE master_user (
         ON DELETE RESTRICT ON UPDATE CASCADE
 ) ENGINE=InnoDB ROW_FORMAT=DYNAMIC;
 
+DROP TABLE IF EXISTS role_permission;
 CREATE TABLE role_permission (
-  role_permission_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  role_id TINYINT UNSIGNED NOT NULL,
-  permission_id SMALLINT UNSIGNED NOT NULL,
-  created_at TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
-  
-  UNIQUE KEY uq_role_permission (role_id, permission_id),
-  INDEX idx_role_perms (role_id),
-  
-  CONSTRAINT fk_role_perm_role FOREIGN KEY (role_id)
-    REFERENCES master_role_type(master_role_type_id)
-    ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT fk_role_perm_permission FOREIGN KEY (permission_id)
-    REFERENCES master_permission(permission_id)
-    ON DELETE CASCADE ON UPDATE CASCADE
-) ENGINE=InnoDB;
+    role_permission_id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    role_id TINYINT UNSIGNED NOT NULL,
+    permission_id INT UNSIGNED NOT NULL,
+    is_granted TINYINT(1) DEFAULT 1 COMMENT 'Whether permission is granted or explicitly denied',
+    created_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6),
+    updated_at DATETIME(6) DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    
+    UNIQUE KEY uq_role_permission (role_id, permission_id),
+    FOREIGN KEY fk_role (role_id) REFERENCES master_role_type(master_role_type_id) ON DELETE CASCADE,
+    FOREIGN KEY fk_permission (permission_id) REFERENCES master_permission(master_permission_id) ON DELETE CASCADE,
+    
+    INDEX idx_role (role_id),
+    INDEX idx_permission (permission_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+COMMENT='Maps permissions to roles';
 
 CREATE TABLE master_user_session (
     id CHAR(36) PRIMARY KEY,
@@ -399,12 +406,12 @@ CREATE TABLE product_model_images (
   branch_id INT UNSIGNED NOT NULL,
   product_model_id INT UNSIGNED NOT NULL,
 
+  file_id VARCHAR(100) NOT NULL,
+  file_name VARCHAR(255) NOT NULL,
   url VARCHAR(1024) NOT NULL,
+  original_file_name VARCHAR(255) NOT NULL,
+  file_size INT UNSIGNED NOT NULL,
   thumbnail_url VARCHAR(1024),
-  alt_text VARCHAR(512),
-  file_size_bytes INT UNSIGNED,
-  width_px SMALLINT UNSIGNED,
-  height_px SMALLINT UNSIGNED,
 
   is_primary BOOLEAN NOT NULL DEFAULT FALSE,
   image_order TINYINT UNSIGNED NOT NULL DEFAULT 0,
